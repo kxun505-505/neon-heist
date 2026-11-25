@@ -48,36 +48,53 @@
       ['c', 'h', 150, 42, { knob: true }],
       ['e', 'a', -90, 36, { stem: 16 }],
     ]),
+    // 两个闭合环用一座“桥”连起来：桥同时被两边扣住
     L4: () => tree([
-      ['h', null, 0, 40, { at: [-40, -60], closed: true }],
-      ['a', 'h', -150, 38, { knob: true }],
-      ['b', 'h', -40, 40, {}],
-      ['c', 'h', 75, 44, { knob: true }],
-      ['d', 'c', 15, 40, { knob: true }],
-      ['e', 'c', 135, 38, {}],
-      ['f', 'd', 80, 38, { knob: true }],
-    ]),
+      ['h1', null, 0, 40, { at: [-95, 0], closed: true }],
+      ['h2', null, 0, 40, { at: [95, 0], closed: true }],
+      ['m', 'h1', 0, 40, { stem: 15 }],
+      ['a', 'h1', -120, 38, { knob: true }],
+      ['b', 'h1', 120, 38, {}],
+      ['c', 'h2', -60, 38, { knob: true }],
+      ['d', 'h2', 60, 38, {}],
+      ['e', 'd', 60, 36, { knob: true }],
+    ], [['h2', 'm']]),
+    // 树形 + 一个被两边扣住的环，多根凸钉互相卡位
     L5: () => tree([
-      ['h', null, 0, 40, { at: [0, -40], closed: true }],
+      ['h', null, 0, 40, { at: [0, -20], closed: true }],
       ['a', 'h', -90, 40, { knob: true }],
-      ['b', 'h', -15, 38, { knob: true }],
-      ['c', 'h', -165, 38, { knob: true }],
-      ['d', 'h', 90, 42, {}],
-      ['e', 'd', 30, 38, { knob: true }],
-      ['f', 'd', 150, 38, { knob: true }],
-      ['g', 'a', -40, 34, { stem: 16 }],
-      ['k', 'c', 160, 34, { knob: true, stem: 16 }],
-    ]),
+      ['b', 'h', 150, 40, { knob: true }],
+      ['c', 'h', 30, 40, {}],
+      ['m', 'b', 30, 40, {}],
+      ['g', 'a', -90, 34, { stem: 16 }],
+      ['k', 'b', 180, 36, { knob: true, stem: 16 }],
+      ['d', 'c', 0, 38, { knob: true }],
+      ['e', 'd', 90, 36, { knob: true, stem: 16 }],
+    ], [['c', 'm']]),
   };
-  const TARGET = { L1: [1, 1, 0], L2: [3, 3, 0.2], L3: [4, 5, 0.3], L4: [6, 8, 0.35], L5: [8, 12, 0.45] };
-  const SEEDS = { L1: 60, L2: 120, L3: 300, L4: 400, L5: 400 };
+  const TARGET = { L1: [1, 1, 0], L2: [3, 3, 0.2], L3: [4, 5, 0.3], L4: [6, 9, 0.35], L5: [8, 12, 0.45] };
+  const SEEDS = { L1: 60, L2: 120, L3: 300, L4: 20, L5: 120 };
   const only = new URLSearchParams(location.search).get('only');
 
   function instantiate(T, seed) {
     const R = rng(seed), lv = { rings: [], links: T.links };
+    const pos = {}; T.rings.forEach((r) => { pos[r.id] = r; });
     for (const r of T.rings) {
-      const ring = { id: r.id, x: r.x, y: r.y, r: r.r, angle: Math.round(R() * 360) };
-      if (!r.opt.closed) ring.gap = { at: 0, w: 96 + Math.round(R() * 12) };
+      const ring = { id: r.id, x: r.x, y: r.y, r: r.r };
+      if (!r.opt.closed) {
+        const w = 96 + Math.round(R() * 12);
+        ring.gap = { at: 0, w };
+        // 缺口要避开：自己伸出的杆的根部、套在自己身上的夹套
+        const avoid = [];
+        for (const [o, h] of T.links) {
+          if (o === r.id) avoid.push(Math.atan2(pos[h].y - r.y, pos[h].x - r.x) / C.DEG);
+          if (h === r.id) avoid.push(Math.atan2(pos[o].y - r.y, pos[o].x - r.x) / C.DEG);
+        }
+        const ok = [];
+        for (let a = 0; a < 360; a += 3) if (avoid.every((v) => Math.abs(C.angDiff(a * C.DEG, v * C.DEG)) > (w / 2 + 14) * C.DEG)) ok.push(a);
+        if (!ok.length) return null;
+        ring.angle = ok[Math.floor(R() * ok.length)];
+      } else ring.angle = 0;
       if (r.opt.knob) ring.knobs = [{ at: Math.round(R() * 360), len: 20 + Math.round(R() * 6) }];
       lv.rings.push(ring);
     }
@@ -115,6 +132,7 @@
     let best = null, stats = {};
     for (let seed = 1; seed <= SEEDS[name]; seed++) {
       const lv = instantiate(T, seed);
+      if (!lv) { stats.nogap = (stats.nogap || 0) + 1; continue; }
       const m = measure(lv);
       if (m.bad) { const k = m.bad.split(' ')[0] + (m.bad.includes('collides') ? 'C' : ''); stats[k] = (stats[k] || 0) + 1; continue; }
       stats.ok = (stats.ok || 0) + 1; stats['p' + m.par] = (stats['p' + m.par] || 0) + 1;

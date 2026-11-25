@@ -5,7 +5,10 @@ set -e
 DIR=${0:A:h}
 PAGE=${1:-verify.html}
 CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
-"$CHROME" --headless=new --disable-gpu --allow-file-access-from-files \
+# 每次运行用独立的临时配置目录，避免多个实例抢同一个配置锁而卡住
+PROFILE=$(mktemp -d /tmp/rr-chrome.XXXXXX)
+trap 'rm -r "$PROFILE" 2>/dev/null' EXIT
+"$CHROME" --headless=new --disable-gpu --allow-file-access-from-files --user-data-dir="$PROFILE" --no-first-run \
   --virtual-time-budget=${BUDGET:-120000} --dump-dom "file://$DIR/$PAGE" 2>/dev/null \
   | python3 -c '
 import sys, html

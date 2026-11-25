@@ -103,7 +103,7 @@
     G.rings.forEach((R, i) => {
       if (!S.ring[i]) return;
       let d = Math.abs(Math.hypot(p.x - R.x, p.y - R.y) - R.r);
-      for (const k of C.knobCircles(R, S.angles[i])) d = Math.min(d, Math.max(0, Math.hypot(p.x - k.x, p.y - k.y) - k.rad));
+      for (const k of C.knobCircles(G, S, i, S.angles[i])) d = Math.min(d, Math.max(0, Math.hypot(p.x - k.x, p.y - k.y) - k.rad));
       // 环内部也能抓，但优先级低一点
       if (Math.hypot(p.x - R.x, p.y - R.y) < R.r) d = Math.min(d, tol * 0.9);
       if (d < tol && d < bestD) { best = i; bestD = d; }
@@ -194,7 +194,7 @@
     if (flew) {
       combo.n = now - combo.t < 1400 ? combo.n + flew : flew;
       combo.t = now;
-      const gain = flew * 100 * Math.min(combo.n, 5);
+      const gain = flew * 200 * Math.min(combo.n, 5);
       score += gain;
       $('score').textContent = String(score);
       bumpScore();
@@ -213,28 +213,24 @@
 
   function flyAway(i, now) {
     const R = G.rings[i];
-    // 环碎成几段，向外飞散并带一点下坠
     const ang = S.angles[i];
-    const segs = 7;
     const g0 = R.gap ? R.gap.at + ang + R.gap.w / 2 : 0;
     const span = R.gap ? TAU - R.gap.w : TAU;
-    for (let k = 0; k < segs; k++) {
-      const a0 = g0 + (span * k) / segs, a1 = g0 + (span * (k + 1)) / segs - 0.06;
-      const mid = (a0 + a1) / 2;
-      const sp = 140 + Math.random() * 120;
-      fx.push({
-        type: 'shard', R, a0: a0 - mid, a1: a1 - mid,
-        x: R.x + Math.cos(mid) * R.r, y: R.y + Math.sin(mid) * R.r, rot: mid,
-        vx: Math.cos(mid) * sp, vy: Math.sin(mid) * sp - 140, vr: (Math.random() - 0.5) * 8, t0: now,
-      });
-    }
-    for (let k = 0; k < 28; k++) {
-      const a = Math.random() * TAU, sp = 80 + Math.random() * 260;
-      fx.push({ type: 'spark', color: R.color, x: R.x + Math.cos(a) * R.r, y: R.y + Math.sin(a) * R.r,
-        vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 60, t0: now, life: 0.45 + Math.random() * 0.45 });
+    const n = Math.round((span * R.r) / 7);
+    for (let k = 0; k < n; k++) {
+      const a = g0 + span * ((k + Math.random() * 0.6) / n);
+      const off = (Math.random() - 0.5) * TUBE * 0.8;
+      const x = R.x + Math.cos(a) * (R.r + off), y = R.y + Math.sin(a) * (R.r + off);
+      const sp = 40 + Math.random() * 120, out = Math.random() < 0.5 ? 1 : -0.4;
+      const pts = [];
+      const sides = 4 + Math.floor(Math.random() * 3), size = 3.5 + Math.random() * 3.5;
+      for (let q = 0; q < sides; q++) { const pa = (q / sides) * TAU + Math.random() * 0.6; const pr = size * (0.6 + Math.random() * 0.5); pts.push([Math.cos(pa) * pr, Math.sin(pa) * pr]); }
+      fx.push({ type: 'chunk', color: R.color, x, y, pts,
+        vx: Math.cos(a) * sp * out + (Math.random() - 0.5) * 60, vy: Math.sin(a) * sp * out - 40 - Math.random() * 80,
+        vr: (Math.random() - 0.5) * 10, t0: now + Math.random() * 40, life: 0.75 + Math.random() * 0.35 });
     }
     fx.push({ type: 'pop', R, ang, t0: now });
-    fx.push({ type: 'plus', x: R.x, y: R.y, t0: now, text: '+' + 100 * Math.min(combo.n + 1, 5) });
+    fx.push({ type: 'plus', x: R.x, y: R.y, t0: now, text: '+' + 200 * Math.min(combo.n + 1, 5) });
     buzz(30);
   }
 
@@ -397,6 +393,14 @@
     }
     const glow = 1 + lf * 1.2 + (hint && hint.i === i ? 0.8 + 0.6 * Math.sin(now / 160) : 0);
     for (const k of R.knobs) drawKnob(R, cx, cy, ang, k, glow);
+    // 滑脱后留在主环上的杆和空夹套，跟着主环一起转
+    for (const L of G.links) {
+      if (L.owner !== i || S.link[L.k]) continue;
+      const a = L.stubAt + ang, c = Math.cos(a), sn = Math.sin(a);
+      const r0 = R.r + TUBE / 2 - 2, r1 = R.r + L.stubLen - 4;
+      neonPath(() => { ctx.beginPath(); ctx.moveTo(cx + c * r0, cy + sn * r0); ctx.lineTo(cx + c * r1, cy + sn * r1); }, R.color, STEM, glow);
+      drawClampAt(R.color, cx + c * (R.r + L.stubLen), cy + sn * (R.r + L.stubLen), a, 1, 1, 0, now);
+    }
     neonPath(ringPath(R, cx, cy, ang), R.color, TUBE * (1 + lf * 0.06), glow);
   }
 
@@ -408,22 +412,26 @@
   }
 
   function drawClamp(L, now, alpha, sc) {
-    const O = G.rings[L.owner];
     const fl = flashLinks[L.k] != null ? Math.max(0, 1 - (now - flashLinks[L.k]) / 700) : 0;
+    drawClampAt(G.rings[L.owner].color, L.cx, L.cy, L.clampAng + Math.PI, alpha, sc, fl, now);
+  }
+
+  // 夹套：方向 dir 为杆的方向（从主环指向夹套）
+  function drawClampAt(color, x, y, dir, alpha, sc, fl, now) {
     ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.translate(L.cx, L.cy);
-    ctx.rotate(L.clampAng + Math.PI / 2);
+    ctx.translate(x, y);
+    ctx.rotate(dir + Math.PI / 2);
     ctx.scale(sc * (1 + fl * 0.25 * Math.sin(now / 50) ** 2), sc);
     const w = CLAMP_LEN, h = TUBE + 6;
     ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = rgba(O.color, 0.18 + fl * 0.3);
+    ctx.fillStyle = rgba(color, 0.18 + fl * 0.3);
     roundRect(-w / 2 - 6, -h / 2 - 6, w + 12, h + 12, 8); ctx.fill();
     ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = 'rgba(12,2,30,0.9)';
     roundRect(-w / 2 - 1.5, -h / 2 - 1.5, w + 3, h + 3, 5); ctx.fill();
     const gr = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
-    gr.addColorStop(0, lighten(O.color, 0.55)); gr.addColorStop(0.5, O.color); gr.addColorStop(1, lighten(O.color, 0.15));
+    gr.addColorStop(0, lighten(color, 0.55)); gr.addColorStop(0.5, color); gr.addColorStop(1, lighten(color, 0.15));
     ctx.fillStyle = gr;
     roundRect(-w / 2, -h / 2, w, h, 4); ctx.fill();
     ctx.fillStyle = 'rgba(20,0,40,0.35)';
@@ -486,17 +494,31 @@
           return true;
         }
         case 'slip': {
-          // 夹套松开：先撑开一下，然后和杆一起碎掉
-          if (t > 0.35) return false;
+          if (t > 0.3) return false;
           const L = f.L;
-          const e = t / 0.35;
           ctx.save();
-          ctx.globalAlpha = 1 - e;
-          const k = 1 - e * 0.6;
-          const sx = L.sx, sy = L.sy;
-          neonPath(() => { ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + (L.cx - sx) * k, sy + (L.cy - sy) * k); }, f.color, STEM, 1.5);
+          ctx.globalAlpha = 1 - t / 0.3;
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.strokeStyle = rgba(f.color, 0.9);
+          ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.arc(L.cx, L.cy, 8 + t * 60, 0, TAU); ctx.stroke();
           ctx.restore();
-          drawClamp(L, now, 1 - e, 1 + e * 0.6);
+          return true;
+        }
+        case 'chunk': {
+          if (t > f.life) return false;
+          const x = f.x + f.vx * t, y = f.y + f.vy * t + 420 * t * t;
+          ctx.save();
+          ctx.globalAlpha = t < f.life * 0.6 ? 1 : 1 - (t - f.life * 0.6) / (f.life * 0.4);
+          ctx.translate(x, y);
+          ctx.rotate(f.vr * t);
+          ctx.fillStyle = 'rgba(12,2,30,0.8)';
+          ctx.beginPath(); f.pts.forEach(([px, py], q) => (q ? ctx.lineTo(px * 1.25, py * 1.25) : ctx.moveTo(px * 1.25, py * 1.25))); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = f.color;
+          ctx.beginPath(); f.pts.forEach(([px, py], q) => (q ? ctx.lineTo(px, py) : ctx.moveTo(px, py))); ctx.closePath(); ctx.fill();
+          ctx.fillStyle = 'rgba(255,255,255,0.45)';
+          ctx.beginPath(); ctx.arc(f.pts[0][0] * 0.3, f.pts[0][1] * 0.3, 1.3, 0, TAU); ctx.fill();
+          ctx.restore();
           return true;
         }
         case 'shard': {

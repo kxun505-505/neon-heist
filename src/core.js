@@ -5,7 +5,9 @@
  * - 环是带缺口的 C 形管，或没有缺口的闭合环。环之间不重叠。
  * - 连接 = 扣件：主环伸出一根短杆，杆端的夹套套在被扣环的管子上。
  * - 被扣环转动时，管子在夹套里滑动；缺口转到夹套处，夹套就滑脱，这条连接永久断开。
+ * - 滑脱后杆和空夹套留在主环上，成为跟着主环转的凸起，会撞到别的东西（对照原作视频确认）。
  * - 主环还扣着别的环时转不动（杆被夹套固定住）。
+ * - 杆必须长在主环的实心管子上，不能落在主环的缺口里。
  * - 环身上可能有凸起的短杆（凸钉），转动时凸钉会撞到别的环、杆、夹套，撞上就停。
  * - 一个环身上没有任何连接时自动飞走。全部飞走即过关。
  */
@@ -48,6 +50,9 @@
         cx: H.x - ux * H.r, cy: H.y - uy * H.r,
         sx: O.x + ux * (O.r + TUBE / 2), sy: O.y + uy * (O.r + TUBE / 2),
         stemLen: d - O.r - H.r,
+        // 滑脱后留下的凸起：相对主环自身的朝向（主环扣着东西时从没转过，所以用初始角度换算）
+        stubAt: Math.atan2(uy, ux) - norm((level.rings[O.i].angle || 0) * DEG),
+        stubLen: d - O.r - H.r,
       };
     });
     return {
@@ -69,13 +74,20 @@
     if (!s.ring[i]) return 'gone';
     if (ownsLive(G, s, i)) return 'owner';
     const R = G.rings[i];
-    if (!R.gap && !R.knobs.length) return 'closed';
+    if (!R.gap && !R.knobs.length && !G.links.some((L) => L.owner === i)) return 'closed';
     return null;
   }
 
-  // 凸钉的采样圆（世界坐标）
-  function knobCircles(R, ang) {
-    const out = [];
+  // 凸起的采样圆（世界坐标）：关卡自带的凸钉 + 滑脱后留下的空夹套杆
+  function knobCircles(G, s, i, ang) {
+    const R = G.rings[i], out = [];
+    for (const L of G.links) {
+      if (L.owner !== i || s.link[L.k]) continue;
+      const a = L.stubAt + ang, c = Math.cos(a), sn = Math.sin(a);
+      for (let t = R.r + TUBE / 2 + STEM / 2; t < R.r + L.stubLen - 6; t += 4) out.push({ x: R.x + c * t, y: R.y + sn * t, rad: STEM / 2 });
+      const e = R.r + L.stubLen; // 空夹套中心，原来套在被扣环的管子上
+      out.push({ x: R.x + c * e, y: R.y + sn * e, rad: CLAMP_LEN / 2 });
+    }
     for (const k of R.knobs) {
       const a = k.at + ang, c = Math.cos(a), sn = Math.sin(a);
       for (let t = R.r + TUBE / 2 + STEM / 2; t < R.r + k.len - KNOB; t += 4) out.push({ x: R.x + c * t, y: R.y + sn * t, rad: STEM / 2 });
@@ -106,13 +118,13 @@
   // 环 i 在角度 ang 时是否与其他物体相撞；撞上时返回接触点
   function collision(G, s, i, ang) {
     const R = G.rings[i];
-    const mine = knobCircles(R, ang);
+    const mine = knobCircles(G, s, i, ang);
     const obstacles = [];
     for (let j = 0; j < G.rings.length; j++) {
       if (j === i || !s.ring[j]) continue;
       const Q = G.rings[j];
       for (const p of mine) if (hitsTube(Q, s.angles[j], p)) return p;
-      for (const q of knobCircles(Q, s.angles[j])) obstacles.push(q);
+      for (const q of knobCircles(G, s, j, s.angles[j])) obstacles.push(q);
     }
     for (const L of G.links) {
       if (!s.link[L.k]) continue;
@@ -180,7 +192,7 @@
         out.push(d, d > 0 ? d - TAU : d + TAU);
       }
     }
-    if (R.knobs.length) out.push(TAU - 1e-6, -TAU + 1e-6); // 转到底，用来挪开凸钉
+    if (R.knobs.length || G.links.some((L) => L.owner === i)) out.push(TAU - 1e-6, -TAU + 1e-6); // 转到底，用来挪开凸起
     return out;
   }
 
@@ -219,7 +231,15 @@
   // 关卡合法性：初始无碰撞、无可直接飞走的环、无已滑脱的夹套
   function validate(G) {
     const s = initState(G), problems = [];
-    G.links.forEach((L) => { if (L.stemLen < 8) problems.push('link ' + L.k + ' stem too short ' + L.stemLen.toFixed(1)); });
+    G.links.forEach((L) => {
+      if (L.stemLen < 8) problems.push('link ' + L.k + ' stem too short ' + L.stemLen.toFixed(1));
+      // 杆的根部必须在主环实心的地方
+      const O = G.rings[L.owner];
+      if (O.gap && Math.abs(angDiff(L.stubAt, O.gap.at)) < O.openHalf + (STEM / 2 + 4) / O.r) problems.push('link ' + L.k + ' stem in owner gap');
+      // 夹套不能一开始就落在被扣环的缺口里
+      const Hr = G.rings[L.held];
+      if (Hr.gap && Math.abs(angDiff(L.clampAng, Hr.gap.at + s.angles[L.held])) < Hr.openHalf + 4 / Hr.r) problems.push('link ' + L.k + ' clamp in held gap');
+    });
     for (let i = 0; i < G.rings.length; i++) {
       if (collision(G, s, i, s.angles[i])) problems.push('ring ' + G.rings[i].id + ' collides at start');
       if (releases(G, s, i).length) problems.push('ring ' + G.rings[i].id + ' already released');
