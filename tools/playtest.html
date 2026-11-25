@@ -1,0 +1,59 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>playtest</title>
+<!-- 端到端试玩：用合成的指针事件按求解器给的步骤拖动，检查每关能否在最少步数内通关 -->
+<iframe id="f" src="../index.html?unlock&level=1" style="width:430px;height:860px;border:0"></iframe>
+<pre id="out"></pre>
+<script>
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const log = [];
+  async function run() {
+    const w = document.getElementById('f').contentWindow;
+    document.getElementById('out').textContent='start';
+    let tries=0; while (!w.__neon) { await sleep(50); if(++tries%20==0) document.getElementById('out').textContent='waiting '+tries; }
+    const errs = []; w.addEventListener('error', (e) => errs.push(e.message + ' @' + e.lineno));
+    const C = w.RRCore, cv = w.document.getElementById('game');
+    const fire = (type, p) => cv.dispatchEvent(new w.PointerEvent(type, {
+      pointerId: 7, clientX: p.x, clientY: p.y, bubbles: true, isPrimary: true, pointerType: 'touch',
+    }));
+    const only = +(new URLSearchParams(location.search).get("from") || 0);
+    for (let n = only; n < w.RRLevels.length; n++) {
+      w.__neon.loadLevel(n);
+      const G = C.build(w.RRLevels[n]);
+      let guard = 0;
+      while (!w.__neon.state.won && guard++ < 30) {
+        const s = w.__neon.state;
+        const sol = C.solve(G, s.angles, s.alive);
+        if (!sol.moves || !sol.moves.length) { await sleep(300); continue; }
+        const m = sol.moves[0], R = G.rings[m.ring];
+        // 选环上离其他环最远的点下手，避免点到别的环
+        let best = 0, bestD = -1;
+        for (let k = 0; k < 72; k++) {
+          const a = (k / 72) * C.TAU, px = R.x + Math.cos(a) * R.r, py = R.y + Math.sin(a) * R.r;
+          let dmin = Infinity;
+          G.rings.forEach((Q, j) => { if (j !== m.ring && s.alive[j]) dmin = Math.min(dmin, Math.abs(Math.hypot(px - Q.x, py - Q.y) - Q.r)); });
+          if (dmin > bestD) { bestD = dmin; best = a; }
+        }
+        const at = (a) => w.__neon.toScreen(R.x + Math.cos(a) * R.r, R.y + Math.sin(a) * R.r);
+        document.getElementById('out').textContent = log.join('\n') + `\nL${n+1} move#${guard} ring=${m.ring} d=${(m.delta/C.DEG).toFixed(0)} moves=${s.moves} alive=${s.alive.map(Number).join('')}`;
+        fire('pointerdown', at(best));
+        const steps = Math.max(2, Math.ceil(Math.abs(m.delta) / (3 * C.DEG)));
+        for (let k = 1; k <= steps; k++) { fire('pointermove', at(best + (m.delta * k) / steps)); await sleep(16); }
+        await sleep(120);
+        fire('pointerup', at(best + m.delta));
+        await sleep(100); w.__neon.step();
+        let bw = 0;
+        while (w.__neon.state.busy && bw++ < 60) { await sleep(50); w.__neon.step(); }
+        if (w.__neon.state.busy) { log.push(`L${n + 1} HANG ` + JSON.stringify(w.__neon.state) + ' errors=' + errs.join(' | ')); break; }
+      }
+      await sleep(900);
+      const st = w.__neon.state;
+      const winShown = w.document.getElementById('win').classList.contains('show');
+      document.getElementById("out").textContent = log.join("\n"); log.push(`L${n + 1} won=${st.won} winPanel=${winShown} moves=${st.moves} par=${st.par} ` +
+        (st.won && st.moves === st.par && winShown ? 'OK' : 'FAIL'));
+      w.document.getElementById('win').classList.remove('show');
+    }
+    document.getElementById('out').textContent = log.join('\n');
+  }
+  run().catch((e) => { document.getElementById('out').textContent = 'ERROR ' + e.stack; });
+</script>

@@ -1,0 +1,58 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>design</title>
+<script src="../src/core.js"></script>
+<pre id="out"></pre>
+<script>
+  // 关卡草稿试验台：改这里的候选，跑 tools/verify.sh design.html 看最少步数
+  const g = (at, w = 40) => ({ at, w });
+  const sq = (d, r, ang, extra = {}) => [
+    { id: 'a', x: -d, y: -d, r, gaps: [g(0)], angle: ang[0], ...(extra.a || {}) },
+    { id: 'b', x: d, y: -d, r, gaps: [g(0)], angle: ang[1], ...(extra.b || {}) },
+    { id: 'c', x: d, y: d, r, gaps: [g(0)], angle: ang[2], ...(extra.c || {}) },
+    { id: 'd', x: -d, y: d, r, gaps: [g(0)], angle: ang[3], ...(extra.d || {}) },
+  ];
+  const star = (d, r, ang, extra = {}) => [
+    { id: 'f', x: 0, y: 0, r: 72, fixed: true, gaps: [], ...(extra.f || {}) },
+    { id: 'a', x: 0, y: -d, r, gaps: [g(0)], angle: ang[0], ...(extra.a || {}) },
+    { id: 'b', x: d, y: 0, r, gaps: [g(0)], angle: ang[1], ...(extra.b || {}) },
+    { id: 'c', x: 0, y: d, r, gaps: [g(0)], angle: ang[2], ...(extra.c || {}) },
+    { id: 'd', x: -d, y: 0, r, gaps: [g(0)], angle: ang[3], ...(extra.d || {}) },
+  ];
+  const cands = {
+    '4f cycle d76+couple ac+lock b<-d': { rings: sq(76, 82, [200, 315, 45, 135], { b: { lock: 'd' } }), couples: [['a', 'c', 1]] },
+    '4g cycle d76+couple bd+lock c<-a': { rings: sq(76, 82, [225, 300, 45, 160], { c: { lock: 'a' } }), couples: [['b', 'd', 1]] },
+    '5b star+lock b<-d': { rings: star(95, 72, [270, 0, 90, 180], { b: { lock: 'd' } }) },
+    '5i 5b+couple ac same-dir': { rings: star(95, 72, [270, 0, 90, 180], { b: { lock: 'd' } }), couples: [['a', 'c', -1]] },
+    '5j 5b+couple ac x2': { rings: star(95, 72, [270, 0, 90, 180], { b: { lock: 'd' } }), couples: [['a', 'c', 2]] },
+    '5k 5b+couple ab same-dir': { rings: star(95, 72, [270, 0, 90, 180], { b: { lock: 'd' } }), couples: [['a', 'b', -1]] },
+    '5l 5b+couple cd': { rings: star(95, 72, [270, 0, 90, 180], { b: { lock: 'd' } }), couples: [['c', 'd', 1]] },
+    '5m 5b+couple ab, angles off': { rings: star(95, 72, [250, 20, 110, 200], { b: { lock: 'd' } }), couples: [['a', 'b', 1]] },
+  };
+  const C = RRCore, out = [];
+  for (const [name, lv] of Object.entries(cands)) {
+    const G = C.build(lv);
+    const res = C.solve(G, G.angles0, G.alive0, { maxDepth: 16, maxNodes: 600000 });
+    // 第一步的可选走法里，有多少条仍在最优路径上（越少越难猜）
+    let firstGood = 0, firstAll = 0;
+    if (res.moves) {
+      const par = res.moves.length;
+      for (let i = 0; i < G.rings.length; i++) {
+        if (!C.canRotate(G, i, G.alive0)) continue;
+        for (const d of C.candidateMoves(G, i, G.angles0, G.alive0)) {
+          firstAll++;
+          const na = C.rotate(G, i, d, G.angles0, G.alive0);
+          const c = C.cascade(G, na, G.alive0);
+          const r2 = C.solve(G, na, c.alive, { maxDepth: par, maxNodes: 200000 });
+          if (r2.moves && r2.moves.length === par - 1) firstGood++;
+        }
+      }
+    }
+    out.push(name.padEnd(30) + ' links=' + G.links.map((L) => lv.rings[L.a].id + lv.rings[L.b].id).join(' ') +
+      ' free0=' + C.findFree(G, G.angles0, G.alive0).length +
+      ' par=' + (res.moves ? res.moves.length : 'NONE' + (res.aborted ? '(aborted)' : '')) +
+      ' firstOptimal=' + firstGood + '/' + firstAll +
+      ' sol=' + (res.moves ? res.moves.map((m) => lv.rings[m.ring].id + Math.round(m.delta / C.DEG)).join(' ') : '-'));
+  }
+  document.getElementById('out').textContent = out.join('\n');
+</script>

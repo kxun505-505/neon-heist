@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0d0426">
+  <title>霓虹转环 NEON LOOPS · 试玩版</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+  <div class="scanlines"></div>
+
+  <header id="hud">
+    <button id="btnMenu" class="icon" aria-label="关卡">☰</button>
+    <div class="title">
+      <div id="lvNum">LEVEL 1</div>
+      <div id="lvName"></div>
+    </div>
+    <div id="moves"></div>
+  </header>
+
+  <div id="tip"></div>
+
+  <footer id="tools">
+    <button id="btnUndo">↶<span>撤销</span></button>
+    <button id="btnReset">⟲<span>重来</span></button>
+    <button id="btnHint">✦<span>提示</span></button>
+    <button id="btnMute" class="icon" aria-label="声音">♪</button>
+  </footer>
+
+  <section id="menu" class="overlay">
+    <div class="panel">
+      <h1 class="logo">霓虹转环<em>NEON LOOPS</em></h1>
+      <p class="sub">日落海岸 · 试玩版</p>
+      <div id="levels"></div>
+      <p class="how">拖动旋转圆环，把缺口转到两环相扣处。<br>一个环和所有相扣的环都解开，就会脱出。</p>
+    </div>
+  </section>
+
+  <section id="win" class="overlay">
+    <div class="panel">
+      <h2 id="winTitle" class="logo small">过关！</h2>
+      <div id="winStars" class="stars"></div>
+      <p id="winInfo"></p>
+      <div class="row">
+        <button id="btnLevels">关卡</button>
+        <button id="btnRetry">重玩</button>
+        <button id="btnNext" class="primary">下一关 ›</button>
+      </div>
+    </div>
+  </section>
+
+  <script src="src/core.js"></script>
+  <script src="src/levels.js"></script>
+  <script src="src/audio.js"></script>
+  <script src="src/bg.js"></script>
+  <script src="src/main.js"></script>
+</body>
+</html>
