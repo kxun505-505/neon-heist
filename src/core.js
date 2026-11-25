@@ -1,228 +1,213 @@
 /*
- * 核心规则（与渲染无关，可在浏览器和验证脚本里共用）
+ * 核心规则（与渲染无关，浏览器和验证脚本共用）
  *
- * 规则：
- * - 每个环有 0~N 个缺口，可绕自身圆心旋转。
- * - 两个环相交就算"扣在一起"，相交处有两个交点。
- * - 只要任一交点落在其中一个环的缺口里，这对环的扣就"打开"。
- * - 一个环和所有仍在场的环的扣都打开时，它自动脱出。脱出可连锁。
- * - 锁：带锁的环在钥匙环脱出前不能转。
- * - 联动（S 扣）：联动的两个环反向同步转动；任一方被锁住则整组卡死。
- * - 固定环：永远不能转，只能靠别的环的缺口解开。
- * - 所有环都脱出即过关。
+ * 对标原作的机制：
+ * - 环是带缺口的 C 形管，或没有缺口的闭合环。环之间不重叠。
+ * - 连接 = 扣件：主环伸出一根短杆，杆端的夹套套在被扣环的管子上。
+ * - 被扣环转动时，管子在夹套里滑动；缺口转到夹套处，夹套就滑脱，这条连接永久断开。
+ * - 主环还扣着别的环时转不动（杆被夹套固定住）。
+ * - 环身上可能有凸起的短杆（凸钉），转动时凸钉会撞到别的环、杆、夹套，撞上就停。
+ * - 一个环身上没有任何连接时自动飞走。全部飞走即过关。
  */
 (function (root) {
   'use strict';
 
   const TAU = Math.PI * 2;
   const DEG = Math.PI / 180;
-  const STROKE = 16;            // 环的线宽（逻辑像素）
-  const SNAP_EXTRA = 5 * DEG;   // 松手时超出覆盖范围多少以内仍会吸附
+  const TUBE = 12;        // 管子粗细
+  const STEM = 7;         // 杆粗细
+  const CLAMP_LEN = 18;   // 夹套沿管子方向的长度
+  const KNOB = 7;         // 凸钉末端方块的半径
+  const STEP = 1 * DEG;   // 转动时碰撞检测的步长
 
-  function norm(a) { a %= TAU; return a < 0 ? a + TAU : a; }
-  function angDiff(a, b) { let d = norm(a - b); return d > Math.PI ? d - TAU : d; }
-
-  function circleCross(a, b) {
-    const dx = b.x - a.x, dy = b.y - a.y, d = Math.hypot(dx, dy);
-    if (d === 0 || d >= a.r + b.r || d <= Math.abs(a.r - b.r)) return null;
-    const l = (a.r * a.r - b.r * b.r + d * d) / (2 * d);
-    const h = Math.sqrt(a.r * a.r - l * l);
-    const mx = a.x + (l * dx) / d, my = a.y + (l * dy) / d;
-    const ox = (-dy / d) * h, oy = (dx / d) * h;
-    return [{ x: mx + ox, y: my + oy }, { x: mx - ox, y: my - oy }];
-  }
+  const norm = (a) => { a %= TAU; return a < 0 ? a + TAU : a; };
+  const angDiff = (a, b) => { let d = norm(a - b); return d > Math.PI ? d - TAU : d; };
 
   function build(level) {
     const idx = {};
     level.rings.forEach((r, i) => { idx[r.id] = i; });
     const rings = level.rings.map((r, i) => ({
-      id: r.id, i, x: r.x, y: r.y, r: r.r,
-      color: r.color,
-      fixed: !!r.fixed,
-      lock: r.lock != null ? idx[r.lock] : -1,
-      gaps: (r.gaps || []).map((g) => ({ at: g.at * DEG, w: g.w * DEG })),
-      // 交点需要离缺口边缘至少半个线宽才算真正穿过去
-      margin: (STROKE / 2 + 1) / r.r,
+      id: r.id, i, x: r.x, y: r.y, r: r.r, color: r.color,
+      gap: r.gap ? { at: r.gap.at * DEG, w: r.gap.w * DEG } : null,
+      knobs: (r.knobs || []).map((k) => ({ at: k.at * DEG, len: k.len })),
     }));
-    const links = [];
-    for (let i = 0; i < rings.length; i++) {
-      for (let j = i + 1; j < rings.length; j++) {
-        const pts = circleCross(rings[i], rings[j]);
-        if (!pts) continue;
-        links.push({
-          a: i, b: j,
-          pts: pts.map((p) => ({
-            x: p.x, y: p.y,
-            angA: Math.atan2(p.y - rings[i].y, p.x - rings[i].x),
-            angB: Math.atan2(p.y - rings[j].y, p.x - rings[j].x),
-          })),
-        });
-      }
-    }
-    const couples = (level.couples || []).map(([a, b, ratio]) => ({ a: idx[a], b: idx[b], ratio: ratio || 1 }));
-    const linksOf = rings.map((_, i) => links.filter((L) => L.a === i || L.b === i));
+    rings.forEach((R) => {
+      if (!R.gap) return;
+      // 圆头管的可见开口比名义缺口小一个管子粗细
+      R.openHalf = R.gap.w / 2 - (TUBE / 2) / R.r;
+      R.releaseHalf = R.openHalf - (CLAMP_LEN / 2) / R.r;
+    });
+    const links = (level.links || []).map(([o, h], k) => {
+      const O = rings[idx[o]], H = rings[idx[h]];
+      const dx = H.x - O.x, dy = H.y - O.y, d = Math.hypot(dx, dy);
+      const ux = dx / d, uy = dy / d;
+      return {
+        k, owner: O.i, held: H.i,
+        // 夹套位于被扣环管子上、正对主环圆心的点
+        clampAng: Math.atan2(-uy, -ux),
+        cx: H.x - ux * H.r, cy: H.y - uy * H.r,
+        sx: O.x + ux * (O.r + TUBE / 2), sy: O.y + uy * (O.r + TUBE / 2),
+        stemLen: d - O.r - H.r,
+      };
+    });
     return {
-      level, rings, links, couples, linksOf,
+      level, rings, links,
       angles0: level.rings.map((r) => norm((r.angle || 0) * DEG)),
-      alive0: level.rings.map(() => true),
+      ringAlive0: level.rings.map(() => true),
+      linkAlive0: links.map(() => true),
     };
   }
 
-  function gapCovers(G, i, worldAng, angles) {
+  const initState = (G) => ({ angles: G.angles0.slice(), ring: G.ringAlive0.slice(), link: G.linkAlive0.slice() });
+  const cloneState = (s) => ({ angles: s.angles.slice(), ring: s.ring.slice(), link: s.link.slice() });
+
+  function ownsLive(G, s, i) { return G.links.some((L) => s.link[L.k] && L.owner === i); }
+  function linkCount(G, s, i) { return G.links.reduce((n, L) => n + (s.link[L.k] && (L.owner === i || L.held === i) ? 1 : 0), 0); }
+
+  // 不能转的原因：null 表示可以转
+  function blockReason(G, s, i) {
+    if (!s.ring[i]) return 'gone';
+    if (ownsLive(G, s, i)) return 'owner';
     const R = G.rings[i];
-    for (const g of R.gaps) {
-      if (Math.abs(angDiff(worldAng, g.at + angles[i])) <= g.w / 2 - R.margin) return true;
-    }
-    return false;
+    if (!R.gap && !R.knobs.length) return 'closed';
+    return null;
   }
 
-  function linkOpen(G, L, angles) {
-    for (const p of L.pts) {
-      if (gapCovers(G, L.a, p.angA, angles) || gapCovers(G, L.b, p.angB, angles)) return true;
-    }
-    return false;
-  }
-
-  function isLocked(G, i, alive) {
-    const R = G.rings[i];
-    return R.fixed || (R.lock >= 0 && alive[R.lock]);
-  }
-
-  // 转动 i 时一起转的环（通过联动传递），f 为转动系数
-  function rotationGroup(G, i, alive) {
-    const out = [{ j: i, f: 1 }];
-    const seen = new Set([i]);
-    for (let k = 0; k < out.length; k++) {
-      const { j, f } = out[k];
-      for (const c of G.couples) {
-        if (!alive[c.a] || !alive[c.b]) continue;
-        let n = -1, nf = 0;
-        if (c.a === j) { n = c.b; nf = -f * c.ratio; }
-        else if (c.b === j) { n = c.a; nf = -f / c.ratio; }
-        if (n >= 0 && !seen.has(n)) { seen.add(n); out.push({ j: n, f: nf }); }
-      }
-    }
-    return out;
-  }
-
-  function canRotate(G, i, alive) {
-    if (!alive[i]) return false;
-    return rotationGroup(G, i, alive).every(({ j }) => !isLocked(G, j, alive));
-  }
-
-  function rotate(G, i, delta, angles, alive) {
-    const next = angles.slice();
-    for (const { j, f } of rotationGroup(G, i, alive)) next[j] = norm(next[j] + delta * f);
-    return next;
-  }
-
-  // 返回本轮会脱出的环
-  function findFree(G, angles, alive) {
-    const free = [];
-    for (let i = 0; i < G.rings.length; i++) {
-      if (!alive[i]) continue;
-      let ok = true;
-      for (const L of G.linksOf[i]) {
-        const o = L.a === i ? L.b : L.a;
-        if (alive[o] && !linkOpen(G, L, angles)) { ok = false; break; }
-      }
-      if (ok) free.push(i);
-    }
-    return free;
-  }
-
-  // 连锁脱出，返回每一波脱出的环
-  function cascade(G, angles, alive) {
-    const live = alive.slice();
-    const waves = [];
-    for (;;) {
-      const f = findFree(G, angles, live);
-      if (!f.length) break;
-      f.forEach((i) => { live[i] = false; });
-      waves.push(f);
-    }
-    return { alive: live, waves };
-  }
-
-  // 松手吸附：组内任一缺口接近某交点时，返回把它对正所需的转角
-  function snapDelta(G, i, angles, alive) {
-    let best = null;
-    for (const { j, f } of rotationGroup(G, i, alive)) {
-      const R = G.rings[j];
-      for (const L of G.linksOf[j]) {
-        const o = L.a === j ? L.b : L.a;
-        if (!alive[o]) continue;
-        for (const p of L.pts) {
-          const pa = L.a === j ? p.angA : p.angB;
-          for (const g of R.gaps) {
-            const d = angDiff(pa, g.at + angles[j]);
-            if (Math.abs(d) <= g.w / 2 + SNAP_EXTRA) {
-              const di = d / f;
-              if (!best || Math.abs(di) < Math.abs(best)) best = di;
-            }
-          }
-        }
-      }
-    }
-    return best;
-  }
-
-  // 候选操作：把组内某个缺口正对某个交点
-  function candidateMoves(G, i, angles, alive) {
+  // 凸钉的采样圆（世界坐标）
+  function knobCircles(R, ang) {
     const out = [];
-    for (const { j, f } of rotationGroup(G, i, alive)) {
-      const R = G.rings[j];
-      for (const L of G.linksOf[j]) {
-        const o = L.a === j ? L.b : L.a;
-        if (!alive[o]) continue;
-        for (const p of L.pts) {
-          const pa = L.a === j ? p.angA : p.angB;
-          for (const g of R.gaps) {
-            const dj = angDiff(pa, g.at + angles[j]);
-            const turns = Math.abs(f) === 1 ? [0] : [-1, 0, 1];
-            for (const k of turns) {
-              const d = (dj + k * TAU) / f;
-              if (Math.abs(d) > 0.5 * DEG && Math.abs(d) <= Math.PI + 1e-9) out.push(d);
-            }
-          }
-        }
-      }
+    for (const k of R.knobs) {
+      const a = k.at + ang, c = Math.cos(a), sn = Math.sin(a);
+      for (let t = R.r + TUBE / 2 + STEM / 2; t < R.r + k.len - KNOB; t += 4) out.push({ x: R.x + c * t, y: R.y + sn * t, rad: STEM / 2 });
+      out.push({ x: R.x + c * (R.r + k.len), y: R.y + sn * (R.r + k.len), rad: KNOB });
     }
     return out;
   }
 
-  function stateKey(angles, alive) {
-    let s = '';
-    for (let i = 0; i < angles.length; i++) {
-      s += alive[i] ? Math.round((norm(angles[i]) / DEG) * 2) % 720 + ',' : 'x,';
+  function linkCircles(L) {
+    const out = [];
+    const dx = L.cx - L.sx, dy = L.cy - L.sy, len = Math.hypot(dx, dy);
+    for (let t = 0; t < len - 6; t += 4) out.push({ x: L.sx + (dx * t) / len, y: L.sy + (dy * t) / len, rad: STEM / 2 });
+    return out;
+  }
+  const clampCircle = (L) => ({ x: L.cx, y: L.cy, rad: TUBE / 2 + 3 });
+
+  function hitsTube(R, ang, p) {
+    const dx = p.x - R.x, dy = p.y - R.y, d = Math.hypot(dx, dy);
+    if (Math.abs(d - R.r) >= TUBE / 2 + p.rad) return false;
+    if (R.gap) {
+      const ad = Math.abs(angDiff(Math.atan2(dy, dx), R.gap.at + ang));
+      if (ad < R.openHalf - p.rad / R.r) return false;
     }
-    return s;
+    return true;
+  }
+  const hitsCircle = (a, b) => Math.hypot(a.x - b.x, a.y - b.y) < a.rad + b.rad;
+
+  // 环 i 在角度 ang 时是否与其他物体相撞；撞上时返回接触点
+  function collision(G, s, i, ang) {
+    const R = G.rings[i];
+    const mine = knobCircles(R, ang);
+    const obstacles = [];
+    for (let j = 0; j < G.rings.length; j++) {
+      if (j === i || !s.ring[j]) continue;
+      const Q = G.rings[j];
+      for (const p of mine) if (hitsTube(Q, s.angles[j], p)) return p;
+      for (const q of knobCircles(Q, s.angles[j])) obstacles.push(q);
+    }
+    for (const L of G.links) {
+      if (!s.link[L.k]) continue;
+      // 自己身上的夹套和杆不算：被扣环的管子在夹套里滑动；主环有连接时本来就转不动
+      if (L.held === i || L.owner === i) continue;
+      for (const q of linkCircles(L)) obstacles.push(q);
+      obstacles.push(clampCircle(L));
+    }
+    for (const q of obstacles) {
+      for (const p of mine) if (hitsCircle(p, q)) return { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 };
+      if (hitsTube(R, ang, q)) return q;
+    }
+    return null;
   }
 
-  // 广度优先求最少步数。每一步 = 拖动一个环一次。
-  function solve(G, angles, alive, opts) {
-    const maxDepth = (opts && opts.maxDepth) || 14;
-    const maxNodes = (opts && opts.maxNodes) || 300000;
-    const start = cascade(G, angles, alive);
-    if (start.alive.every((a) => !a)) return { moves: [], nodes: 0 };
-    const seen = new Set([stateKey(angles, start.alive)]);
-    let frontier = [{ angles, alive: start.alive, path: [] }];
-    let nodes = 0;
+  // 检查环 i 当前角度下哪些夹套滑脱，返回断开的连接
+  function releases(G, s, i) {
+    const R = G.rings[i], out = [];
+    if (!R.gap) return out;
+    for (const L of G.links) {
+      if (!s.link[L.k] || L.held !== i) continue;
+      if (Math.abs(angDiff(L.clampAng, R.gap.at + s.angles[i])) <= R.releaseHalf) out.push(L.k);
+    }
+    return out;
+  }
+
+  // 没有任何连接的环飞走
+  function flyers(G, s) {
+    const out = [];
+    for (let i = 0; i < G.rings.length; i++) if (s.ring[i] && linkCount(G, s, i) === 0) out.push(i);
+    return out;
+  }
+
+  /*
+   * 把环 i 往 delta 方向转，逐步检测碰撞和滑脱（会原地修改 s）。
+   * events 记录过程中发生的事：{type:'release', k} / {type:'fly', i} / {type:'hit', p}
+   */
+  function sweep(G, s, i, delta, events) {
+    const dir = Math.sign(delta);
+    let left = Math.abs(delta), moved = 0;
+    while (left > 1e-9) {
+      if (!s.ring[i]) break;
+      const st = Math.min(STEP, left);
+      const next = norm(s.angles[i] + dir * st);
+      const hit = collision(G, s, i, next);
+      if (hit) { if (events) events.push({ type: 'hit', p: hit, ring: i }); break; }
+      s.angles[i] = next;
+      moved += dir * st;
+      left -= st;
+      const rel = releases(G, s, i);
+      if (rel.length) {
+        rel.forEach((k) => { s.link[k] = false; if (events) events.push({ type: 'release', k }); });
+        for (const f of flyers(G, s)) { s.ring[f] = false; if (events) events.push({ type: 'fly', i: f }); }
+      }
+    }
+    return moved;
+  }
+
+  function candidateMoves(G, s, i) {
+    const R = G.rings[i], out = [];
+    if (R.gap) {
+      for (const L of G.links) {
+        if (!s.link[L.k] || L.held !== i) continue;
+        const d = angDiff(L.clampAng, R.gap.at + s.angles[i]);
+        out.push(d, d > 0 ? d - TAU : d + TAU);
+      }
+    }
+    if (R.knobs.length) out.push(TAU - 1e-6, -TAU + 1e-6); // 转到底，用来挪开凸钉
+    return out;
+  }
+
+  const stateKey = (s) => s.angles.map((a, i) => (s.ring[i] ? Math.round(a / DEG / 2) % 180 : 'x')).join(',') + '|' + s.link.map(Number).join('');
+
+  // 广度优先求最少拖动次数
+  function solve(G, start, opts) {
+    const maxDepth = (opts && opts.maxDepth) || 16, maxNodes = (opts && opts.maxNodes) || 200000;
+    if (start.ring.every((a) => !a)) return { moves: [], nodes: 0 };
+    const seen = new Set([stateKey(start)]);
+    let frontier = [{ s: start, path: [] }], nodes = 0;
     for (let depth = 0; depth < maxDepth && frontier.length; depth++) {
       const next = [];
-      for (const s of frontier) {
+      for (const { s, path } of frontier) {
         for (let i = 0; i < G.rings.length; i++) {
-          if (!canRotate(G, i, s.alive)) continue;
-          for (const d of candidateMoves(G, i, s.angles, s.alive)) {
-            const na = rotate(G, i, d, s.angles, s.alive);
-            const c = cascade(G, na, s.alive);
-            const path = s.path.concat([{ ring: i, delta: d }]);
-            if (c.alive.every((a) => !a)) return { moves: path, nodes };
-            const key = stateKey(na, c.alive);
+          if (blockReason(G, s, i)) continue;
+          for (const d of candidateMoves(G, s, i)) {
+            const n = cloneState(s);
+            const moved = sweep(G, n, i, d, null);
+            if (Math.abs(moved) < 0.5 * DEG) continue;
+            const p = path.concat([{ ring: i, delta: moved }]);
+            if (n.ring.every((a) => !a)) return { moves: p, nodes };
+            const key = stateKey(n);
             if (seen.has(key)) continue;
             seen.add(key);
             if (++nodes > maxNodes) return { moves: null, nodes, aborted: true };
-            next.push({ angles: na, alive: c.alive, path });
+            next.push({ s: n, path: p });
           }
         }
       }
@@ -231,8 +216,24 @@
     return { moves: null, nodes };
   }
 
+  // 关卡合法性：初始无碰撞、无可直接飞走的环、无已滑脱的夹套
+  function validate(G) {
+    const s = initState(G), problems = [];
+    G.links.forEach((L) => { if (L.stemLen < 8) problems.push('link ' + L.k + ' stem too short ' + L.stemLen.toFixed(1)); });
+    for (let i = 0; i < G.rings.length; i++) {
+      if (collision(G, s, i, s.angles[i])) problems.push('ring ' + G.rings[i].id + ' collides at start');
+      if (releases(G, s, i).length) problems.push('ring ' + G.rings[i].id + ' already released');
+      if (linkCount(G, s, i) === 0) problems.push('ring ' + G.rings[i].id + ' has no link');
+      for (let j = i + 1; j < G.rings.length; j++) {
+        const A = G.rings[i], B = G.rings[j];
+        if (Math.hypot(A.x - B.x, A.y - B.y) < A.r + B.r + TUBE) problems.push('rings ' + A.id + B.id + ' overlap');
+      }
+    }
+    return problems;
+  }
+
   root.RRCore = {
-    TAU, DEG, STROKE, norm, angDiff, build, gapCovers, linkOpen, isLocked,
-    rotationGroup, canRotate, rotate, findFree, cascade, snapDelta, candidateMoves, solve,
+    TAU, DEG, TUBE, STEM, CLAMP_LEN, KNOB, norm, angDiff, build, initState, cloneState,
+    ownsLive, linkCount, blockReason, knobCircles, collision, releases, flyers, sweep, candidateMoves, solve, validate,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

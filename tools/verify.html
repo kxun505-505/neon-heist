@@ -1,6 +1,7 @@
 <!doctype html>
 <meta charset="utf-8">
 <title>verify</title>
+<!-- 关卡检查：合法性（无重叠、无初始碰撞、无已滑脱的夹套）+ 最少拖动次数 -->
 <script src="../src/core.js"></script>
 <script src="../src/levels.js"></script>
 <pre id="out"></pre>
@@ -8,19 +9,15 @@
   const C = RRCore, out = [];
   RRLevels.forEach((lv, n) => {
     const G = C.build(lv);
-    const init = C.findFree(G, G.angles0, G.alive0);
+    const problems = C.validate(G);
     const t = performance.now();
-    const res = C.solve(G, G.angles0, G.alive0, { maxDepth: 14, maxNodes: 400000 });
-    // 统计"随手乱转"的难度：第一步有多少种走法，其中多少种仍能在 par 步内完成
-    const ms = (performance.now() - t).toFixed(0);
-    out.push({
-      level: n + 1, name: lv.en,
-      links: G.links.map((L) => lv.rings[L.a].id + lv.rings[L.b].id).join(' '),
-      initiallyFree: init.map((i) => lv.rings[i].id),
-      par: res.moves ? res.moves.length : null,
-      solution: res.moves ? res.moves.map((m) => lv.rings[m.ring].id + (m.delta / C.DEG).toFixed(0)).join(' ') : null,
-      nodes: res.nodes, aborted: !!res.aborted, ms,
-    });
+    const res = C.solve(G, C.initState(G));
+    out.push(JSON.stringify({
+      level: n + 1, name: lv.en, rings: lv.rings.length, links: lv.links.length,
+      problems, par: res.moves ? res.moves.length : null,
+      solution: res.moves ? res.moves.map((m) => lv.rings[m.ring].id + Math.round(m.delta / C.DEG)).join(' ') : null,
+      ms: Math.round(performance.now() - t),
+    }));
   });
-  document.getElementById('out').textContent = out.map((o) => JSON.stringify(o)).join('\n');
+  document.getElementById('out').textContent = out.join('\n');
 </script>

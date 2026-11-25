@@ -55,10 +55,20 @@
       if (master) master.gain.value = muted ? 0 : 0.7;
       return muted;
     },
-    tick() { tone({ type: 'triangle', f0: 2400, f1: 1500, dur: 0.018, gain: 0.05 }); },
-    snap() {
-      tone({ type: 'sine', f0: 320, f1: 130, dur: 0.09, gain: 0.25 });
-      tone({ type: 'square', f0: 3200, f1: 2000, dur: 0.012, gain: 0.03 });
+    tick() { tone({ type: 'triangle', f0: 2600, f1: 1700, dur: 0.016, gain: 0.035 }); },
+    grab() { tone({ type: 'sine', f0: 520, f1: 760, dur: 0.06, gain: 0.08 }); },
+    drop() { tone({ type: 'sine', f0: 620, f1: 420, dur: 0.06, gain: 0.05 }); },
+    bump() {
+      tone({ type: 'sine', f0: 180, f1: 90, dur: 0.08, gain: 0.22 });
+      tone({ type: 'square', f0: 1400, f1: 900, dur: 0.015, gain: 0.03 });
+    },
+    slip() {
+      tone({ type: 'square', f0: 2200, f1: 1200, dur: 0.02, gain: 0.05 });
+      tone({ type: 'sine', f0: 900, f1: 1500, dur: 0.07, gain: 0.1, at: 0.01 });
+    },
+    banner() {
+      tone({ type: 'sawtooth', f0: 220, f1: 440, dur: 0.35, gain: 0.08, cutoff: 1800 });
+      tone({ type: 'sawtooth', f0: 330, f1: 660, dur: 0.35, gain: 0.06, cutoff: 1800, at: 0.05 });
     },
     free(n) {
       const f = NOTES[Math.min(n, NOTES.length - 1)];

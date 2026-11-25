@@ -1,0 +1,130 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>gen</title>
+<script src="../src/core.js"></script>
+<pre id="out"></pre>
+<script>
+  /*
+   * 关卡生成器：结构（谁扣谁、方位、有没有凸钉）由模板手工指定，
+   * 缺口朝向、初始角度、凸钉方位按种子随机。每个模板尝试很多种子，
+   * 过滤掉不合法或无解的，按目标难度挑一个。
+   * 难度指标：par = 最少拖动次数；trap = 第一步可选走法里会让最少步数变多的比例。
+   */
+  const C = RRCore;
+  function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+
+  // 树形模板：每个节点 [id, 父 id, 方位角, 半径, 选项]；父扣子（父是主环）
+  function tree(nodes, extraLinks) {
+    const pos = {};
+    const rings = [], links = [];
+    for (const [id, parent, dir, r, opt] of nodes) {
+      let x = 0, y = 0;
+      if (parent) {
+        const P = pos[parent], d = P.r + r + (opt && opt.stem || 18);
+        x = P.x + Math.cos(dir * C.DEG) * d; y = P.y + Math.sin(dir * C.DEG) * d;
+        links.push([parent, id]);
+      } else if (opt && opt.at) { x = opt.at[0]; y = opt.at[1]; }
+      pos[id] = { x, y, r };
+      rings.push({ id, x: Math.round(x), y: Math.round(y), r, opt: opt || {} });
+    }
+    return { rings, links: links.concat(extraLinks || []) };
+  }
+
+  const TEMPLATES = {
+    L1: () => tree([
+      ['a', null, 0, 46, { at: [-56, 0] }],
+      ['b', 'a', 0, 46, {}],
+    ]),
+    L2: () => tree([
+      ['a', null, 0, 44, { at: [0, -110] }],
+      ['b', 'a', 90, 46, {}],
+      ['c', 'b', 90, 44, {}],
+      ['d', 'b', 0, 38, { stem: 16 }],
+    ]),
+    L3: () => tree([
+      ['h', null, 0, 42, { at: [0, 10], closed: true }],
+      ['a', 'h', -90, 42, { knob: true }],
+      ['b', 'h', 30, 42, { knob: true }],
+      ['c', 'h', 150, 42, { knob: true }],
+      ['e', 'a', -90, 36, { stem: 16 }],
+    ]),
+    L4: () => tree([
+      ['h', null, 0, 40, { at: [-40, -60], closed: true }],
+      ['a', 'h', -150, 38, { knob: true }],
+      ['b', 'h', -40, 40, {}],
+      ['c', 'h', 75, 44, { knob: true }],
+      ['d', 'c', 15, 40, { knob: true }],
+      ['e', 'c', 135, 38, {}],
+      ['f', 'd', 80, 38, { knob: true }],
+    ]),
+    L5: () => tree([
+      ['h', null, 0, 40, { at: [0, -40], closed: true }],
+      ['a', 'h', -90, 40, { knob: true }],
+      ['b', 'h', -15, 38, { knob: true }],
+      ['c', 'h', -165, 38, { knob: true }],
+      ['d', 'h', 90, 42, {}],
+      ['e', 'd', 30, 38, { knob: true }],
+      ['f', 'd', 150, 38, { knob: true }],
+      ['g', 'a', -40, 34, { stem: 16 }],
+      ['k', 'c', 160, 34, { knob: true, stem: 16 }],
+    ]),
+  };
+  const TARGET = { L1: [1, 1, 0], L2: [3, 3, 0.2], L3: [4, 5, 0.3], L4: [6, 8, 0.35], L5: [8, 12, 0.45] };
+  const SEEDS = { L1: 60, L2: 120, L3: 300, L4: 400, L5: 400 };
+  const only = new URLSearchParams(location.search).get('only');
+
+  function instantiate(T, seed) {
+    const R = rng(seed), lv = { rings: [], links: T.links };
+    for (const r of T.rings) {
+      const ring = { id: r.id, x: r.x, y: r.y, r: r.r, angle: Math.round(R() * 360) };
+      if (!r.opt.closed) ring.gap = { at: 0, w: 96 + Math.round(R() * 12) };
+      if (r.opt.knob) ring.knobs = [{ at: Math.round(R() * 360), len: 20 + Math.round(R() * 6) }];
+      lv.rings.push(ring);
+    }
+    return lv;
+  }
+
+  function measure(lv) {
+    const G = C.build(lv);
+    const probs = C.validate(G);
+    if (probs.length) return { bad: probs[0] };
+    const s0 = C.initState(G);
+    const res = C.solve(G, s0, { maxDepth: 16, maxNodes: 60000 });
+    if (!res.moves) return { bad: res.aborted ? 'aborted' : 'unsolvable' };
+    const par = res.moves.length;
+    let total = 0, worse = 0;
+    for (let i = 0; i < G.rings.length; i++) {
+      if (C.blockReason(G, s0, i)) continue;
+      for (const d of [1, -1]) {
+        // 玩家视角：随手往一个方向转到底
+        const n = C.cloneState(s0);
+        const moved = C.sweep(G, n, i, d * Math.PI, null);
+        if (Math.abs(moved) < 2 * C.DEG) continue;
+        total++;
+        const r2 = C.solve(G, n, { maxDepth: par + 2, maxNodes: 30000 });
+        if (!r2.moves || r2.moves.length + 1 > par) worse++;
+      }
+    }
+    return { par, trap: total ? worse / total : 0, sol: res.moves };
+  }
+
+  const out = [];
+  for (const [name, mk] of Object.entries(TEMPLATES)) {
+    if (only && only !== name) continue;
+    const T = mk(), [lo, hi, trapT] = TARGET[name];
+    let best = null, stats = {};
+    for (let seed = 1; seed <= SEEDS[name]; seed++) {
+      const lv = instantiate(T, seed);
+      const m = measure(lv);
+      if (m.bad) { const k = m.bad.split(' ')[0] + (m.bad.includes('collides') ? 'C' : ''); stats[k] = (stats[k] || 0) + 1; continue; }
+      stats.ok = (stats.ok || 0) + 1; stats['p' + m.par] = (stats['p' + m.par] || 0) + 1;
+      if (m.par < lo || m.par > hi) continue;
+      const score = Math.abs(m.trap - trapT) + (hi - m.par) * 0.02;
+      if (!best || score < best.score) best = { seed, score, lv, m };
+    }
+    out.push(name + ' stats=' + JSON.stringify(stats));
+    if (best) out.push(name + ' seed=' + best.seed + ' par=' + best.m.par + ' trap=' + best.m.trap.toFixed(2) + '\n' + JSON.stringify(best.lv));
+    else out.push(name + ' NO MATCH');
+  }
+  document.getElementById('out').textContent = out.join('\n');
+</script>

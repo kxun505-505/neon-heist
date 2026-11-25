@@ -1,0 +1,18 @@
+<!doctype html><body style="margin:0"><canvas id="c" width="180" height="180" style="display:block"></canvas>
+<script>
+// 原创图标：夕阳渐变底 + 两个霓虹 C 形环和一个夹套
+const c = document.getElementById('c').getContext('2d');
+const g = c.createLinearGradient(0, 0, 0, 180);
+g.addColorStop(0, '#1a0640'); g.addColorStop(0.6, '#7a1f73'); g.addColorStop(1, '#ff7a5a');
+c.fillStyle = g; c.fillRect(0, 0, 180, 180);
+function ring(x, y, r, col, gapAt) {
+  c.lineCap = 'round';
+  for (const [w, a] of [[30, 0.12], [20, 0.25]]) { c.strokeStyle = col; c.globalAlpha = a; c.lineWidth = w; c.beginPath(); c.arc(x, y, r, gapAt + 0.95, gapAt - 0.95 + Math.PI * 2); c.stroke(); }
+  c.globalAlpha = 1; c.strokeStyle = col; c.lineWidth = 13; c.beginPath(); c.arc(x, y, r, gapAt + 0.95, gapAt - 0.95 + Math.PI * 2); c.stroke();
+  c.strokeStyle = 'rgba(255,255,255,0.6)'; c.lineWidth = 4; c.beginPath(); c.arc(x, y, r, gapAt + 0.95, gapAt - 0.95 + Math.PI * 2); c.stroke();
+}
+ring(62, 92, 36, '#ff3df2', -2.2);
+ring(124, 92, 36, '#28e7ff', 0.9);
+c.fillStyle = '#ff3df2'; c.fillRect(96, 88, 10, 8);
+c.fillStyle = '#ffd0fb'; c.beginPath(); c.roundRect(82, 80, 12, 24, 3); c.fill();
+</script>
