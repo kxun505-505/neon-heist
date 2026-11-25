@@ -240,6 +240,16 @@
       const Hr = G.rings[L.held];
       if (Hr.gap && Math.abs(angDiff(L.clampAng, Hr.gap.at + s.angles[L.held])) < Hr.openHalf + 4 / Hr.r) problems.push('link ' + L.k + ' clamp in held gap');
     });
+    // 凸钉必须长在实心管子上，不能悬空在缺口里，也不能和杆、夹套挤在一起
+    G.rings.forEach((R) => {
+      for (const k of R.knobs) {
+        if (R.gap && Math.abs(angDiff(k.at, R.gap.at)) < R.openHalf + (KNOB + 4) / R.r) problems.push('ring ' + R.id + ' knob in gap');
+        for (const L of G.links) {
+          const dir = L.owner === R.i ? L.stubAt : L.held === R.i ? L.clampAng - s.angles[R.i] : null;
+          if (dir != null && Math.abs(angDiff(k.at, dir)) < (CLAMP_LEN + KNOB * 2) / R.r) problems.push('ring ' + R.id + ' knob touches link');
+        }
+      }
+    });
     for (let i = 0; i < G.rings.length; i++) {
       if (collision(G, s, i, s.angles[i])) problems.push('ring ' + G.rings[i].id + ' collides at start');
       if (releases(G, s, i).length) problems.push('ring ' + G.rings[i].id + ' already released');

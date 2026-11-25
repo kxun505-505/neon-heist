@@ -73,7 +73,7 @@
     ], [['c', 'm']]),
   };
   const TARGET = { L1: [1, 1, 0], L2: [3, 3, 0.2], L3: [4, 5, 0.3], L4: [6, 9, 0.35], L5: [8, 12, 0.45] };
-  const SEEDS = { L1: 60, L2: 120, L3: 300, L4: 20, L5: 120 };
+  const SEEDS = { L1: 60, L2: 120, L3: 300, L4: 40, L5: 60 };
   const only = new URLSearchParams(location.search).get('only');
 
   function instantiate(T, seed) {
@@ -95,7 +95,22 @@
         if (!ok.length) return null;
         ring.angle = ok[Math.floor(R() * ok.length)];
       } else ring.angle = 0;
-      if (r.opt.knob) ring.knobs = [{ at: Math.round(R() * 360), len: 20 + Math.round(R() * 6) }];
+      if (r.opt.knob) {
+        // 凸钉只能长在实心管子上：避开缺口，也避开杆和夹套的位置（都换算到环自身的角度）
+        const w = ring.gap ? ring.gap.w : 0, rel = [];
+        for (const [o, h] of T.links) {
+          if (o === r.id) rel.push(Math.atan2(pos[h].y - r.y, pos[h].x - r.x) / C.DEG - ring.angle);
+          if (h === r.id) rel.push(Math.atan2(pos[o].y - r.y, pos[o].x - r.x) / C.DEG - ring.angle);
+        }
+        const ok = [];
+        for (let a = 0; a < 360; a += 3) {
+          if (ring.gap && Math.abs(C.angDiff(a * C.DEG, 0)) <= (w / 2 + 22) * C.DEG) continue;
+          if (rel.some((v) => Math.abs(C.angDiff(a * C.DEG, v * C.DEG)) <= 40 * C.DEG)) continue;
+          ok.push(a);
+        }
+        if (!ok.length) return null;
+        ring.knobs = [{ at: ok[Math.floor(R() * ok.length)], len: 20 + Math.round(R() * 6) }];
+      }
       lv.rings.push(ring);
     }
     return lv;
