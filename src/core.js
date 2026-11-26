@@ -10,6 +10,8 @@
  * - 杆必须长在主环的实心管子上，不能落在主环的缺口里。
  * - 环身上可能有凸起的短杆（凸钉），转动时凸钉会撞到别的环、杆、夹套，撞上就停。
  * - 一个环身上没有任何连接时自动飞走。全部飞走即过关。
+ * - 直杆（对照原作第 6-10 关）：只能沿自身方向滑动；主环伸出的杆端是银色套筒，套在直杆上。
+ *   直杆滑到端头离开套筒，这条连接就断开。直杆会挡住环的转动，环和别的零件也会挡住直杆。
  */
 (function (root) {
   'use strict';
@@ -21,6 +23,8 @@
   const CLAMP_LEN = 18;   // 夹套沿管子方向的长度
   const KNOB = 7;         // 凸钉末端方块的半径
   const STEP = 1 * DEG;   // 转动时碰撞检测的步长
+  const BAR = 10;         // 直杆粗细
+  const SLIDE = 1.5;      // 直杆滑动时碰撞检测的步长（像素）
 
   const norm = (a) => { a %= TAU; return a < 0 ? a + TAU : a; };
   const angDiff = (a, b) => { let d = norm(a - b); return d > Math.PI ? d - TAU : d; };
@@ -28,8 +32,11 @@
   function build(level) {
     const idx = {};
     level.rings.forEach((r, i) => { idx[r.id] = i; });
-    const rings = level.rings.map((r, i) => ({
-      id: r.id, i, x: r.x, y: r.y, r: r.r, color: r.color,
+    const rings = level.rings.map((r, i) => (r.type === 'bar' ? {
+      id: r.id, i, kind: 'bar', x: r.x, y: r.y, r: 0, color: r.color, gap: null, knobs: [],
+      ux: Math.cos(r.dir * DEG), uy: Math.sin(r.dir * DEG), len: r.len, half: r.len / 2,
+    } : {
+      id: r.id, i, kind: 'ring', x: r.x, y: r.y, r: r.r, color: r.color,
       gap: r.gap ? { at: r.gap.at * DEG, w: r.gap.w * DEG } : null,
       knobs: (r.knobs || []).map((k) => ({ at: k.at * DEG, len: k.len })),
     }));
@@ -41,6 +48,20 @@
     });
     const links = (level.links || []).map(([o, h], k) => {
       const O = rings[idx[o]], H = rings[idx[h]];
+      if (H.kind === 'bar') {
+        // 套筒在直杆轴线上离主环圆心最近的点，杆垂直于直杆
+        const t0 = (O.x - H.x) * H.ux + (O.y - H.y) * H.uy;
+        const px = H.x + H.ux * t0, py = H.y + H.uy * t0;
+        const dd = Math.hypot(px - O.x, py - O.y), nx = (px - O.x) / dd, ny = (py - O.y) / dd;
+        const rootDir = Math.atan2(ny, nx);
+        return {
+          k, owner: O.i, held: H.i, mode: 'bar', clampT0: t0,
+          clampAng: Math.atan2(-ny, -nx), cx: px, cy: py,
+          sx: O.x + nx * (O.r + TUBE / 2), sy: O.y + ny * (O.r + TUBE / 2),
+          stemLen: dd - O.r,
+          stubAt: rootDir - norm((level.rings[O.i].angle || 0) * DEG), stubIn: false, stubLen: dd - O.r,
+        };
+      }
       const dx = H.x - O.x, dy = H.y - O.y, d = Math.hypot(dx, dy);
       const ux = dx / d, uy = dy / d;
       // 三种摆法：主环在外面（最常见）、主环套在大环里面、被扣环套在主环里面
@@ -64,7 +85,7 @@
     });
     return {
       level, rings, links,
-      angles0: level.rings.map((r) => norm((r.angle || 0) * DEG)),
+      angles0: level.rings.map((r) => (r.type === 'bar' ? 0 : norm((r.angle || 0) * DEG))),
       ringAlive0: level.rings.map(() => true),
       linkAlive0: links.map(() => true),
     };
@@ -81,7 +102,7 @@
     if (!s.ring[i]) return 'gone';
     if (ownsLive(G, s, i)) return 'owner';
     const R = G.rings[i];
-    if (!R.gap && !R.knobs.length && !G.links.some((L) => L.owner === i)) return 'closed';
+    if (R.kind !== 'bar' && !R.gap && !R.knobs.length && !G.links.some((L) => L.owner === i)) return 'closed';
     return null;
   }
 
@@ -102,6 +123,19 @@
     }
     return out;
   }
+
+  // 直杆在滑动量 sv 时的采样圆
+  function barCircles(R, sv) {
+    const out = [];
+    for (let t = -R.half; t <= R.half + 0.01; t += 4) out.push({ x: R.x + R.ux * (sv + t), y: R.y + R.uy * (sv + t), rad: BAR / 2 });
+    return out;
+  }
+  function hitsBar(R, sv, p) {
+    const dx = p.x - R.x, dy = p.y - R.y;
+    const t = Math.max(-R.half, Math.min(R.half, dx * R.ux + dy * R.uy - sv));
+    return Math.hypot(dx - R.ux * (sv + t), dy - R.uy * (sv + t)) < BAR / 2 + p.rad;
+  }
+  const hitsPiece = (Q, v, p) => (Q.kind === 'bar' ? hitsBar(Q, v, p) : hitsTube(Q, v, p));
 
   function linkCircles(L) {
     const out = [];
@@ -125,13 +159,14 @@
   // 环 i 在角度 ang 时是否与其他物体相撞；撞上时返回接触点
   function collision(G, s, i, ang) {
     const R = G.rings[i];
-    const mine = knobCircles(G, s, i, ang);
+    const mine = R.kind === 'bar' ? barCircles(R, ang) : knobCircles(G, s, i, ang);
     const obstacles = [];
     for (let j = 0; j < G.rings.length; j++) {
       if (j === i || !s.ring[j]) continue;
       const Q = G.rings[j];
-      for (const p of mine) if (hitsTube(Q, s.angles[j], p)) return p;
-      for (const q of knobCircles(G, s, j, s.angles[j])) obstacles.push(q);
+      for (const p of mine) if (hitsPiece(Q, s.angles[j], p)) return p;
+      if (Q.kind !== 'bar') for (const q of knobCircles(G, s, j, s.angles[j])) obstacles.push(q);
+      else if (R.kind !== 'bar') for (const q of barCircles(Q, s.angles[j])) obstacles.push(q);
     }
     for (const L of G.links) {
       if (!s.link[L.k]) continue;
@@ -142,7 +177,7 @@
     }
     for (const q of obstacles) {
       for (const p of mine) if (hitsCircle(p, q)) return { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 };
-      if (hitsTube(R, ang, q)) return q;
+      if (R.kind !== 'bar' && hitsTube(R, ang, q)) return q;
     }
     return null;
   }
@@ -150,6 +185,13 @@
   // 检查环 i 当前角度下哪些夹套滑脱，返回断开的连接
   function releases(G, s, i) {
     const R = G.rings[i], out = [];
+    if (R.kind === 'bar') {
+      for (const L of G.links) {
+        if (!s.link[L.k] || L.held !== i) continue;
+        if (Math.abs(L.clampT0 - s.angles[i]) > R.half + CLAMP_LEN / 2 - 3) out.push(L.k);
+      }
+      return out;
+    }
     if (!R.gap) return out;
     for (const L of G.links) {
       if (!s.link[L.k] || L.held !== i) continue;
@@ -170,12 +212,12 @@
    * events 记录过程中发生的事：{type:'release', k} / {type:'fly', i} / {type:'hit', p}
    */
   function sweep(G, s, i, delta, events) {
-    const dir = Math.sign(delta);
+    const dir = Math.sign(delta), bar = G.rings[i].kind === 'bar';
     let left = Math.abs(delta), moved = 0;
     while (left > 1e-9) {
       if (!s.ring[i]) break;
-      const st = Math.min(STEP, left);
-      const next = norm(s.angles[i] + dir * st);
+      const st = Math.min(bar ? SLIDE : STEP, left);
+      const next = bar ? s.angles[i] + dir * st : norm(s.angles[i] + dir * st);
       const hit = collision(G, s, i, next);
       if (hit) { if (events) events.push({ type: 'hit', p: hit, ring: i }); break; }
       s.angles[i] = next;
@@ -192,6 +234,14 @@
 
   function candidateMoves(G, s, i) {
     const R = G.rings[i], out = [];
+    if (R.kind === 'bar') {
+      for (const L of G.links) {
+        if (!s.link[L.k] || L.held !== i) continue;
+        const need = R.half + CLAMP_LEN / 2 - 2;
+        out.push(L.clampT0 - need - s.angles[i], L.clampT0 + need - s.angles[i]);
+      }
+      return out;
+    }
     if (R.gap) {
       for (const L of G.links) {
         if (!s.link[L.k] || L.held !== i) continue;
@@ -203,13 +253,13 @@
     return out;
   }
 
-  const stateKey = (s) => s.angles.map((a, i) => (s.ring[i] ? Math.round(a / DEG / 2) % 180 : 'x')).join(',') + '|' + s.link.map(Number).join('');
+  const stateKey = (s, G) => s.angles.map((a, i) => (!s.ring[i] ? 'x' : G && G.rings[i].kind === 'bar' ? 'b' + Math.round(a / 3) : Math.round(a / DEG / 2) % 180)).join(',') + '|' + s.link.map(Number).join('');
 
   // 广度优先求最少拖动次数
   function solve(G, start, opts) {
     const maxDepth = (opts && opts.maxDepth) || 16, maxNodes = (opts && opts.maxNodes) || 200000;
     if (start.ring.every((a) => !a)) return { moves: [], nodes: 0 };
-    const seen = new Set([stateKey(start)]);
+    const seen = new Set([stateKey(start, G)]);
     let frontier = [{ s: start, path: [] }], nodes = 0;
     for (let depth = 0; depth < maxDepth && frontier.length; depth++) {
       const next = [];
@@ -222,7 +272,7 @@
             if (Math.abs(moved) < 0.5 * DEG) continue;
             const p = path.concat([{ ring: i, delta: moved }]);
             if (n.ring.every((a) => !a)) return { moves: p, nodes };
-            const key = stateKey(n);
+            const key = stateKey(n, G);
             if (seen.has(key)) continue;
             seen.add(key);
             if (++nodes > maxNodes) return { moves: null, nodes, aborted: true };
@@ -247,7 +297,7 @@
     function dfs(s, path) {
       if (s.ring.every((a) => !a)) return path;
       if (++nodes > maxNodes) return null;
-      const key = stateKey(s);
+      const key = stateKey(s, G);
       if (seen.has(key)) return null;
       seen.add(key);
       const before = live(s), opts2 = [];
@@ -287,6 +337,12 @@
       // 杆的根部必须在主环实心的地方
       const O = G.rings[L.owner];
       if (O.gap && Math.abs(angDiff(L.stubAt, O.gap.at)) < O.openHalf + (STEM / 2 + 4) / O.r) problems.push('link ' + L.k + ' stem in owner gap');
+      if (L.mode === 'bar') {
+        const B = G.rings[L.held];
+        if (Math.abs(L.clampT0) > B.half - CLAMP_LEN / 2 - 6) problems.push('link ' + L.k + ' sleeve off bar');
+        return;
+      }
+      if (G.rings[L.owner].kind === 'bar') { problems.push('link ' + L.k + ' bar cannot own'); return; }
       // 夹套不能一开始就落在被扣环的缺口里
       const Hr = G.rings[L.held];
       if (Hr.gap && Math.abs(angDiff(L.clampAng, Hr.gap.at + s.angles[L.held])) < Hr.openHalf + 4 / Hr.r) problems.push('link ' + L.k + ' clamp in held gap');
@@ -307,6 +363,7 @@
       if (linkCount(G, s, i) === 0) problems.push('ring ' + G.rings[i].id + ' has no link');
       for (let j = i + 1; j < G.rings.length; j++) {
         const A = G.rings[i], B = G.rings[j];
+        if (A.kind === 'bar' || B.kind === 'bar') continue; // 直杆靠碰撞检测
         const dd = Math.hypot(A.x - B.x, A.y - B.y), small = Math.min(A.r, B.r), big = Math.max(A.r, B.r);
         const nested = dd + small + TUBE + 6 < big;
         if (!nested && dd < A.r + B.r + TUBE) problems.push('rings ' + A.id + B.id + ' overlap');
@@ -316,7 +373,7 @@
   }
 
   root.RRCore = {
-    TAU, DEG, TUBE, STEM, CLAMP_LEN, KNOB, norm, angDiff, build, initState, cloneState,
+    TAU, DEG, TUBE, STEM, CLAMP_LEN, KNOB, BAR, barCircles, norm, angDiff, build, initState, cloneState,
     ownsLive, linkCount, blockReason, knobCircles, collision, releases, flyers, sweep, candidateMoves, solve, solveFast, hintMove, validate,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

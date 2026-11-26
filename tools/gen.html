@@ -14,7 +14,7 @@
   function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
 
   // 树形模板：每个节点 [id, 父 id, 方位角, 半径, 选项]；父扣子（父是主环）
-  function tree(nodes, extraLinks) {
+  function tree(nodes, extraLinks, bars) {
     const pos = {};
     const rings = [], links = [];
     for (const [id, parent, dir, r, opt] of nodes) {
@@ -28,7 +28,15 @@
       pos[id] = { x, y, r };
       rings.push({ id, x: Math.round(x), y: Math.round(y), r, opt: opt || {} });
     }
-    return { rings, links: links.concat(extraLinks || []).map(([o, h]) => (pos[o].r > 90 ? [h, o] : [o, h])) };
+    const all = links.concat(extraLinks || []).map(([o, h]) => (pos[o].r > 90 ? [h, o] : [o, h]));
+    for (const [id, owner, dir, len, opt] of bars || []) {
+      // 直杆垂直于主环伸出的杆，套筒先放在直杆正中，生成时再随机错开
+      const P = pos[owner], d = P.r + ((opt && opt.stem) || 16);
+      const x = P.x + Math.cos(dir * C.DEG) * d, y = P.y + Math.sin(dir * C.DEG) * d;
+      rings.push({ id, type: 'bar', x: Math.round(x), y: Math.round(y), dir: dir + 90, len, opt: opt || {} });
+      all.push([owner, id]);
+    }
+    return { rings, links: all };
   }
 
   const TEMPLATES = {
@@ -110,7 +118,10 @@
       ['n', 'b', 0, 31, { at: [5, -21] }],
       ['g', 'a', 90, 34, { stem: 16, knob: true }], ['k', 'c', 90, 34, { stem: 16, knob: true }],
       ['p', 'n', 90, 38, { stem: 16, knob: true }],
-    ], [['h2', 'm']]),
+    ], [['h2', 'm']], [
+      ['z1', 'h2', -60, 90, {}],
+      ['z2', 'p', 90, 100, {}],
+    ]),
     // 第 10 关：一个大 C 环包住两个小环，外面还有环扣着它（对标原作第 10 关的大环）
     L10: () => tree([
       ['B', null, 0, 100, { at: [0, 0], knob: true }],
@@ -121,7 +132,10 @@
       ['p2', 'o2', 135, 32, { stem: 16, knob: true }], ['p3', 'o3', 45, 32, { stem: 16 }],
       ['q', 'o1', -90, 32, { stem: 16, knob: true }],
       ['r2', 'p2', 90, 30, { stem: 16, knob: true }], ['r3', 'p3', 90, 30, { stem: 16, knob: true }],
-    ], [['i1', 'i2']]),
+    ], [['i1', 'i2']], [
+      ['z1', 'i1', 60, 56, {}],
+      ['z2', 'o1', 0, 86, {}],
+    ]),
   };
   const TARGET = { L1: [1, 1, 0], L2: [3, 3, 0.2], L3: [4, 5, 0.3], L4: [6, 9, 0.35], L5: [8, 12, 0.45], L6: [10, 16, 0.15], L7: [9, 13, 0.3], L8: [9, 16, 0.35], L9: [9, 15, 0.4], L10: [7, 16, 0.5] };
   const SEEDS = { L1: 60, L2: 120, L3: 300, L4: 40, L5: 60, L6: 12, L7: 40, L8: 30, L9: 40, L10: 60 };
@@ -131,7 +145,7 @@
   function instantiate(T, seed) {
     const R = rng(seed), lv = { rings: [], links: T.links };
     // 先用 core 算出每条连接真实的杆根方向和夹套方向（套在大环里时方向是反的）
-    const geo = C.build({ rings: T.rings.map((r) => ({ id: r.id, x: r.x, y: r.y, r: r.r, angle: 0 })), links: T.links });
+    const geo = C.build({ rings: T.rings.map((r) => (r.type === 'bar' ? r : { id: r.id, x: r.x, y: r.y, r: r.r, angle: 0 })), links: T.links });
     const idOf = (i) => T.rings[i].id;
     const dirsOf = (id) => {
       const out = [];
@@ -142,6 +156,13 @@
       return out;
     };
     for (const r of T.rings) {
+      if (r.type === 'bar') {
+        const len = r.len + Math.round((R() - 0.5) * 16);
+        const off = (R() - 0.5) * (len - C.CLAMP_LEN - 20);
+        const u = r.dir * C.DEG;
+        lv.rings.push({ id: r.id, type: 'bar', x: Math.round(r.x + Math.cos(u) * off), y: Math.round(r.y + Math.sin(u) * off), dir: r.dir, len });
+        continue;
+      }
       const ring = { id: r.id, x: r.x, y: r.y, r: r.r };
       const avoid = dirsOf(r.id);
       if (!r.opt.closed) {
@@ -212,7 +233,8 @@
     if (only && only !== name) continue;
     const T = mk(), [lo, hi, trapT] = TARGET[name];
     let best = null, stats = {};
-    for (let seed = 1; seed <= SEEDS[name]; seed++) {
+    const seed0 = +(q.get('seed0') || 1);
+    for (let seed = seed0; seed < seed0 + SEEDS[name]; seed++) {
       const lv = instantiate(T, seed);
       if (!lv) { stats.nogap = (stats.nogap || 0) + 1; if (q.get('debug')) out.push('  ' + seed + ' nogap ' + window.noGap); continue; }
       const m = measure(lv);

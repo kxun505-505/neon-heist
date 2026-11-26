@@ -32,6 +32,16 @@
         const m = C.hintMove(G, s, 15000);
         if (!m) { log.push(`L${n + 1} stuck`); break; }
         const R = G.rings[m.ring];
+        if (R.kind === 'bar') {
+          const sv = s.angles[m.ring];
+          const at = (t) => w.__neon.toScreen(R.x + R.ux * (sv + t), R.y + R.uy * (sv + t));
+          fire('pointerdown', at(0));
+          const steps = Math.max(2, Math.ceil(Math.abs(m.delta) / 3));
+          for (let k = 1; k <= steps; k++) { fire('pointermove', at((m.delta * k) / steps)); if (k % 4 === 0) await sleep(8); }
+          fire('pointerup', at(m.delta));
+          await sleep(30);
+          continue;
+        }
         // 在环上找一个离别的物体最远的点下手，避免抓错环
         let best = 0, bestD = -1;
         for (let k = 0; k < 72; k++) {

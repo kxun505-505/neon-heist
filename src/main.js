@@ -4,7 +4,8 @@
 (function () {
   'use strict';
   const C = RRCore, LEVELS = RRLevels, SFX = RRAudio, TAU = C.TAU, DEG = C.DEG;
-  const TUBE = C.TUBE, STEM = C.STEM, CLAMP_LEN = C.CLAMP_LEN, KNOB = C.KNOB;
+  const TUBE = C.TUBE, STEM = C.STEM, CLAMP_LEN = C.CLAMP_LEN, KNOB = C.KNOB, BAR = C.BAR;
+  const SILVER = '#cfcbe3';
   const PROGRESS_KEY = 'neonloops-progress-v2';
   const UNLOCK_ALL = /[?&]unlock/.test(location.search);
   const BG_KEY = 'neonloops-bg';
@@ -36,6 +37,14 @@
   function levelBounds(lv) {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const r of lv.rings) {
+      if (r.type === 'bar') {
+        const ux = Math.cos(r.dir * DEG), uy = Math.sin(r.dir * DEG), h = r.len / 2 + BAR;
+        for (const sg of [1, -1]) {
+          x0 = Math.min(x0, r.x + ux * h * sg - BAR); x1 = Math.max(x1, r.x + ux * h * sg + BAR);
+          y0 = Math.min(y0, r.y + uy * h * sg - BAR); y1 = Math.max(y1, r.y + uy * h * sg + BAR);
+        }
+        continue;
+      }
       const ext = r.r + TUBE / 2 + Math.max(0, ...(r.knobs || []).map((k) => k.len + KNOB));
       x0 = Math.min(x0, r.x - ext); x1 = Math.max(x1, r.x + ext);
       y0 = Math.min(y0, r.y - ext); y1 = Math.max(y1, r.y + ext);
@@ -105,6 +114,12 @@
     const tol = TUBE / 2 + 18 / scale;
     G.rings.forEach((R, i) => {
       if (!S.ring[i]) return;
+      if (R.kind === 'bar') {
+        const sv = S.angles[i], t = Math.max(-R.half, Math.min(R.half, (p.x - R.x) * R.ux + (p.y - R.y) * R.uy - sv));
+        const d = Math.max(0, Math.hypot(p.x - R.x - R.ux * (sv + t), p.y - R.y - R.uy * (sv + t)) - BAR / 2);
+        if (d < tol && d < bestD) { best = i; bestD = d; }
+        return;
+      }
       const dc = Math.hypot(p.x - R.x, p.y - R.y);
       let d = Math.abs(dc - R.r);
       for (const k of C.knobCircles(G, S, i, S.angles[i])) d = Math.min(d, Math.max(0, Math.hypot(p.x - k.x, p.y - k.y) - k.rad));
@@ -131,11 +146,12 @@
         G.links.forEach((L) => { if (S.link[L.k] && L.owner === i) flashLinks[L.k] = performance.now(); });
         showTip('它还扣着别的环，先把被扣住的环转出来', 2600);
       } else showTip('闭合的环转不动，等扣在它身上的环都离开', 2600);
+      if (G.rings[i].kind === 'bar') showTip('直杆只能沿着自己的方向推拉', 2600);
       return;
     }
     try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 合成事件 */ }
     const R = G.rings[i];
-    drag = { i, id: e.pointerId, last: Math.atan2(p.y - R.y, p.x - R.x), total: 0, tick: 0, lastHit: 0, moved: false };
+    drag = { i, id: e.pointerId, last: Math.atan2(p.y - R.y, p.x - R.x), lastP: p, bar: R.kind === 'bar', total: 0, tick: 0, lastHit: 0, moved: false };
     lift[i] = { t0: performance.now(), on: true };
     if (hint && !hint.auto) hint = null;
     SFX.grab();
@@ -147,6 +163,13 @@
     for (const ev of (evs.length ? evs : [e])) {
       if (!drag) break;
       const p = toLogical(ev), R = G.rings[drag.i];
+      if (drag.bar) {
+        // 直杆：手指位移投影到杆的方向上
+        const d = (p.x - drag.lastP.x) * R.ux + (p.y - drag.lastP.y) * R.uy;
+        drag.lastP = p;
+        turn(d);
+        continue;
+      }
       const rad = Math.hypot(p.x - R.x, p.y - R.y);
       if (rad < 10) continue; // 太靠近圆心时角度不稳定
       const a = Math.atan2(p.y - R.y, p.x - R.x);
@@ -161,12 +184,12 @@
     const i = drag.i;
     const events = [];
     const moved = C.sweep(G, S, i, d, events);
-    drag.total += Math.abs(moved);
+    drag.total += drag.bar ? Math.abs(moved) / 40 : Math.abs(moved);
     if (!drag.moved && drag.total > 2 * DEG) {
       drag.moved = true; moves++; everDragged = true;
       if (hint) hint = null;
     }
-    drag.tick += Math.abs(moved);
+    drag.tick += drag.bar ? Math.abs(moved) / 60 : Math.abs(moved);
     if (drag.tick > 10 * DEG) { drag.tick = 0; SFX.tick(); }
     handleEvents(events);
   }
@@ -216,6 +239,20 @@
 
   function flyAway(i, now) {
     const R = G.rings[i];
+    if (R.kind === 'bar') {
+      const sv = S.angles[i], n = Math.round(R.len / 6);
+      for (let k = 0; k < n; k++) {
+        const t = -R.half + (R.len * (k + Math.random() * 0.6)) / n;
+        const x = R.x + R.ux * (sv + t), y = R.y + R.uy * (sv + t);
+        const pts = [], sides = 4 + Math.floor(Math.random() * 3), size = 3.5 + Math.random() * 3;
+        for (let q = 0; q < sides; q++) { const pa = (q / sides) * TAU + Math.random() * 0.6; const pr = size * (0.6 + Math.random() * 0.5); pts.push([Math.cos(pa) * pr, Math.sin(pa) * pr]); }
+        const sp = 40 + Math.random() * 120, a = Math.random() * TAU;
+        fx.push({ type: 'chunk', color: R.color, x, y, pts, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 80, vr: (Math.random() - 0.5) * 10, t0: now + Math.random() * 40, life: 0.75 + Math.random() * 0.35 });
+      }
+      fx.push({ type: 'plus', x: R.x + R.ux * sv, y: R.y + R.uy * sv, t0: now, text: '+' + 200 * Math.min(combo.n + 1, 5) });
+      buzz(30);
+      return;
+    }
     const ang = S.angles[i];
     const g0 = R.gap ? R.gap.at + ang + R.gap.w / 2 : 0;
     const span = R.gap ? TAU - R.gap.w : TAU;
@@ -508,13 +545,31 @@
     return l.on ? e : 1 - e;
   }
 
+  function drawBar(i, now) {
+    const R = G.rings[i], sv = S.angles[i];
+    const { dx, dy } = ringOffset(i, now);
+    const lf = liftAmount(i, now);
+    const glow = 1 + lf * 1.2 + (hint && hint.i === i ? 0.8 + 0.6 * Math.sin(now / 160) : 0);
+    const ax = R.x + dx + R.ux * (sv - R.half), ay = R.y + dy + R.uy * (sv - R.half) - lf * 2.5;
+    const bx = R.x + dx + R.ux * (sv + R.half), by = R.y + dy + R.uy * (sv + R.half) - lf * 2.5;
+    lineTube(ax, ay, bx, by, R.color, BAR * (1 + lf * 0.08), glow);
+    // 两端的镀铬端帽
+    for (const [x, y] of [[ax, ay], [bx, by]]) {
+      const g = ctx.createRadialGradient(x - 1.5, y - 2, 0.5, x, y, BAR * 0.62);
+      g.addColorStop(0, '#ffffff'); g.addColorStop(0.5, '#b9b6cf'); g.addColorStop(1, '#3d3a50');
+      ctx.fillStyle = 'rgba(8,2,20,0.95)'; ctx.beginPath(); ctx.arc(x, y, BAR * 0.62 + 1.2, 0, TAU); ctx.fill();
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, BAR * 0.62, 0, TAU); ctx.fill();
+    }
+  }
+
   function drawRing(i, now) {
     const R = G.rings[i];
+    if (R.kind === 'bar') { drawBar(i, now); return; }
     const { dx, dy } = ringOffset(i, now);
     const lf = liftAmount(i, now);
     const cx = R.x + dx, cy = R.y + dy - lf * 2.5, ang = S.angles[i];
     // 抬起时的投影
-    if (lf > 0) {
+    if (lf > 0 && R.kind !== 'bar') {
       ctx.save();
       ctx.globalAlpha = 0.35 * lf;
       ctx.strokeStyle = '#000'; ctx.lineWidth = TUBE + 4; ctx.lineCap = 'round';
@@ -529,7 +584,7 @@
       const a = L.stubAt + ang, c = Math.cos(a), sn = Math.sin(a), sg = L.stubIn ? -1 : 1;
       const r0 = R.r + sg * (TUBE / 2 - 2), r1 = R.r + sg * (L.stubLen - 4), re = R.r + sg * L.stubLen;
       lineTube(cx + c * r0, cy + sn * r0, cx + c * r1, cy + sn * r1, R.color, STEM, glow);
-      drawClampAt(R.color, cx + c * re, cy + sn * re, a, 1, 1, 0, now);
+      drawClampAt(L.mode === 'bar' ? SILVER : R.color, cx + c * re, cy + sn * re, a, 1, 1, 0, now);
     }
     const tw = TUBE * (1 + lf * 0.06);
     if (R.gap) { const g = R.gap.at + ang; arcTube(cx, cy, R.r, g + R.gap.w / 2, g - R.gap.w / 2 + TAU, R.color, tw, glow, false, ang); }
@@ -545,7 +600,7 @@
 
   function drawClamp(L, now, alpha, sc) {
     const fl = flashLinks[L.k] != null ? Math.max(0, 1 - (now - flashLinks[L.k]) / 700) : 0;
-    drawClampAt(G.rings[L.owner].color, L.cx, L.cy, L.clampAng + Math.PI, alpha, sc, fl, now);
+    drawClampAt(L.mode === 'bar' ? SILVER : G.rings[L.owner].color, L.cx, L.cy, L.clampAng + Math.PI, alpha, sc, fl, now);
   }
 
   // 夹套：方向 dir 为杆的方向（从主环指向夹套）
@@ -607,6 +662,21 @@
   function drawHint(now) {
     if (!hint || !S.ring[hint.i] || drag) return;
     const R = G.rings[hint.i];
+    if (R.kind === 'bar') {
+      const t = ((now - hint.t0) / 1000) % 1.9, sv = S.angles[hint.i];
+      const dist = Math.sign(hint.delta) * Math.min(Math.abs(hint.delta), 70);
+      let p, press, alpha = 1;
+      if (t < 0.3) { p = 0; press = t / 0.3; alpha = t / 0.3; }
+      else if (t < 1.4) { const e = (t - 0.3) / 1.1; p = e * e * (3 - 2 * e); press = 1; }
+      else { p = 1; press = 1 - (t - 1.4) / 0.5; alpha = press; }
+      const x0 = R.x + R.ux * sv, y0 = R.y + R.uy * sv;
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 3; ctx.setLineDash([5, 7]);
+      ctx.beginPath(); ctx.moveTo(x0 - R.uy * 16, y0 + R.ux * 16); ctx.lineTo(x0 - R.uy * 16 + R.ux * dist, y0 + R.ux * 16 + R.uy * dist); ctx.stroke();
+      ctx.restore();
+      drawHand(x0 + R.ux * dist * p, y0 + R.uy * dist * p, press, alpha);
+      return;
+    }
     const t = ((now - hint.t0) / 1000) % 1.9;
     // 在离其他物体最远的位置演示
     const base = Math.atan2(R.y - bounds.cy, R.x - bounds.cx);
