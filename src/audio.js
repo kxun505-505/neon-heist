@@ -112,6 +112,22 @@
       [261.63, 329.63, 392].forEach((f) => tone({ type: 'triangle', f0: f, dur: 1.2, gain: 0.08, at: 0.45 }));
     },
     button() { tone({ type: 'triangle', f0: 1200, f1: 900, dur: 0.05, gain: 0.07 }); },
+    // 跑车冲出去：引擎轰一下（锯齿波快速升调）+ 风噪从高到低扫过（多普勒的感觉）
+    dash(n) {
+      if (!ensure() || muted) return;
+      const t = ac.currentTime, k = 1 + Math.min(n | 0, 5) * 0.06;
+      const o = ac.createOscillator(), og = ac.createGain(), lp = ac.createBiquadFilter();
+      o.type = 'sawtooth'; o.frequency.setValueAtTime(95 * k, t); o.frequency.exponentialRampToValueAtTime(290 * k, t + 0.16); o.frequency.exponentialRampToValueAtTime(150 * k, t + 0.32);
+      lp.type = 'lowpass'; lp.frequency.value = 1400;
+      og.gain.setValueAtTime(0.0001, t); og.gain.exponentialRampToValueAtTime(0.07, t + 0.02); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
+      o.connect(lp); lp.connect(og); og.connect(master); o.start(t); o.stop(t + 0.36);
+      if (!noiseBuf) noise({ dur: 0.001, gain: 0.0001 });
+      const src = ac.createBufferSource(), bp = ac.createBiquadFilter(), g = ac.createGain();
+      src.buffer = noiseBuf; bp.type = 'bandpass'; bp.Q.value = 1.1;
+      bp.frequency.setValueAtTime(4200, t); bp.frequency.exponentialRampToValueAtTime(500, t + 0.3);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.16, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+      src.connect(bp); bp.connect(g); g.connect(master); src.start(t, Math.random() * 0.2); src.stop(t + 0.34);
+    },
     // 烟花升空：带一点颤音的上扬哨声 + 嘶嘶的尾焰
     launch() {
       if (!ensure() || muted) return;

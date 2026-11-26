@@ -241,51 +241,37 @@
       } else fx.push({ type: 'word', text: 'Good!', x: wx, y: wy, t0: ft, small: true });
       if (S.ring.every((a) => !a)) {
         // 最后一个零件：慢镜头收尾
-        // 最后一颗烟花快到顶点时进入慢镜头，让它在慢动作里炸开
-        slowmo = { t0: now + (flew - 1) * 70 + RISE * 1000 * 0.75 };
-        setTimeout(() => SFX.slowmo(), (flew - 1) * 70 + RISE * 1000 * 0.6);
+        // 最后一个零件刚起步就进入慢镜头，让它在慢动作里拖着光带冲出去
+        slowmo = { t0: now + (flew - 1) * 70 + RECOIL * 1000 + 30 };
+        setTimeout(() => SFX.slowmo(), (flew - 1) * 70 + 60);
         win();
       }
     }
   }
 
-  // 零件飞走（C. 海湾烟花）：零件立刻缩成一颗亮球冲上天，拖着尾焰，到顶点炸成同色的烟花
-  const RISE = 0.42; // 升空时长（秒）
+  // 零件飞走（B. 跑车尾灯拖影）：零件往后一缩蓄力，然后猛地加速冲出屏幕，身后留下红白两道光带
+  const DASH = 0.34;   // 冲出屏幕的时长（秒）
+  const RECOIL = 0.05; // 蓄力的时长（秒）
   function flyAway(i, t0, comboN) {
     const R = G.rings[i], ang = S.angles[i];
     const x0 = R.kind === 'bar' ? R.x + R.ux * ang : R.x, y0 = R.kind === 'bar' ? R.y + R.uy * ang : R.y;
-    // 顶点：往上 150~210，不超出棋盘上沿太多；左右稍微错开
-    const top = bounds.y0 - 30;
-    const apexY = Math.max(top, y0 - 150 - Math.random() * 60), apexX = x0 + (Math.random() - 0.5) * 70;
-    fx.push({ type: 'rocket', R, ang, x0, y0, apexX, apexY, t0, combo: comboN,
-      shape: R.kind === 'bar' ? 'willow' : R.gap ? 'ring' : 'peony' });
-    fx.push({ type: 'pop', R: R.kind === 'bar' ? { x: x0, y: y0, r: R.half * 0.6, color: R.color } : R, ang, t0, soft: true });
+    // 方向：从棋盘中心往外，以水平为主（像公路上的车流），中间的零件随机往左或往右
+    let dx = x0 - bounds.cx, dy = (y0 - bounds.cy) * 0.35;
+    if (Math.hypot(dx, dy) < 24) { dx = Math.random() < 0.5 ? -1 : 1; dy = -0.12; }
+    const len = Math.hypot(dx, dy); dx /= len; dy /= len;
+    const far = Math.hypot(W, H) / scale + 160; // 保证冲出屏幕
+    fx.push({ type: 'dash', R, ang, x0, y0, dx, dy, far, t0, combo: comboN });
     fx.push({ type: 'plus', x: x0, y: y0, t0, text: '+' + 200 * Math.min(comboN, 5) });
-    setTimeout(() => SFX.launch(), Math.max(0, t0 - fxTime()));
+    setTimeout(() => { SFX.dash(comboN - 1); SFX.free(Math.max(0, comboN - 1)); }, Math.max(0, (t0 - fxTime()) / Math.max(timeScale, 0.3)));
     HAP.fire('fly');
   }
 
   let pendingFx = [];
-  function fireworkBurst(f) {
-    const now = f.t0 + RISE * 1000, R = f.R, c = R.color;
-    const out = pendingFx;
-    const n = f.shape === 'willow' ? 54 : 84;
-    for (let k = 0; k < n; k++) {
-      const a = (k / n) * TAU + Math.random() * 0.12;
-      let sp;
-      if (f.shape === 'ring') sp = k % 3 ? 255 + Math.random() * 25 : 100 + Math.random() * 130; // 一圈清晰的环 + 里面散开的星
-      else if (f.shape === 'willow') sp = 80 + Math.random() * 120;                          // 柳树：慢、下垂、拖长尾
-      else sp = 80 + Math.random() * 220;                                                     // 牡丹：实心的球
-      out.push({ type: 'fw', x: f.apexX, y: f.apexY, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
-        color: k % 5 === 0 ? '#ffffff' : c, t0: now, life: (f.shape === 'willow' ? 1.5 : 1.05) + Math.random() * 0.35,
-        drag: f.shape === 'willow' ? 1.6 : 2.4, grav: f.shape === 'willow' ? 170 : 110, trail: f.shape === 'willow' ? 0.2 : 0.11 });
-    }
-    out.push({ type: 'flash', x: f.apexX, y: f.apexY, r: 70, t0: now });
-    out.push({ type: 'glitter', x: f.apexX, y: f.apexY, t0: now + 420, color: c });
-    out.push({ type: 'smoke', x: f.apexX, y: f.apexY, t0: now + 60, life: 1.4, r0: 18 });
-    SFX.boom(f.combo - 1);
-    SFX.free(Math.max(0, f.combo - 1));
-    setTimeout(() => SFX.crackle(), 420 / Math.max(timeScale, 0.25));
+  // 冲刺时零件走过的距离（先往后缩 6 像素，再匀加速）
+  function dashDist(f, t) {
+    if (t < RECOIL) return -6 * Math.sin((t / RECOIL) * Math.PI / 2);
+    const tt = t - RECOIL, acc = (2 * (f.far + 6)) / Math.pow(DASH - RECOIL, 2);
+    return -6 + 0.5 * acc * tt * tt;
   }
 
   // 短路时的零件本体（已经不在棋盘状态里了，单独画）
@@ -338,7 +324,7 @@
       $('btnNextLabel').textContent = last ? t('toLevels') : t('next');
       HAP.fire('win');
       $('win').classList.add('show');
-    }, 2000);
+    }, 1900);
   }
 
   // ---------- 提示：求解器算出下一步，用手指动画演示 ----------
@@ -782,74 +768,71 @@
   function drawFx(now) {
     const next = fx.filter((f) => {
       const raw = (now - f.t0) / 1000;
-      if (f.type === 'rocket') {
+      if (f.type === 'dash') {
         if (raw < 0) { drawGhost(f, 1, 1); return true; }
-        if (raw >= RISE) { if (!f.done) { f.done = true; fireworkBurst(f); } return false; }
-        const k = raw / RISE, e = 1 - Math.pow(1 - k, 2.4); // 先快后慢，到顶点时几乎停住
-        const x = f.x0 + (f.apexX - f.x0) * e, y = f.y0 + (f.apexY - f.y0) * e;
-        if (raw < 0.1) {
-          // 前 0.1 秒：零件缩成一颗亮球
-          const q = raw / 0.1;
+        const FADE = 0.28;
+        if (raw > DASH + FADE) return false;
+        const R = f.R, d = dashDist(f, Math.min(raw, DASH));
+        const x = f.x0 + f.dx * d, y = f.y0 + f.dy * d;
+        const nx = -f.dy, ny = f.dx; // 垂直于前进方向
+        const off = R.kind === 'bar' ? 3 : R.r * 0.5;
+        // 光带：从起点（尾端随时间往前收）一直拉到零件当前位置
+        const tailD = Math.max(0, d - 340) + (raw > DASH ? ((raw - DASH) / FADE) * 340 : 0);
+        const fade = raw > DASH ? 1 - (raw - DASH) / FADE : 1;
+        if (d > 4) {
           ctx.save();
-          ctx.translate(x, y); ctx.scale(1 - q * 0.85, 1 - q * 0.85); ctx.translate(-f.x0, -f.y0);
-          drawGhost(f, 1 - q * 0.4, 1.5 + q * 2);
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.lineCap = 'round';
+          const hx = f.x0 + f.dx * d, hy = f.y0 + f.dy * d, tx = f.x0 + f.dx * tailD, ty = f.y0 + f.dy * tailD;
+          for (const sg of [1, -1]) {
+            const ox = nx * off * sg, oy = ny * off * sg;
+            const g1 = ctx.createLinearGradient(tx + ox, ty + oy, hx + ox, hy + oy);
+            g1.addColorStop(0, 'rgba(255,40,70,0)'); g1.addColorStop(0.7, 'rgba(255,40,70,' + 0.55 * fade + ')'); g1.addColorStop(1, 'rgba(255,90,110,' + 0.8 * fade + ')');
+            ctx.strokeStyle = g1; ctx.lineWidth = 8;
+            ctx.beginPath(); ctx.moveTo(tx + ox, ty + oy); ctx.lineTo(hx + ox, hy + oy); ctx.stroke();
+            const g2 = ctx.createLinearGradient(tx + ox, ty + oy, hx + ox, hy + oy);
+            g2.addColorStop(0, rgba(R.color, 0)); g2.addColorStop(1, rgba(R.color, 0.9 * fade));
+            ctx.strokeStyle = g2; ctx.lineWidth = 3.5;
+            ctx.beginPath(); ctx.moveTo(tx + ox, ty + oy); ctx.lineTo(hx + ox, hy + oy); ctx.stroke();
+            const g3 = ctx.createLinearGradient(tx + ox, ty + oy, hx + ox, hy + oy);
+            g3.addColorStop(0.4, 'rgba(255,255,255,0)'); g3.addColorStop(1, 'rgba(255,255,255,' + 0.95 * fade + ')');
+            ctx.strokeStyle = g3; ctx.lineWidth = 1.4;
+            ctx.beginPath(); ctx.moveTo(tx + ox, ty + oy); ctx.lineTo(hx + ox, hy + oy); ctx.stroke();
+          }
+          // 中间一道淡的白色主光带
+          const g4 = ctx.createLinearGradient(tx, ty, hx, hy);
+          g4.addColorStop(0, 'rgba(255,255,255,0)'); g4.addColorStop(1, 'rgba(255,240,230,' + 0.28 * fade + ')');
+          ctx.strokeStyle = g4; ctx.lineWidth = 3;
+          ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(hx, hy); ctx.stroke();
           ctx.restore();
         }
-        // 尾焰：记录走过的路径，画成渐隐的光带
-        (f.trail || (f.trail = [])).push([x, y]);
-        if (f.trail.length > 14) f.trail.shift();
-        ctx.save();
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.lineCap = 'round';
-        for (let j = 1; j < f.trail.length; j++) {
-          const a2 = j / f.trail.length;
-          ctx.strokeStyle = rgba(f.R.color, 0.5 * a2); ctx.lineWidth = 2 + a2 * 4;
-          ctx.beginPath(); ctx.moveTo(f.trail[j - 1][0], f.trail[j - 1][1]); ctx.lineTo(f.trail[j][0], f.trail[j][1]); ctx.stroke();
+        // 零件本体：越快拉得越长（动态模糊感）
+        if (raw < DASH) {
+          const v = raw < RECOIL ? 0 : ((2 * (f.far + 6)) / Math.pow(DASH - RECOIL, 2)) * (raw - RECOIL);
+          const stretch = 1 + Math.min(1.4, v / 3500), squash = 1 / Math.sqrt(stretch);
+          const a = Math.atan2(f.dy, f.dx);
+          ctx.save();
+          ctx.translate(x, y); ctx.rotate(a); ctx.scale(raw < RECOIL ? 0.92 : stretch, raw < RECOIL ? 1.05 : squash); ctx.rotate(-a); ctx.translate(-f.x0, -f.y0);
+          drawGhost(f, 1, 1.6 + Math.min(2, v / 2500));
+          ctx.restore();
+          // 起步瞬间的速度线
+          if (raw > RECOIL && raw < RECOIL + 0.12) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1.5;
+            for (let q = 0; q < 5; q++) {
+              const o2 = ((q - 2) / 2) * (off * 2 + 14), l = 30 + q * 7;
+              const bx = f.x0 - f.dx * 10 + nx * o2, by = f.y0 - f.dy * 10 + ny * o2;
+              ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx - f.dx * l, by - f.dy * l); ctx.stroke();
+            }
+            ctx.restore();
+          }
         }
-        const g = ctx.createRadialGradient(x, y, 0, x, y, 16);
-        g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.3, rgba(f.R.color, 0.9)); g.addColorStop(1, rgba(f.R.color, 0));
-        ctx.fillStyle = g; ctx.fillRect(x - 16, y - 16, 32, 32);
-        if (Math.random() < 0.6) pendingFx.push({ type: 'spark', color: '#ffd9a0', x, y, vx: (Math.random() - 0.5) * 60, vy: 40 + Math.random() * 60, t0: now, life: 0.25 + Math.random() * 0.2 });
-        ctx.restore();
         return true;
       }
       if (raw < 0) return true; // 还没轮到（例如连击字要等灯管爆掉）
       const t = raw;
       switch (f.type) {
-        case 'fw': {
-          if (t > f.life) return false;
-          // 带空气阻力的抛物线：pos(t) = v(1-e^-kt)/k + 重力
-          const pos = (tt) => {
-            const d = (1 - Math.exp(-f.drag * tt)) / f.drag;
-            return [f.x + f.vx * d, f.y + f.vy * d + 0.5 * f.grav * tt * tt];
-          };
-          const [x1, y1] = pos(t), [x0, y0] = pos(Math.max(0, t - f.trail));
-          const k = t / f.life;
-          let a = k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3;
-          if (k > 0.6 && Math.random() < 0.35) a *= 0.25; // 末段闪烁
-          ctx.save();
-          ctx.globalCompositeOperation = 'lighter';
-          ctx.lineCap = 'round';
-          ctx.strokeStyle = rgba(f.color, 0.55 * a); ctx.lineWidth = 4.5;
-          ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
-          ctx.strokeStyle = 'rgba(255,255,255,' + 0.85 * a + ')'; ctx.lineWidth = 1.6;
-          ctx.beginPath(); ctx.moveTo((x0 + x1 * 2) / 3, (y0 + y1 * 2) / 3); ctx.lineTo(x1, y1); ctx.stroke();
-          ctx.restore();
-          return true;
-        }
-        case 'glitter': {
-          // 爆开后约 0.4 秒，余烬里冒出一片噼啪的白色小亮点
-          if (t > 0.5) return false;
-          if (!f.spawned) {
-            f.spawned = true;
-            for (let q = 0; q < 26; q++) {
-              const a = Math.random() * TAU, r = 30 + Math.random() * 110;
-              pendingFx.push({ type: 'spark', color: q % 2 ? '#ffffff' : f.color, x: f.x + Math.cos(a) * r, y: f.y + Math.sin(a) * r * 0.8 + 40,
-                vx: (Math.random() - 0.5) * 30, vy: 20 + Math.random() * 30, t0: now + Math.random() * 200, life: 0.15 + Math.random() * 0.2 });
-            }
-          }
-          return true;
-        }
         case 'smoke': {
           if (t > f.life) return false;
           const k = t / f.life, r = f.r0 + k * 26;
@@ -1063,7 +1046,7 @@
     if (probe === 'slow') { slowmo = { t0: performance.now() - pt * 1000 }; probeHold = pt; frame(); return; }
     const R = G.rings[pi];
     S.ring[pi] = false; G.links.forEach((L) => { if (L.owner === pi || L.held === pi) S.link[L.k] = false; });
-    if (probe === 'fw') { frame(); flyAway(pi, fxClock - pt * 1000, 2); S.ring[pi] = false; timeScale = 0; frame(); frame(); return; }
+    if (probe === 'dash') { frame(); flyAway(pi, fxClock - pt * 1000, 2); S.ring[pi] = false; timeScale = 0; frame(); frame(); return; }
   }, 400);
   const qLang = (location.search.match(/[?&]lang=(\w+)/) || [])[1];
   if (qLang) { I18N.set(qLang); refreshTexts(); syncToggles(); }
