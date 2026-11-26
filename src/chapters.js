@@ -1,13 +1,21 @@
 /*
- * 章节：每 20 关一章，每章一个背景、一个陪玩角色、4 张照片（第 5/10/15/20 关解锁）和 1 段视频（集齐 4 张解锁）。
- * 素材路径为 null 表示还没做，界面会显示 Coming soon。正式图到了，把 .svg 占位换成 tools/assets.sh 生成的 .webp。
+ * 章节：每 20 关一章，每章一个背景、一个陪玩角色。
+ * 奖励按 5 关一组循环：前 4 关每关解锁 1 张照片，第 5 关是困难关，解锁 1 段视频。
+ * 所以每章 16 张照片 + 4 段视频。背景：通关上一章全部 20 关后，才解锁下一章（和它的背景）。
+ * 素材路径为 null 表示还没做，界面会显示 Coming soon。正式图到了，把占位换成 tools/assets.sh 生成的文件。
  */
 (function (root) {
   'use strict';
-  const PER_CHAPTER = 20, PHOTO_EVERY = 5;
+  const PER_CHAPTER = 20, SET = 5; // 5 关一组：4 张照片 + 1 段视频
 
   root.RRChapters = {
-    PER_CHAPTER, PHOTO_EVERY,
+    PER_CHAPTER, SET,
+    // 第 n 关（从 0 数）的奖励：{ kind: 'photo' | 'video', i: 在本章里的序号 }
+    rewardAt(n) {
+      const c = n % PER_CHAPTER, set = Math.floor(c / SET), pos = c % SET;
+      return pos < SET - 1 ? { kind: 'photo', i: set * (SET - 1) + pos } : { kind: 'video', i: set };
+    },
+    isHard: (n) => n % SET === SET - 1,
     list: [
       {
         id: 'ch1',
@@ -67,6 +75,14 @@
               zh: ['这张是你赢来的。别给别人看……好吧，给一个人看可以。', '黄金时刻拍的，想到你了。'],
               ru: ['Это ты заслужил. Никому не показывай… ну ладно, одному человеку можно.', 'Сняла это на закате. Подумала о тебе.'],
             },
+            video: {
+              en: ["That one's a whole movie. Go on, press play.", 'Hard level, hot reward. You earned it.'],
+              ja: ['今回はムービーよ。さあ、再生して。', 'ハードクリアのご褒美。あなたのものよ。'],
+              ko: ['이번엔 영상이야. 어서 재생해 봐.', '어려운 판엔 뜨거운 보상이지. 네 거야.'],
+              pt: ['Essa é um filme inteiro. Vai, aperta o play.', 'Nível difícil, recompensa quente. Você mereceu.'],
+              zh: ['这次是一段视频。来，点播放。', '困难关，奖励也够热。这是你应得的。'],
+              ru: ['Это целое кино. Давай, жми «плей».', 'Сложный уровень — горячая награда. Ты заслужил.'],
+            },
             hint: {
               en: ['Psst… watch my finger.', "Fine, I'll help. Just this once.", 'Follow me, sunshine.'],
               ja: ['ねえ……私の指を見て。', 'しょうがないわね、今回だけよ。', 'ついてきて、サンシャイン。'],
@@ -77,10 +93,15 @@
             },
           },
         },
-        // 第 5、10、15、20 关解锁；后两张和视频还没做
-        photos: ['assets/ch1/photo1.svg', 'assets/ch1/photo2.svg', null, null],
-        video: null,
+        // 16 张照片：第 1-4、6-9、11-14、16-19 关；4 段视频：第 5、10、15、20 关（困难关）
+        // 现在只有 10 关：照片 1-8 和视频 1-2 先用占位，其余还没做
+        photos: [1, 2, 3, 4, 5, 6, 7, 8].map((k) => 'assets/ch1/photo' + k + '.svg').concat(Array(8).fill(null)),
+        videos: ['assets/ch1/video1.mp4', 'assets/ch1/video2.mp4', null, null],
       },
+      // 后面几章还没做关卡和角色，先占位：界面上显示为锁住的章节和背景
+      { id: 'ch2', name: 'NEON CITY', bg: 1, girl: null, photos: Array(16).fill(null), videos: Array(4).fill(null) },
+      { id: 'ch3', name: 'GOLDEN BEACH', bg: 2, girl: null, photos: Array(16).fill(null), videos: Array(4).fill(null) },
+      { id: 'ch4', name: 'BAYOU DUSK', bg: 3, girl: null, photos: Array(16).fill(null), videos: Array(4).fill(null) },
     ],
   };
 })(typeof window !== 'undefined' ? window : globalThis);

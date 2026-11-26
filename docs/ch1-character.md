@@ -65,6 +65,10 @@
 1. You earned this one. Don't show it to anyone… okay, maybe one person.（这张是你赢来的。别给别人看……好吧，给一个人看可以。）
 2. Snapped this at golden hour. Thought of you.（黄金时刻拍的，想到你了。）
 
+### 困难关解锁视频时（表情：wink 眨眼）
+1. That one's a whole movie. Go on, press play.（这次是一段视频。来，点播放。）
+2. Hard level, hot reward. You earned it.（困难关，奖励也够热。这是你应得的。）
+
 ### 点提示时（表情：thinking 思考）
 1. Psst… watch my finger.（嘘……看我手指。）
 2. Fine, I'll help. Just this once.（好吧，帮你，就这一次。）
@@ -74,9 +78,9 @@
 | 表情 | 文件名 | 什么时候出现 |
 |---|---|---|
 | idle 放松微笑 | idle | 平时 |
-| happy 开心大笑 | happy | 开局问候、解锁照片 |
+| happy 开心大笑 | happy | 开局问候、第一次通关普通关（解锁照片） |
 | surprised 惊讶 | surprised | 1.4 秒内连续飞走 2 个以上零件 |
-| wink 眨眼 | wink | 过关 |
+| wink 眨眼 | wink | 重玩已通关的关卡、第一次通关困难关（解锁视频） |
 | pout 噘嘴 | pout | 25 秒没有任何零件飞走，或 10 秒内连点 3 次转不动的环（同一关最多 15 秒提醒一次） |
 | thinking 思考 | thinking | 点“提示” |
 | （可选）blink 闭眼 | blink | 平时每 3–6 秒眨一下眼；没有这张图就不眨眼 |

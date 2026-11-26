@@ -11,12 +11,17 @@
   // 背景跟着章节走；?bg=N 只用于测试时强制指定
   const qBg = (location.search.match(/[?&]bg=(\d+)/) || [])[1];
   let bgIndex = 0;
-  const CH = RRChapters, PER = CH.PER_CHAPTER, EVERY = CH.PHOTO_EVERY;
+  const CH = RRChapters, PER = CH.PER_CHAPTER, SETN = CH.SET;
   const chapterIndex = (n) => Math.min(CH.list.length - 1, Math.floor(n / PER));
   const chapterOf = (n) => CH.list[chapterIndex(n)];
-  // 第 n 关（从 0 数）通关后是否解锁照片，返回照片序号（0~3）或 -1
-  const photoAt = (n) => ((n % PER) + 1) % EVERY === 0 ? Math.floor((n % PER) / EVERY) : -1;
-  const photoUnlocked = (ci, k) => progress[ci * PER + (k + 1) * EVERY - 1] != null;
+  // 奖励：每关 1 张照片；每 5 关的第 5 关是困难关，解锁视频
+  const levelOfPhoto = (ci, k) => ci * PER + Math.floor(k / (SETN - 1)) * SETN + (k % (SETN - 1));
+  const levelOfVideo = (ci, k) => ci * PER + k * SETN + SETN - 1;
+  const cleared = (n) => progress[n] != null;
+  const chapterDone = (ci) => { for (let n = ci * PER; n < (ci + 1) * PER; n++) if (!cleared(n)) return false; return true; };
+  const chapterCount = (ci) => { let c = 0; for (let n = ci * PER; n < (ci + 1) * PER; n++) if (cleared(n)) c++; return c; };
+  // 背景（和章节）解锁标准：上一章 20 关全部通关
+  const bgUnlocked = (ci) => ci === 0 || chapterDone(ci - 1);
   
 
   const $ = (id) => document.getElementById(id);
@@ -82,7 +87,7 @@
     $('win').classList.remove('show');
     layout();
     showTip(t('tips')[n] || '');
-    if (lv.hard) showBanner();
+    if (CH.isHard(n)) showBanner();
     if (n === 0 && !everDragged) setTimeout(() => { if (levelIndex === 0 && !everDragged) showHint(true); }, 700);
   }
 
@@ -334,16 +339,24 @@
     if (drag) endDrag(null, true);
     const firstClear = progress[levelIndex] == null;
     saveScore(levelIndex, score);
-    const pk = photoAt(levelIndex), ci = chapterIndex(levelIndex), psrc = pk >= 0 ? chapterOf(levelIndex).photos[pk] : null;
-    const newPhoto = firstClear && pk >= 0;
-    if (newPhoto) markNew(ci, pk);
-    setTimeout(() => Girl.react(newPhoto ? 'photo' : 'clear'), 450);
-    $('winPhoto').classList.toggle('show', newPhoto);
-    $('winPhoto').classList.toggle('soon', newPhoto && !psrc);
-    if (newPhoto) {
-      $('winPhotoImg').src = psrc || chapterOf(levelIndex).girl.expr.happy;
-      $('winPhoto').onclick = () => { if (psrc) openViewer('img', psrc, ci, pk); };
+    const ci = chapterIndex(levelIndex), chap = chapterOf(levelIndex), rw = CH.rewardAt(levelIndex);
+    const rsrc = rw.kind === 'photo' ? chap.photos[rw.i] : chap.videos[rw.i];
+    const isNew = firstClear;
+    if (isNew) markNew(ci, rw.kind, rw.i);
+    // 这一关打完正好凑齐本章 20 关 → 解锁下一章的背景
+    const newBg = firstClear && ci + 1 < CH.list.length && chapterDone(ci);
+    setTimeout(() => Girl.react(isNew ? rw.kind : 'clear'), 450);
+    const wp = $('winPhoto');
+    wp.classList.toggle('show', isNew);
+    wp.classList.toggle('soon', isNew && !rsrc);
+    wp.classList.toggle('isvideo', rw.kind === 'video');
+    if (isNew) {
+      $('winPhotoTitle').textContent = rw.kind === 'video' ? t('newVideo') : t('newPhoto');
+      $('winPhotoImg').src = rw.kind === 'photo' && rsrc ? rsrc : (chap.girl ? chap.girl.expr.happy : '');
+      wp.onclick = () => { if (rsrc) openViewer(rw.kind === 'video' ? 'video' : 'img', rsrc, ci, rw.kind, rw.i); };
     }
+    $('winBg').classList.toggle('show', newBg);
+    if (newBg) $('winBgName').textContent = CH.list[ci + 1].name;
     setTimeout(() => {
       SFX.win();
       const last = levelIndex === LEVELS.length - 1;
@@ -433,20 +446,27 @@
     box.innerHTML = '';
     LEVELS.forEach((lv, n) => {
       if (n % PER === 0) {
-        const h = document.createElement('div');
+        const ci = chapterIndex(n), h = document.createElement('div');
         h.className = 'chapterhead';
-        h.textContent = chapterOf(n).name;
+        h.innerHTML = '<b>' + chapterOf(n).name + '</b><span>' + t('progressN', { a: chapterCount(ci), b: PER }) + '</span>';
         box.appendChild(h);
       }
       const b = document.createElement('button');
       const open = unlocked(n), best = progress[n];
       b.className = 'card' + (open ? '' : ' locked') + (n === levelIndex ? ' current' : '');
       b.innerHTML = '<span class="no">' + ((n % PER) + 1) + '</span><span class="nm">' + t('level') + ' ' + (n + 1) +
-        (lv.hard ? '<b class="hard">' + t('hard') + '</b>' : '') + (photoAt(n) >= 0 ? '<b class="cam">✦</b>' : '') +
+        (CH.isHard(n) ? '<b class="hard">' + t('hard') + '</b><b class="cam">▶</b>' : '<b class="cam">✦</b>') +
         '</span><span class="st">' + (open ? (best != null ? '✓ ' + best : '') : '🔒') + '</span>';
       if (open) b.addEventListener('click', () => { SFX.ensure(); SFX.button(); $('menu').classList.remove('show'); loadLevel(n); });
       box.appendChild(b);
     });
+    // 还没开放的章节：锁住，写明解锁标准
+    for (let ci = Math.ceil(LEVELS.length / PER); ci < CH.list.length; ci++) {
+      const h = document.createElement('div');
+      h.className = 'chapterhead locked';
+      h.innerHTML = '<b>🔒 ' + CH.list[ci].name + '</b><span>' + t('bgLocked', { n: PER, c: CH.list[ci - 1].name }) + '</span>';
+      box.appendChild(h);
+    }
     $('albumNew').classList.toggle('on', hasNew());
     $('menu').classList.add('show');
   }
@@ -456,52 +476,77 @@
   const SEEN_KEY = 'neonloops-seen';
   let seen = {};
   try { seen = JSON.parse(localStorage.getItem(SEEN_KEY)) || {}; } catch (e) { seen = {}; }
-  const keyOf = (ci, k) => ci + ':' + k;
-  function markNew(ci, k) { if (seen[keyOf(ci, k)] == null) seen[keyOf(ci, k)] = false; saveSeen(); }
-  function markSeen(ci, k) { seen[keyOf(ci, k)] = true; saveSeen(); }
+  const keyOf = (ci, kind, k) => ci + ':' + kind + ':' + k;
+  function markNew(ci, kind, k) { if (seen[keyOf(ci, kind, k)] == null) seen[keyOf(ci, kind, k)] = false; saveSeen(); }
+  function markSeen(ci, kind, k) { if (ci != null) { seen[keyOf(ci, kind, k)] = true; saveSeen(); } }
   function saveSeen() { try { localStorage.setItem(SEEN_KEY, JSON.stringify(seen)); } catch (e) { /* 隐私模式 */ } }
   const hasNew = () => Object.values(seen).some((v) => v === false);
+
+  function slot(kind, src, got, lvNo, ci, k, label) {
+    const cell = document.createElement('button');
+    const isNew = seen[keyOf(ci, kind, k)] === false;
+    cell.className = 'aslot ' + kind + (got && src ? ' got' : '') + (isNew && got ? ' new' : '');
+    if (got && src) {
+      cell.innerHTML = (kind === 'photo' ? '<img src="' + src + '" alt="" loading="lazy" decoding="async">' : '<span class="lock">▶</span>') +
+        '<span class="tag">' + label + '</span>';
+      cell.addEventListener('click', () => openViewer(kind === 'video' ? 'video' : 'img', src, ci, kind, k));
+    } else {
+      const sub = got ? t('comingSoon') : t('unlockAt', { n: lvNo }) + (src ? '' : ' · ' + t('comingSoon'));
+      cell.innerHTML = '<span class="lock">' + (got ? '✦' : '🔒') + '</span><span class="tag">' + label + '<small>' + sub + '</small></span>';
+    }
+    return cell;
+  }
+
+  function bgThumb(ci) {
+    const c = document.createElement('canvas');
+    RRBg.paint(c, 120, 68, 2, null, CH.list[ci].bg);
+    return c.toDataURL('image/png');
+  }
 
   function openAlbum() {
     const body = $('albumBody');
     body.innerHTML = '';
+    const playable = Math.ceil(LEVELS.length / PER);
     CH.list.forEach((chap, ci) => {
+      const open = bgUnlocked(ci);
       const sec = document.createElement('div');
-      sec.className = 'asec';
-      sec.innerHTML = '<div class="ahead"><b>' + chap.name + '</b><span>' + chap.girl.name + '</span></div>';
-      const grid = document.createElement('div');
-      grid.className = 'agrid';
-      chap.photos.forEach((src, k) => {
-        const got = photoUnlocked(ci, k), lvNo = ci * PER + (k + 1) * EVERY;
-        const cell = document.createElement('button');
-        cell.className = 'aslot' + (got && src ? ' got' : '') + (seen[keyOf(ci, k)] === false ? ' new' : '');
-        if (got && src) {
-          cell.innerHTML = '<img src="' + src + '" alt="" loading="lazy" decoding="async"><span class="tag">' + t('photoN', { n: k + 1 }) + '</span>';
-          cell.addEventListener('click', () => openViewer('img', src, ci, k));
-        } else {
-          const sub = got ? t('comingSoon') : t('unlockAt', { n: lvNo }) + (src ? '' : ' · ' + t('comingSoon'));
-          cell.innerHTML = '<span class="lock">' + (got ? '✦' : '🔒') + '</span><span class="tag">' + t('photoN', { n: k + 1 }) + '<small>' + sub + '</small></span>';
+      sec.className = 'asec' + (open ? '' : ' locked');
+      sec.innerHTML = '<div class="ahead"><b>' + (open ? '' : '🔒 ') + chap.name + '</b><span>' + (chap.girl ? chap.girl.name : t('comingSoon')) + '</span></div>';
+      // 背景卡
+      const bgc = document.createElement('button');
+      bgc.className = 'abg' + (open ? ' got' : '');
+      bgc.innerHTML = '<img src="' + bgThumb(ci) + '" alt=""><span class="tag"><b>' + t('background') + '</b><small>' +
+        (open ? t('progressN', { a: chapterCount(ci), b: PER }) : t('bgLocked', { n: PER, c: CH.list[ci - 1].name })) + '</small></span>';
+      if (open) bgc.addEventListener('click', () => openViewer('bg', chap.bg));
+      sec.appendChild(bgc);
+      if (ci < playable) {
+        for (let set = 0; set < PER / SETN; set++) {
+          const row = document.createElement('div');
+          row.className = 'arow';
+          for (let j = 0; j < SETN - 1; j++) {
+            const k = set * (SETN - 1) + j, lvNo = levelOfPhoto(ci, k);
+            row.appendChild(slot('photo', chap.photos[k], cleared(lvNo), lvNo + 1, ci, k, t('photoN', { n: k + 1 })));
+          }
+          const vl = levelOfVideo(ci, set);
+          row.appendChild(slot('video', chap.videos[set], cleared(vl), vl + 1, ci, set, t('videoN', { n: set + 1 })));
+          sec.appendChild(row);
         }
-        grid.appendChild(cell);
-      });
-      const all = chap.photos.every((_, k) => photoUnlocked(ci, k));
-      const vid = document.createElement('button');
-      vid.className = 'aslot video' + (all && chap.video ? ' got' : '');
-      vid.innerHTML = '<span class="lock">' + (all && chap.video ? '▶' : '🔒') + '</span><span class="tag">' + t('video') + '<small>' +
-        (chap.video ? (all ? t('tapToView') : t('videoLocked')) : t('comingSoon')) + '</small></span>';
-      if (all && chap.video) vid.addEventListener('click', () => openViewer('video', chap.video));
-      grid.appendChild(vid);
-      sec.appendChild(grid);
+      }
       body.appendChild(sec);
     });
     $('album').classList.add('show');
   }
-  function openViewer(kind, src, ci, k) {
+  function openViewer(kind, src, ci, rkind, k) {
     const img = $('viewImg'), vid = $('viewVid');
-    img.style.display = kind === 'img' ? '' : 'none';
+    img.style.display = kind === 'video' ? 'none' : '';
     vid.style.display = kind === 'video' ? '' : 'none';
-    if (kind === 'img') { img.src = src; if (ci != null) markSeen(ci, k); }
-    else { vid.src = src; vid.play().catch(() => { /* 需要用户再点一下 */ }); }
+    if (kind === 'bg') {
+      // 背景预览：按屏幕尺寸画一张大图
+      const c = document.createElement('canvas');
+      RRBg.paint(c, Math.round(W), Math.round(H), Math.min(2, DPR), null, src);
+      img.src = c.toDataURL('image/jpeg', 0.9);
+    } else if (kind === 'img') { img.src = src; markSeen(ci, rkind, k); }
+    else { vid.src = src; markSeen(ci, rkind, k); vid.play().catch(() => { /* 需要用户再点一下 */ }); }
     $('viewer').classList.add('show');
     $('albumNew').classList.toggle('on', hasNew());
   }
@@ -541,7 +586,7 @@
       lastLine[group] = k;
       return arr[k];
     }
-    const EXPR = { greet: 'happy', stuck: 'pout', combo: 'surprised', clear: 'wink', photo: 'happy', hint: 'thinking' };
+    const EXPR = { greet: 'happy', stuck: 'pout', combo: 'surprised', clear: 'wink', photo: 'happy', video: 'wink', hint: 'thinking' };
     function react(group) {
       if (!chap) return;
       show(EXPR[group] || 'idle');
@@ -559,7 +604,7 @@
       }, 3000 + Math.random() * 3000);
     }
     function setChapter(c) {
-      if (chap === c) return;
+      if (chap === c || !c.girl) return;
       chap = c;
       el.classList.toggle('left', c.girl.side === 'left');
       // 先把这一章的表情图都预加载，换表情时不闪

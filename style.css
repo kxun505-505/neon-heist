@@ -221,3 +221,37 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; }
 
 /* 截图测试用：关闭过渡动画 */
 body.notrans *, body.notrans *::after { transition: none !important; }
+
+/* ---------- 主页章节标题：名字 + 进度；没开放的章节变暗 ---------- */
+.chapterhead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.chapterhead span { font-size: 11px; letter-spacing: 0; font-weight: 700; color: #cdb8f0; }
+.chapterhead.locked { opacity: 0.55; margin-top: 10px; }
+.chapterhead.locked span { text-align: right; }
+
+/* ---------- 相册：背景卡 + 每行 4 张照片 + 1 段视频 ---------- */
+.asec.locked .ahead { opacity: 0.6; }
+.abg { position: relative; width: 100%; aspect-ratio: 16 / 7; margin-bottom: 8px; border-radius: 12px; overflow: hidden; padding: 0;
+  border: 1px solid rgba(40,231,255,0.45); background: #0d0426; }
+.abg img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.abg:not(.got) img { filter: grayscale(0.85) brightness(0.45) blur(1.5px); }
+.abg .tag { position: absolute; left: 0; right: 0; bottom: 0; padding: 6px 8px; text-align: left; background: linear-gradient(0deg, rgba(10,3,30,0.85), rgba(10,3,30,0)); }
+.abg .tag b { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; }
+.abg .tag small { display: block; font-size: 11px; color: #d9c8ff; }
+.abg:not(.got)::before { content: '🔒'; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -70%); font-size: 22px; }
+.arow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; margin-bottom: 5px; }
+.arow .aslot { border-radius: 9px; }
+.arow .aslot .lock { font-size: 16px; }
+.arow .aslot .tag { font-size: 9px; }
+.arow .aslot .tag small { font-size: 8px; }
+.aslot.video { border-color: rgba(255,90,140,0.7); background: linear-gradient(160deg, rgba(120,10,60,0.9), rgba(40,5,40,0.9)); }
+.aslot.video.got { background: linear-gradient(160deg, #ff3d9a, #ff8a4c); }
+.aslot.video.got .lock { font-size: 22px; opacity: 1; }
+
+/* ---------- 过关面板：新视频、新背景 ---------- */
+.winphoto .thumb { position: relative; flex: none; }
+.winphoto .thumb i { display: none; position: absolute; inset: 0; place-items: center; font-style: normal; font-size: 26px; text-shadow: 0 0 10px #000; }
+.winphoto.isvideo .thumb i { display: grid; }
+.winbg { display: none; margin: -6px 0 16px; padding: 8px 10px; border-radius: 12px; border: 1px dashed rgba(40,231,255,0.6); }
+.winbg.show { display: block; }
+.winbg b { display: block; color: #28e7ff; }
+.winbg span { font-weight: 900; letter-spacing: 2px; }
