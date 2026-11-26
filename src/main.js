@@ -555,17 +555,23 @@
   // ---------- 陪玩角色：静态立绘 + 代码微动画（呼吸、摇摆、眨眼、换表情、说话气泡） ----------
   const Girl = (() => {
     const el = $('girl'), A = $('girlA'), B = $('girlB'), BL = $('girlBlink'), bubble = $('bubble');
-    let chap = null, front = A, cur = 'idle', backTimer = 0, bubbleTimer = 0, blinkTimer = 0, lastLine = {}, swapToken = 0;
+    let chap = null, front = A, cur = 'idle', backTimer = 0, bubbleTimer = 0, blinkTimer = 0, lastLine = {}, swapToken = 0, fadeTimer = 0;
     function src(expr) { return (chap && (chap.girl.expr[expr] || chap.girl.expr.idle)) || ''; }
+    function hideNow(img) { img.style.transition = 'none'; img.classList.remove('on'); void img.offsetWidth; img.style.transition = ''; }
     function show(expr) {
       if (!chap || expr === cur) return;
       cur = expr;
       const back = front === A ? B : A, old = front, token = ++swapToken;
-      // 新表情加载好再淡入；同一次切换只执行一次（缓存命中时 complete 和 onload 可能都会触发）
+      // 上一次切换还没收尾时，先把要复用的那张立刻藏起来，避免它换图时闪一下
+      clearTimeout(fadeTimer); hideNow(back);
+      // 新表情加载好后叠在上层淡入，淡入完再撤掉旧的：身体始终不透明，不会透出背景
+      // 同一次切换只执行一次（缓存命中时 complete 和 onload 可能都会触发）
       const swap = () => {
         if (token !== swapToken) return;
         back.onload = null;
-        back.classList.add('on'); old.classList.remove('on'); front = back;
+        back.style.zIndex = 2; old.style.zIndex = 1;
+        back.classList.add('on'); front = back;
+        fadeTimer = setTimeout(() => { if (token === swapToken) old.classList.remove('on'); }, 170);
       };
       back.onload = swap;
       back.src = src(expr);
@@ -609,7 +615,8 @@
       el.classList.toggle('left', c.girl.side === 'left');
       // 先把这一章的表情图都预加载，换表情时不闪
       Object.values(c.girl.expr).forEach((u) => { const im = new Image(); im.decoding = 'async'; im.src = u; });
-      swapToken++; cur = 'idle'; A.onload = B.onload = null; A.src = src('idle'); A.classList.add('on'); B.classList.remove('on'); front = A;
+      swapToken++; clearTimeout(fadeTimer); cur = 'idle'; A.onload = B.onload = null;
+      A.src = src('idle'); A.style.zIndex = 2; B.style.zIndex = 1; A.classList.add('on'); hideNow(B); front = A;
       BL.src = c.girl.expr.blink || '';
       blinkLoop();
     }

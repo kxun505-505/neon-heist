@@ -25,13 +25,13 @@
           name: 'Kira Sol',
           side: 'right',
           expr: {
-            idle: 'assets/ch1/girl/idle.svg',
-            happy: 'assets/ch1/girl/happy.svg',
-            surprised: 'assets/ch1/girl/surprised.svg',
-            wink: 'assets/ch1/girl/wink.svg',
-            pout: 'assets/ch1/girl/pout.svg',
-            thinking: 'assets/ch1/girl/thinking.svg',
-            blink: 'assets/ch1/girl/blink.svg', // 可选：没有就不眨眼
+            idle: 'assets/ch1/girl/idle.webp',
+            happy: 'assets/ch1/girl/happy.webp',
+            surprised: 'assets/ch1/girl/surprised.webp',
+            wink: 'assets/ch1/girl/wink.webp',
+            pout: 'assets/ch1/girl/pout.webp',
+            thinking: 'assets/ch1/girl/thinking.webp',
+            blink: 'assets/ch1/girl/blink.webp', // 可选：没有就不眨眼
           },
           // 台词：英文为原文，其余为翻译。分组对应触发情境。
           lines: {

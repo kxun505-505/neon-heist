@@ -1,6 +1,6 @@
 #!/bin/zsh
 # 把 4K 母版转成游戏用的版本：tools/assets.sh ch1
-#   assets-src/<章>/girl/*.png  → assets/<章>/girl/*.webp（高 1600 像素，保留透明）
+#   assets-src/<章>/girl/*.png  → assets/<章>/girl/*.webp（高 1080 像素，保留透明）
 #   assets-src/<章>/photo*.png|jpg → assets/<章>/photo*.webp（1440×2560）
 #   assets-src/<章>/video*.mp4  → assets/<章>/video*.mp4（原样复制）
 set -e
@@ -11,7 +11,7 @@ SRC=$DIR/assets-src/$CH OUT=$DIR/assets/$CH
 mkdir -p $OUT/girl
 for f in $SRC/girl/*.(png|PNG)(N); do
   n=${${f:t}:r}
-  $FF -loglevel error -y -i $f -vf "scale=-2:1600:flags=lanczos" -c:v libwebp -lossless 0 -quality 90 -alpha_quality 95 $OUT/girl/$n.webp
+  $FF -loglevel error -y -i $f -vf "scale=-2:1080:flags=lanczos" -c:v libwebp -lossless 0 -quality 86 -alpha_quality 90 $OUT/girl/$n.webp
   echo "立绘 $n → $(du -h $OUT/girl/$n.webp | cut -f1)"
 done
 for f in $SRC/photo*.(png|PNG|jpg|JPG|jpeg)(N); do
