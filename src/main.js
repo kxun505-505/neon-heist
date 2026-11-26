@@ -33,6 +33,10 @@
   let drag = null, hint = null, combo = { n: 0, t: 0 };
   let fx = [];            // 各种一次性动画
   let shakes = {}, lift = {}, flashLinks = {};
+  // 特效时钟：结尾慢镜头时只让特效变慢（输入和界面照常）
+  let timeScale = 1, fxClock = 0, fxReal = performance.now(), slowmo = null, probeHold = null;
+  const fxTime = () => fxClock + (performance.now() - fxReal) * timeScale;
+  const SHORT = 0.24; // 霓虹短路的时长（秒）
 
   function levelBounds(lv) {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -60,7 +64,7 @@
     bounds = levelBounds(lv);
     moves = 0; score = 0; shownScore = 0; won = false;
     drag = null; hint = null; combo = { n: 0, t: 0 };
-    fx = []; shakes = {}; lift = {}; flashLinks = {};
+    fx = []; shakes = {}; lift = {}; flashLinks = {}; slowmo = null; timeScale = 1;
     $('lvNum').textContent = t('level') + ' ' + (n + 1);
     $('lvName').textContent = lv.en;
     $('score').textContent = '0';
@@ -196,7 +200,7 @@
   }
 
   function handleEvents(events) {
-    const now = performance.now();
+    const now = performance.now(), ft = fxTime();
     let flew = 0;
     for (const ev of events) {
       if (ev.type === 'hit') {
@@ -204,20 +208,22 @@
           if (drag) drag.lastHit = now;
           SFX.bump();
           HAP.fire('bump');
-          fx.push({ type: 'bump', x: ev.p.x, y: ev.p.y, t0: now });
+          fx.push({ type: 'bump', x: ev.p.x, y: ev.p.y, t0: ft });
           shakes[ev.ring] = now - 200; // 轻微一抖
         }
       } else if (ev.type === 'open') {
         const L = G.links[ev.k];
-        fx.push({ type: 'slip', L, t0: now, color: G.rings[L.owner].color });
+        fx.push({ type: 'slip', L, t0: ft, color: G.rings[L.owner].color });
         SFX.slip();
         HAP.fire('open');
       } else if (ev.type === 'close') {
         SFX.tick();
         HAP.fire('close');
       } else if (ev.type === 'fly') {
+        // 连击序号从 1 开始（1.4 秒内接着飞走的算连击）
+        const base = now - combo.t < 1400 ? combo.n : 0;
+        flyAway(ev.i, ft + flew * 70, base + flew + 1);
         flew++;
-        flyAway(ev.i, now);
         if (drag && drag.i === ev.i) endDrag(null, true);
       }
     }
@@ -228,55 +234,142 @@
       score += gain;
       $('score').textContent = String(score);
       bumpScore();
-      SFX.free(combo.n - 1);
+      // 连击字在灯管爆掉的那一刻出现
+      const R = G.rings[events.find((e) => e.type === 'fly').i];
+      const wx = R.kind === 'bar' ? R.x : R.x, wy = R.kind === 'bar' ? R.y - 30 : R.y - R.r - 20;
       if (combo.n >= 2 || flew >= 2) {
         const words = ['', '', 'Great!', 'Excellent!', 'Amazing!', 'Unreal!'];
-        const R = G.rings[events.find((e) => e.type === 'fly').i];
-        fx.push({ type: 'word', text: words[Math.min(combo.n, 5)], x: R.x, y: R.y - R.r - 20, t0: now });
-      } else {
-        const R = G.rings[events.find((e) => e.type === 'fly').i];
-        fx.push({ type: 'word', text: 'Good!', x: R.x, y: R.y - R.r - 20, t0: now, small: true });
+        fx.push({ type: 'word', text: words[Math.min(combo.n, 5)], x: wx, y: wy, t0: ft + SHORT * 1000 });
+      } else fx.push({ type: 'word', text: 'Good!', x: wx, y: wy, t0: ft + SHORT * 1000, small: true });
+      if (S.ring.every((a) => !a)) {
+        // 最后一个零件：慢镜头收尾
+        slowmo = { t0: now + (flew - 1) * 70 + SHORT * 1000 * 0.6 };
+        setTimeout(() => SFX.slowmo(), (flew - 1) * 70 + 120);
+        win();
       }
-      if (S.ring.every((a) => !a)) win();
     }
   }
 
-  function flyAway(i, now) {
+  // 零件飞走：像接触不良的霓虹灯管一样闪两下、冒电火花（A），然后爆开成烧焦的碎片和烟
+  function flyAway(i, t0, comboN) {
     const R = G.rings[i];
+    fx.push({ type: 'short', i, R, ang: S.angles[i], t0, combo: comboN,
+      stubs: G.links.filter((L) => L.owner === i && !S.link[L.k] && !S.ring[L.held] && L.held !== i).map((L) => L.k) });
+  }
+
+  let pendingFx = [];
+  function burst(f) {
+    const R = f.R, now = f.t0 + SHORT * 1000;
+    const fx = pendingFx; // 遮住外层的 fx：本函数里的 push 都进待加入列表
+    const burnt = (c) => darken(c, 0.45);
+    const pts = (size) => {
+      const out = [], sides = 4 + Math.floor(Math.random() * 3);
+      for (let q = 0; q < sides; q++) { const pa = (q / sides) * TAU + Math.random() * 0.6; const pr = size * (0.6 + Math.random() * 0.5); out.push([Math.cos(pa) * pr, Math.sin(pa) * pr]); }
+      return out;
+    };
+    // 沿着零件取样：位置 + 向外的方向
+    const samples = [];
     if (R.kind === 'bar') {
-      const sv = S.angles[i], n = Math.round(R.len / 6);
+      const n = Math.round(R.len / 7);
       for (let k = 0; k < n; k++) {
-        const t = -R.half + (R.len * (k + Math.random() * 0.6)) / n;
-        const x = R.x + R.ux * (sv + t), y = R.y + R.uy * (sv + t);
-        const pts = [], sides = 4 + Math.floor(Math.random() * 3), size = 3.5 + Math.random() * 3;
-        for (let q = 0; q < sides; q++) { const pa = (q / sides) * TAU + Math.random() * 0.6; const pr = size * (0.6 + Math.random() * 0.5); pts.push([Math.cos(pa) * pr, Math.sin(pa) * pr]); }
-        const sp = 40 + Math.random() * 120, a = Math.random() * TAU;
-        fx.push({ type: 'chunk', color: R.color, x, y, pts, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 80, vr: (Math.random() - 0.5) * 10, t0: now + Math.random() * 40, life: 0.75 + Math.random() * 0.35 });
+        const t = -R.half + (R.len * (k + Math.random() * 0.6)) / n, a = Math.random() * TAU;
+        samples.push({ x: R.x + R.ux * (f.ang + t), y: R.y + R.uy * (f.ang + t), a });
       }
-      fx.push({ type: 'plus', x: R.x + R.ux * sv, y: R.y + R.uy * sv, t0: now, text: '+' + 200 * Math.min(combo.n + 1, 5) });
-      HAP.fire('fly');
-      return;
+    } else {
+      const g0 = R.gap ? R.gap.at + f.ang + R.gap.w / 2 : 0, span = R.gap ? TAU - R.gap.w : TAU;
+      const n = Math.round((span * R.r) / 8);
+      for (let k = 0; k < n; k++) {
+        const a = g0 + span * ((k + Math.random() * 0.6) / n);
+        samples.push({ x: R.x + Math.cos(a) * R.r, y: R.y + Math.sin(a) * R.r, a });
+      }
     }
-    const ang = S.angles[i];
-    const g0 = R.gap ? R.gap.at + ang + R.gap.w / 2 : 0;
-    const span = R.gap ? TAU - R.gap.w : TAU;
-    const n = Math.round((span * R.r) / 7);
-    for (let k = 0; k < n; k++) {
-      const a = g0 + span * ((k + Math.random() * 0.6) / n);
-      const off = (Math.random() - 0.5) * TUBE * 0.8;
-      const x = R.x + Math.cos(a) * (R.r + off), y = R.y + Math.sin(a) * (R.r + off);
-      const sp = 40 + Math.random() * 120, out = Math.random() < 0.5 ? 1 : -0.4;
-      const pts = [];
-      const sides = 4 + Math.floor(Math.random() * 3), size = 3.5 + Math.random() * 3.5;
-      for (let q = 0; q < sides; q++) { const pa = (q / sides) * TAU + Math.random() * 0.6; const pr = size * (0.6 + Math.random() * 0.5); pts.push([Math.cos(pa) * pr, Math.sin(pa) * pr]); }
-      fx.push({ type: 'chunk', color: R.color, x, y, pts,
-        vx: Math.cos(a) * sp * out + (Math.random() - 0.5) * 60, vy: Math.sin(a) * sp * out - 40 - Math.random() * 80,
-        vr: (Math.random() - 0.5) * 10, t0: now + Math.random() * 40, life: 0.75 + Math.random() * 0.35 });
+    for (const p of samples) {
+      const sp = 50 + Math.random() * 130;
+      fx.push({ type: 'chunk', color: burnt(R.color), glowColor: R.color, x: p.x, y: p.y, pts: pts(3 + Math.random() * 3.5),
+        vx: Math.cos(p.a) * sp + (Math.random() - 0.5) * 50, vy: Math.sin(p.a) * sp - 60 - Math.random() * 60,
+        vr: (Math.random() - 0.5) * 12, t0: now + Math.random() * 30, life: 0.7 + Math.random() * 0.35 });
     }
-    fx.push({ type: 'pop', R, ang, t0: now });
-    fx.push({ type: 'plus', x: R.x, y: R.y, t0: now, text: '+' + 200 * Math.min(combo.n + 1, 5) });
+    // 电火花：亮、快、带重力
+    for (let k = 0; k < 34; k++) {
+      const p = samples[Math.floor(Math.random() * samples.length)], a = Math.random() * TAU, sp = 120 + Math.random() * 320;
+      fx.push({ type: 'spark', color: k % 3 ? '#bff6ff' : R.color, x: p.x, y: p.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 80, t0: now, life: 0.25 + Math.random() * 0.4 });
+    }
+    // 几团烟
+    for (let k = 0; k < 5; k++) {
+      const p = samples[Math.floor(Math.random() * samples.length)];
+      fx.push({ type: 'smoke', x: p.x, y: p.y, t0: now + k * 25, life: 0.9 + Math.random() * 0.4, r0: 6 + Math.random() * 6 });
+    }
+    const cx = R.kind === 'bar' ? R.x + R.ux * f.ang : R.x, cy = R.kind === 'bar' ? R.y + R.uy * f.ang : R.y;
+    fx.push({ type: 'flash', x: cx, y: cy, r: R.kind === 'bar' ? R.half : R.r, t0: now });
+    fx.push({ type: 'plus', x: cx, y: cy, t0: now, text: '+' + 200 * Math.min(f.combo, 5) });
+    SFX.burst();
+    SFX.free(Math.max(0, f.combo - 1));
     HAP.fire('fly');
   }
+
+  // 短路时的零件本体（已经不在棋盘状态里了，单独画）
+  function drawGhost(f, alpha, glow) {
+    const R = f.R;
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    if (R.kind === 'bar') {
+      const ax = R.x + R.ux * (f.ang - R.half), ay = R.y + R.uy * (f.ang - R.half);
+      const bx = R.x + R.ux * (f.ang + R.half), by = R.y + R.uy * (f.ang + R.half);
+      lineTube(ax, ay, bx, by, R.color, BAR, glow);
+    } else {
+      for (const k of R.knobs) drawKnob(R, R.x, R.y, f.ang, k, glow);
+      if (R.gap) { const g = R.gap.at + f.ang; arcTube(R.x, R.y, R.r, g + R.gap.w / 2, g - R.gap.w / 2 + TAU, R.color, TUBE, glow, false, f.ang); }
+      else arcTube(R.x, R.y, R.r, 0, TAU, R.color, TUBE, glow, true, f.ang);
+    }
+    ctx.restore();
+  }
+
+  // 过曝的霓虹光晕
+  function drawHalo(f, k) {
+    const R = f.R;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineCap = 'round';
+    const path = () => {
+      ctx.beginPath();
+      if (R.kind === 'bar') { ctx.moveTo(R.x + R.ux * (f.ang - R.half), R.y + R.uy * (f.ang - R.half)); ctx.lineTo(R.x + R.ux * (f.ang + R.half), R.y + R.uy * (f.ang + R.half)); }
+      else if (R.gap) { const g = R.gap.at + f.ang; ctx.arc(R.x, R.y, R.r, g + R.gap.w / 2, g - R.gap.w / 2 + TAU); }
+      else ctx.arc(R.x, R.y, R.r, 0, TAU);
+    };
+    for (const [w, a] of [[34, 0.12], [20, 0.22], [10, 0.35]]) { ctx.strokeStyle = rgba(R.color, a * k); ctx.lineWidth = w; path(); ctx.stroke(); }
+    ctx.restore();
+  }
+
+  // 沿着零件乱窜的电弧
+  function drawBolts(f) {
+    const R = f.R;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.lineJoin = 'round';
+    for (let b = 0; b < 4; b++) {
+      const path = [];
+      if (R.kind === 'bar') {
+        const t0 = (Math.random() - 0.5) * R.len, nx = -R.uy, ny = R.ux;
+        for (let j = 0; j <= 6; j++) {
+          const t = t0 + (j - 3) * 7, o = (Math.random() - 0.5) * 14;
+          path.push([R.x + R.ux * (f.ang + t) + nx * o, R.y + R.uy * (f.ang + t) + ny * o]);
+        }
+      } else {
+        const a0 = Math.random() * TAU;
+        for (let j = 0; j <= 7; j++) {
+          const a = a0 + j * 0.09, rr = R.r + (Math.random() - 0.5) * 18;
+          path.push([R.x + Math.cos(a) * rr, R.y + Math.sin(a) * rr]);
+        }
+      }
+      for (const [w, c] of [[7, 'rgba(90,220,255,0.35)'], [3.5, 'rgba(150,235,255,0.7)'], [1.6, 'rgba(255,255,255,1)']]) {
+        ctx.strokeStyle = c; ctx.lineWidth = w;
+        ctx.beginPath(); path.forEach(([x, y], j) => (j ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+  // 闪烁节奏：亮—灭—亮—灭—过亮，然后爆
+  const flickOn = (t) => t < 0.05 || (t >= 0.08 && t < 0.13) || t >= 0.155;
 
   function endDrag(e, forced) {
     if (!drag) return;
@@ -307,10 +400,10 @@
       $('winTitle').textContent = last ? t('demoDone') : t('wins')[levelIndex % 4];
       $('winScore').textContent = String(score);
       $('winInfo').textContent = t('moves', { n: moves });
-      $('btnNext').textContent = last ? t('toLevels') : t('next');
+      $('btnNextLabel').textContent = last ? t('toLevels') : t('next');
       HAP.fire('win');
       $('win').classList.add('show');
-    }, 750);
+    }, 1750);
   }
 
   // ---------- 提示：求解器算出下一步，用手指动画演示 ----------
@@ -395,7 +488,7 @@
       RRBg.paint(c, 72, 120, 2, null, k);
       c.style.width = '100%'; c.style.height = 'auto';
       b.appendChild(c);
-      const t = document.createElement('span'); t.textContent = name; b.appendChild(t);
+      const label = document.createElement('span'); label.textContent = name; b.appendChild(label);
       b.addEventListener('click', () => {
         SFX.ensure(); SFX.button();
         bgIndex = k;
@@ -744,9 +837,39 @@
   }
 
   function drawFx(now) {
-    fx = fx.filter((f) => {
-      const t = Math.max(0, (now - f.t0) / 1000);
+    const next = fx.filter((f) => {
+      const raw = (now - f.t0) / 1000;
+      if (f.type === 'short') {
+        if (raw < 0) { drawGhost(f, 1, 1); return true; }
+        if (raw >= SHORT) { if (!f.burst) { f.burst = true; burst(f); } return false; }
+        if (!f.zapped) { f.zapped = true; SFX.zap(); }
+        const on = flickOn(raw), hot = raw >= 0.155;
+        if (on) drawHalo(f, hot ? 1 : 0.6);
+        drawGhost(f, on ? 1 : 0.22, on ? (hot ? 4 : 2.6) : 0.2);
+        if (on) drawBolts(f);
+        return true;
+      }
+      if (raw < 0) return true; // 还没轮到（例如连击字要等灯管爆掉）
+      const t = raw;
       switch (f.type) {
+        case 'smoke': {
+          if (t > f.life) return false;
+          const k = t / f.life, r = f.r0 + k * 26;
+          const g = ctx.createRadialGradient(f.x, f.y - k * 40, 0, f.x, f.y - k * 40, r);
+          g.addColorStop(0, 'rgba(70,55,95,' + 0.45 * (1 - k) + ')'); g.addColorStop(1, 'rgba(70,55,95,0)');
+          ctx.fillStyle = g; ctx.fillRect(f.x - r, f.y - k * 40 - r, r * 2, r * 2);
+          return true;
+        }
+        case 'flash': {
+          if (t > 0.18) return false;
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, f.r * 1.8);
+          g.addColorStop(0, 'rgba(255,255,255,' + 0.85 * (1 - t / 0.18) + ')'); g.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = g; ctx.fillRect(f.x - f.r * 2, f.y - f.r * 2, f.r * 4, f.r * 4);
+          ctx.restore();
+          return true;
+        }
         case 'bump': {
           if (t > 0.3) return false;
           ctx.save();
@@ -777,8 +900,10 @@
           ctx.rotate(f.vr * t);
           ctx.fillStyle = 'rgba(12,2,30,0.8)';
           ctx.beginPath(); f.pts.forEach(([px, py], q) => (q ? ctx.lineTo(px * 1.25, py * 1.25) : ctx.moveTo(px * 1.25, py * 1.25))); ctx.closePath(); ctx.fill();
+          if (f.glowColor && t < 0.25) { ctx.shadowColor = f.glowColor; ctx.shadowBlur = 8 * (1 - t / 0.25) * DPR; }
           ctx.fillStyle = f.color;
           ctx.beginPath(); f.pts.forEach(([px, py], q) => (q ? ctx.lineTo(px, py) : ctx.moveTo(px, py))); ctx.closePath(); ctx.fill();
+          ctx.shadowBlur = 0;
           ctx.fillStyle = 'rgba(255,255,255,0.45)';
           ctx.beginPath(); ctx.arc(f.pts[0][0] * 0.3, f.pts[0][1] * 0.3, 1.3, 0, TAU); ctx.fill();
           ctx.restore();
@@ -849,18 +974,53 @@
       }
       return false;
     });
+    fx = next.concat(pendingFx);
+    pendingFx = [];
   }
 
   let lastT = performance.now(), frameCount = 0;
+  // RGB 分离（色差）后期：把画面拆成红绿蓝三份，红蓝左右错开再叠回去
+  const post = { w: 0, h: 0, src: null, r: null, g: null, b: null };
+  function rgbSplit(px) {
+    const w = cv.width, h = cv.height;
+    if (post.w !== w || post.h !== h) {
+      for (const k of ['src', 'r', 'g', 'b']) { post[k] = document.createElement('canvas'); post[k].width = w; post[k].height = h; }
+      post.w = w; post.h = h;
+    }
+    post.src.getContext('2d').drawImage(cv, 0, 0);
+    for (const [k, c] of [['r', '#ff0000'], ['g', '#00ff00'], ['b', '#0000ff']]) {
+      const x = post[k].getContext('2d');
+      x.globalCompositeOperation = 'copy'; x.drawImage(post.src, 0, 0);
+      x.globalCompositeOperation = 'multiply'; x.fillStyle = c; x.fillRect(0, 0, w, h);
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = 'copy'; ctx.drawImage(post.g, 0, 0);
+    ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(post.r, px, 0); ctx.drawImage(post.b, -px, 0);
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
   function frame() {
+    requestAnimationFrame(frame);
     const now = performance.now();
+    // 慢镜头：0.28 倍速持续约 1 秒，再在 0.5 秒内恢复
+    let sm = 0;
+    if (probeHold != null && slowmo) slowmo.t0 = now - probeHold * 1000; // 截图时定格在指定时刻
+    if (slowmo) {
+      sm = (now - slowmo.t0) / 1000;
+      timeScale = sm < 0 ? 1 : sm < 1.0 ? 0.28 : sm < 1.5 ? 0.28 + ((sm - 1.0) / 0.5) * 0.72 : 1;
+      if (sm > 1.7) slowmo = null;
+    }
+    fxClock += (now - fxReal) * timeScale; fxReal = now;
     frameCount++;
     lastT = now;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
     ctx.drawImage(bg, 0, 0);
     if (G) {
-      ctx.setTransform(DPR * scale, 0, 0, DPR * scale, DPR * ox, DPR * oy);
+      // 慢镜头开始的一瞬间镜头抖一下
+      let sx = 0, sy = 0;
+      if (slowmo && sm >= 0 && sm < 0.35) { const k = (1 - sm / 0.35) * 7; sx = (Math.random() - 0.5) * k; sy = (Math.random() - 0.5) * k; }
+      ctx.setTransform(DPR * scale, 0, 0, DPR * scale, DPR * (ox + sx), DPR * (oy + sy));
       // 层次：杆 → 环（被拖动的最上面）→ 夹套
       for (const L of G.links) if (S.link[L.k]) drawStem(L, now);
       const order = [];
@@ -869,9 +1029,19 @@
       for (const i of order) drawRing(i, now);
       for (const L of G.links) if (S.link[L.k]) drawClamp(L, now, 1, 1);
       drawHint(now);
-      drawFx(now);
+      drawFx(fxClock);
     }
-    requestAnimationFrame(frame);
+    // 慢镜头期间：宽银幕黑边 + RGB 分离（D）
+    if (slowmo && sm >= 0) {
+      const inK = Math.min(1, sm / 0.25), outK = sm > 1.25 ? Math.max(0, 1 - (sm - 1.25) / 0.4) : 1;
+      const bar = H * 0.09 * inK * outK;
+      ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#05010d';
+      ctx.fillRect(0, 0, W, bar); ctx.fillRect(0, H - bar, W, bar);
+      const ab = sm < 0.12 ? sm / 0.12 : Math.max(0, 1 - (sm - 0.12) / 0.9);
+      if (ab > 0.02) rgbSplit(Math.round(6 * DPR * ab));
+    }
   }
 
   // iOS：禁止双指缩放和长按菜单
@@ -882,9 +1052,23 @@
   resize();
   const qLevel = parseInt((location.search.match(/[?&]level=(\d+)/) || [])[1], 10) - 1;
   if (qLevel >= 0 && qLevel < LEVELS.length && unlocked(qLevel)) loadLevel(qLevel);
-  else { loadLevel(Math.max(0, Math.min(LEVELS.length - 1, Object.keys(progress).length))); openMenu(); }
+  else loadLevel(Math.max(0, Math.min(LEVELS.length - 1, Object.keys(progress).length)));
   requestAnimationFrame(frame);
+  if (!(qLevel >= 0 && qLevel < LEVELS.length && unlocked(qLevel))) openMenu();
   if (/[?&]open=settings/.test(location.search)) openSettings();
+  if (/[?&]debug=fc/.test(location.search)) setTimeout(() => { document.title = 'FC ' + frameCount; }, 1500);
+  // 截图检查特效用：?probe=short|burst|slow&pi=环序号&pt=秒
+  const probe = (location.search.match(/[?&]probe=(\w+)/) || [])[1];
+  if (probe) setTimeout(() => {
+    const pi = +((location.search.match(/[?&]pi=(\d+)/) || [])[1] || 0), pt = +((location.search.match(/[?&]pt=([\d.]+)/) || [])[1] || 0.1);
+    $('tip').classList.remove('show');
+    if (probe === 'slow') { slowmo = { t0: performance.now() - pt * 1000 }; probeHold = pt; frame(); return; }
+    const R = G.rings[pi];
+    S.ring[pi] = false; G.links.forEach((L) => { if (L.owner === pi || L.held === pi) S.link[L.k] = false; });
+    if (probe === 'short') { frame(); fx.push({ type: 'short', i: pi, R, ang: S.angles[pi], t0: fxClock - pt * 1000, combo: 1, stubs: [] }); timeScale = 0; frame(); return; }
+    fx.push({ type: 'short', i: pi, R, ang: S.angles[pi], t0: fxTime() - SHORT * 1000 - 1, combo: 2, stubs: [] });
+    frame(); fxClock += pt * 1000; timeScale = 0; frame();
+  }, 400);
   const qLang = (location.search.match(/[?&]lang=(\w+)/) || [])[1];
   if (qLang) { I18N.set(qLang); refreshTexts(); syncToggles(); }
 

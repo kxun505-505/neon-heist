@@ -44,6 +44,26 @@
     o.stop(t + dur + 0.02);
   }
 
+  // 白噪声：电火花“滋滋”声、慢镜头的风声
+  let noiseBuf = null;
+  function noise({ dur, gain = 0.1, f = 2500, q = 1.2, at = 0, type = 'bandpass' }) {
+    if (!ensure() || muted) return;
+    if (!noiseBuf) {
+      noiseBuf = ac.createBuffer(1, Math.floor(ac.sampleRate * 0.6), ac.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    }
+    const t = ac.currentTime + at;
+    const src = ac.createBufferSource(); src.buffer = noiseBuf;
+    const fl = ac.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(fl); fl.connect(g); g.connect(master);
+    src.start(t, Math.random() * 0.3); src.stop(t + dur + 0.02);
+  }
+
   const NOTES = [523.25, 659.25, 783.99, 987.77, 1174.66, 1318.5];
 
   root.RRAudio = {
@@ -74,7 +94,7 @@
       tone({ type: 'sawtooth', f0: 330, f1: 660, dur: 0.35, gain: 0.06, cutoff: 1800, at: 0.05 });
     },
     free(n) {
-      const f = NOTES[Math.min(n, NOTES.length - 1)];
+      const f = NOTES[Math.max(0, Math.min(n | 0, NOTES.length - 1))];
       tone({ type: 'sawtooth', f0: f, dur: 0.35, gain: 0.12, cutoff: 2400 });
       tone({ type: 'sine', f0: f * 2, dur: 0.25, gain: 0.06, at: 0.03 });
     },
@@ -92,5 +112,23 @@
       [261.63, 329.63, 392].forEach((f) => tone({ type: 'triangle', f0: f, dur: 1.2, gain: 0.08, at: 0.45 }));
     },
     button() { tone({ type: 'triangle', f0: 1200, f1: 900, dur: 0.05, gain: 0.07 }); },
+    // 霓虹灯短路：三下“滋”的电火花，节奏和画面上的闪烁对齐
+    zap() {
+      [[0, 0.05], [0.08, 0.045], [0.155, 0.085]].forEach(([at, dur]) => {
+        noise({ dur, gain: 0.14, f: 3200 + Math.random() * 1500, q: 0.9, at });
+        tone({ type: 'square', f0: 95 + Math.random() * 30, dur, gain: 0.035, cutoff: 1400, at });
+      });
+    },
+    // 灯管爆掉
+    burst() {
+      noise({ dur: 0.18, gain: 0.16, f: 1800, q: 0.6 });
+      tone({ type: 'sine', f0: 240, f1: 70, dur: 0.18, gain: 0.18 });
+    },
+    // 结尾慢镜头：像磁带被拖慢一样往下滑的音调，加一阵风声
+    slowmo() {
+      tone({ type: 'sawtooth', f0: 520, f1: 60, dur: 1.1, gain: 0.07, cutoff: 1200 });
+      tone({ type: 'sine', f0: 180, f1: 40, dur: 1.2, gain: 0.16 });
+      noise({ dur: 1.2, gain: 0.06, f: 600, q: 0.4, type: 'lowpass' });
+    },
   };
 })(window);

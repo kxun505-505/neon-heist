@@ -1,0 +1,83 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>smoke</title>
+<!--
+  冒烟测试：走真实的开机路径（不带 ?level），模拟“已经玩到第 6 关”的存档，
+  再点一遍主页、选关、设置、语言、背景、过关、下一关，收集所有报错。
+-->
+<iframe id="f" style="width:390px;height:844px;border:0"></iframe>
+<pre id="out"></pre>
+<script>
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const log = [];
+  const out = () => { document.getElementById('out').textContent = log.join('\n'); };
+  const f = document.getElementById('f');
+  function load(url) { return new Promise((r) => { f.onload = () => r(f.contentWindow); f.src = url; }); }
+  async function run() {
+    let w = await load('../index.html');
+    w.localStorage.clear();
+    w.localStorage.setItem('neonloops-progress-v2', JSON.stringify({ 0: 800, 1: 2200, 2: 3200, 3: 6000, 4: 7000 }));
+    w = await load('../index.html?' + Date.now());
+    const errs = [];
+    w.addEventListener('error', (e) => errs.push(e.message + ' @' + (e.filename || '').split('/').pop() + ':' + e.lineno));
+    await sleep(600);
+    const d = w.document, $ = (id) => d.getElementById(id);
+    const check = (name, ok) => log.push((ok ? 'OK   ' : 'FAIL ') + name);
+    const st = () => w.__neon.state;
+    const f0 = st().frameCount; await sleep(300);
+    check('开机后画面已经开始绘制（frameCount=' + st().frameCount + '）', st().frameCount > 0);
+    check('开机停在第 6 关并打开主页', st().levelIndex === 5 && $('menu').classList.contains('show'));
+    check('主页列出 10 关', d.querySelectorAll('#levels .card').length === 10);
+    check('主页列出 4 个背景', d.querySelectorAll('#bgs .bgpick').length === 4);
+    check('第 6 关的零件都在（' + st().ring.filter(Boolean).length + ' 个）', st().ring.filter(Boolean).length === w.RRLevels[5].rings.length);
+    // 选背景
+    d.querySelectorAll('#bgs .bgpick')[2].click(); await sleep(100);
+    check('切换背景后选中第 3 个', d.querySelectorAll('#bgs .bgpick')[2].classList.contains('on'));
+    // 选第 2 关
+    d.querySelectorAll('#levels .card')[1].click(); await sleep(150);
+    check('点关卡卡片进入第 2 关', st().levelIndex === 1 && !$('menu').classList.contains('show'));
+    // 设置
+    $('btnSettings').click(); await sleep(100);
+    check('设置面板打开', $('settings').classList.contains('show'));
+    const vibe0 = w.RRHaptics.enabled; $('togVibe').click(); await sleep(50);
+    check('震动开关可以切换', w.RRHaptics.enabled !== vibe0); $('togVibe').click();
+    const snd0 = w.RRAudio.muted; $('togSound').click(); await sleep(50);
+    check('音效开关可以切换', w.RRAudio.muted !== snd0); $('togSound').click();
+    $('togMusic').click(); await sleep(50); $('togMusic').click();
+    $('btnLang').click(); await sleep(50);
+    check('语言列表展开（' + $('langList').children.length + ' 种）', $('langList').classList.contains('open') && $('langList').children.length === 6);
+    for (const b of [...$('langList').children]) {
+      b.click(); await sleep(40);
+      const code = b.dataset.code;
+      check('切换到 ' + code + '：标题 = ' + d.querySelector('.ptitle').textContent + '，关卡 = ' + $('lvNum').textContent, w.RRI18n.lang === code);
+    }
+    [...$('langList').children][0].click(); await sleep(40);
+    $('btnHome').click(); await sleep(100);
+    check('设置里点 Home 回到主页', $('menu').classList.contains('show') && !$('settings').classList.contains('show'));
+    d.querySelectorAll('#levels .card')[0].click(); await sleep(150);
+    $('btnSettings').click(); await sleep(50); $('btnRestart').click(); await sleep(100);
+    check('设置里点 Restart 重开当前关', st().levelIndex === 0 && st().moves === 0 && !$('settings').classList.contains('show'));
+    // 用提示一步步通关第 1 关，然后点下一关
+    const C = w.RRCore, G = C.build(w.RRLevels[0]), cv = $('game');
+    const fire = (type, p) => cv.dispatchEvent(new w.PointerEvent(type, { pointerId: 3, clientX: p.x, clientY: p.y, bubbles: true, isPrimary: true, pointerType: 'touch' }));
+    for (let k = 0; k < 5 && !st().won; k++) {
+      const s = st(), m = C.hintMove(G, { angles: s.angles, ring: s.ring, link: s.link }, 5000);
+      if (!m) break;
+      const R = G.rings[m.ring], a0 = Math.atan2(-R.y, -R.x) + Math.PI;
+      const at = (a) => w.__neon.toScreen(R.x + Math.cos(a) * R.r, R.y + Math.sin(a) * R.r);
+      fire('pointerdown', at(a0));
+      for (let q = 1; q <= 30; q++) { fire('pointermove', at(a0 + (m.delta * q) / 30)); await sleep(5); }
+      fire('pointerup', at(a0 + m.delta)); await sleep(50);
+    }
+    await sleep(2200);
+    check('第 1 关通关并弹出过关面板', st().won && $('win').classList.contains('show'));
+    check('过关按钮里的震动开关没被文字覆盖', !w.RRHaptics || $('btnNext').querySelector('span#btnNextLabel') != null);
+    $('btnNext').click(); await sleep(200);
+    check('点下一关进入第 2 关', st().levelIndex === 1 && !st().won);
+    check('画面仍在绘制（frameCount=' + st().frameCount + '）', st().frameCount > 0);
+    check('没有任何脚本报错', errs.length === 0);
+    errs.forEach((e) => log.push('  ERROR ' + e));
+    out();
+  }
+  run().catch((e) => { log.push('EXCEPTION ' + e.stack); out(); });
+</script>

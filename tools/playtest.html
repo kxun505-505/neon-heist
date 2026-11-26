@@ -57,7 +57,7 @@
         fire('pointerup', at(best + m.delta));
         await sleep(30);
       }
-      await sleep(1100);
+      await sleep(2300);
       const st = w.__neon.state;
       const winShown = w.document.getElementById('win').classList.contains('show');
       log.push(`L${n + 1} won=${st.won} winPanel=${winShown} moves=${st.moves} par=${par} score=${st.score} ` +
