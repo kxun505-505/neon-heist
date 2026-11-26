@@ -54,8 +54,10 @@
     sw.setAttribute('aria-hidden', 'true');
     if (getComputedStyle(btn).position === 'static') btn.style.position = 'relative';
     btn.appendChild(sw);
-    sw.style.pointerEvents = enabled ? 'auto' : 'none';
   }
+
+  if (!enabled) document.addEventListener('DOMContentLoaded', () => document.body.classList.add('novibe'));
+  if (!enabled && document.body) document.body.classList.add('novibe');
 
   root.RRHaptics = {
     fire, attach,
@@ -63,7 +65,7 @@
     set(on) {
       enabled = !!on;
       try { localStorage.setItem(KEY, enabled ? '1' : '0'); } catch (e) { /* 隐私模式 */ }
-      document.querySelectorAll('.hapsw').forEach((el) => { el.style.pointerEvents = enabled ? 'auto' : 'none'; });
+      document.body.classList.toggle('novibe', !enabled);
       if (enabled) fire('tap');
     },
   };

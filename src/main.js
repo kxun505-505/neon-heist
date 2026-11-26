@@ -416,7 +416,15 @@
   }
 
   // ---------- 按钮 ----------
-  function btn(id, fn) { $(id).addEventListener('click', () => { SFX.ensure(); SFX.button(); if (!/iP(hone|ad|od)/.test(navigator.userAgent)) HAP.fire('tap'); fn(); }); }
+  function btn(id, fn) {
+    const el = $(id);
+    el.addEventListener('click', () => {
+      // 按钮所在的面板没打开时一律不响应（防止误触到隐藏面板里的按钮）
+      const panel = el.closest('.overlay');
+      if (panel && !panel.classList.contains('show')) return;
+      SFX.ensure(); SFX.button(); if (!/iP(hone|ad|od)/.test(navigator.userAgent)) HAP.fire('tap'); fn();
+    });
+  }
   btn('btnReset', () => loadLevel(levelIndex));
   btn('btnHint', () => showHint(false));
   // ---------- 设置 ----------
@@ -440,7 +448,7 @@
         const b = document.createElement('button');
         b.textContent = I18N.name(code);
         b.dataset.code = code;
-        b.addEventListener('click', () => { SFX.button(); HAP.fire('tap'); I18N.set(code); refreshTexts(); syncToggles(); markLang(); });
+        b.addEventListener('click', () => { if (!$('settings').classList.contains('show')) return; SFX.button(); HAP.fire('tap'); I18N.set(code); refreshTexts(); syncToggles(); markLang(); });
         box.appendChild(b);
         HAP.attach(b);
       });

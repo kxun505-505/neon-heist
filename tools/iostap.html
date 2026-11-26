@@ -1,0 +1,14 @@
+<!doctype html><meta charset="utf-8"><iframe id="f" src="../index.html?unlock&level=1" style="width:390px;height:844px;border:0"></iframe><pre id="out"></pre><script>
+// 模拟 iPhone：检查棋盘区域的点下面是不是藏着别的可点元素（比如隐藏面板里的按钮）
+setTimeout(() => {
+  const w = document.getElementById('f').contentWindow, d = w.document, out = [];
+  out.push('isIOS 判定：' + /iP(hone|ad|od)/.test(w.navigator.userAgent) + '，透明开关数量：' + d.querySelectorAll('.hapsw').length);
+  let bad = 0;
+  for (let y = 120; y < 760; y += 20) for (let x = 10; x < 380; x += 20) {
+    const el = d.elementFromPoint(x, y);
+    if (el && el.id !== 'game' && el.closest('.overlay')) { bad++; if (bad <= 5) out.push('  (' + x + ',' + y + ') 被隐藏面板里的元素挡住：' + el.tagName + '.' + el.className + ' 属于 #' + (el.closest('button') || {}).id); }
+  }
+  out.push(bad ? 'FAIL 棋盘上有 ' + bad + ' 个点会点到隐藏面板里的按钮' : 'PASS 棋盘区域只会点到画布');
+  document.getElementById('out').textContent = out.join('\n');
+}, 1500);
+</script>
