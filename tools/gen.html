@@ -19,7 +19,8 @@
     const rings = [], links = [];
     for (const [id, parent, dir, r, opt] of nodes) {
       let x = 0, y = 0;
-      if (parent) {
+      if (opt && opt.at && parent) { x = opt.at[0]; y = opt.at[1]; links.push([parent, id]); }
+      else if (parent) {
         const P = pos[parent], d = P.r + r + (opt && opt.stem || 18);
         x = P.x + Math.cos(dir * C.DEG) * d; y = P.y + Math.sin(dir * C.DEG) * d;
         links.push([parent, id]);
@@ -27,7 +28,7 @@
       pos[id] = { x, y, r };
       rings.push({ id, x: Math.round(x), y: Math.round(y), r, opt: opt || {} });
     }
-    return { rings, links: links.concat(extraLinks || []) };
+    return { rings, links: links.concat(extraLinks || []).map(([o, h]) => (pos[o].r > 90 ? [h, o] : [o, h])) };
   }
 
   const TEMPLATES = {
@@ -71,45 +72,107 @@
       ['d', 'c', 0, 38, { knob: true }],
       ['e', 'd', 90, 36, { knob: true, stem: 16 }],
     ], [['c', 'm']]),
+    // 第 6 关：两个闭合环 + 一座桥，外围一圈 C 环，环多但拆法直接（对标原作第 6 关：大而不难）
+    L6: () => tree([
+      ['h1', null, 0, 38, { at: [-75, -55], closed: true }],
+      ['h2', null, 0, 38, { at: [75, 55], closed: true }],
+      ['x', 'h1', 0, 38, { at: [0, 0] }],
+      ['a', 'h1', -90, 38, {}], ['b', 'h1', 180, 38, { knob: true }], ['c', 'h1', 120, 38, {}], ['d', 'h1', -30, 38, {}],
+      ['e', 'h2', 90, 38, {}], ['f', 'h2', 0, 38, { knob: true }], ['g', 'h2', -60, 38, {}], ['k', 'h2', 150, 38, {}],
+      ['a2', 'a', -90, 34, { stem: 16 }], ['e2', 'e', 90, 34, { stem: 16 }],
+    ], [['h2', 'x']]),
+    // 第 7 关：一棵向下分叉的树，枝头带凸钉
+    L7: () => tree([
+      ['h', null, 0, 40, { at: [0, -60], closed: true }],
+      ['a', 'h', -150, 38, { knob: true }], ['b', 'h', -30, 38, {}], ['c', 'h', 90, 40, {}],
+      ['d', 'c', 45, 38, { knob: true }], ['e', 'c', 135, 38, { knob: true }],
+      ['f', 'd', 45, 34, { stem: 16 }], ['g', 'e', 135, 34, { stem: 16, knob: true }],
+      ['a2', 'a', -150, 34, { stem: 16 }], ['b2', 'b', -30, 34, { stem: 16, knob: true }],
+    ]),
+    // 第 8 关：底下一排三个闭合环，两座桥托着上面的塔（对标原作第 8 关：高、底部是闭合环）
+    L8: () => tree([
+      ['h1', null, 0, 36, { at: [-120, 90], closed: true }],
+      ['h2', null, 0, 36, { at: [0, 90], closed: true }],
+      ['h3', null, 0, 36, { at: [120, 90], closed: true }],
+      ['x1', 'h1', 0, 44, { at: [-60, 10] }], ['x2', 'h3', 0, 44, { at: [60, 10] }],
+      ['t', 'x1', 0, 44, { at: [0, -80] }],
+      ['u', 't', -90, 38, {}],
+      ['w1', 'u', -45, 34, { stem: 16, knob: true }], ['w2', 'u', -135, 34, { stem: 16, knob: true }],
+      ['s1', 'h1', 120, 38, { knob: true }], ['s2', 'h2', 90, 38, {}], ['s3', 'h3', 60, 38, { knob: true }],
+    ], [['h2', 'x1'], ['h2', 'x2']]),
+    // 第 9 关：两个闭合环在上，中间两座小桥，下面挂一串
+    L9: () => tree([
+      ['h1', null, 0, 38, { at: [-80, -110], closed: true }],
+      ['h2', null, 0, 38, { at: [90, -120], closed: true }],
+      ['m', 'h1', 0, 31, { at: [5, -115] }],
+      ['a', 'h1', 150, 38, { knob: true }], ['b', 'h1', 90, 38, {}],
+      ['c', 'h2', 30, 38, { knob: true }], ['d', 'h2', 90, 38, {}],
+      ['n', 'b', 0, 31, { at: [5, -21] }],
+      ['g', 'a', 90, 34, { stem: 16, knob: true }], ['k', 'c', 90, 34, { stem: 16, knob: true }],
+      ['p', 'n', 90, 38, { stem: 16, knob: true }],
+    ], [['h2', 'm']]),
+    // 第 10 关：一个大 C 环包住两个小环，外面还有环扣着它（对标原作第 10 关的大环）
+    L10: () => tree([
+      ['B', null, 0, 100, { at: [0, 0], knob: true }],
+      ['i1', 'B', 0, 30, { at: [-45, -26] }],
+      ['i2', 'B', 0, 28, { at: [40, -33] }],
+      ['o1', 'B', -90, 34, { stem: 18 }],
+      ['o2', 'B', 180, 36, { knob: true }], ['o3', 'B', 0, 36, { knob: true }],
+      ['p2', 'o2', 135, 32, { stem: 16, knob: true }], ['p3', 'o3', 45, 32, { stem: 16 }],
+      ['q', 'o1', -90, 32, { stem: 16, knob: true }],
+      ['r2', 'p2', 90, 30, { stem: 16, knob: true }], ['r3', 'p3', 90, 30, { stem: 16, knob: true }],
+    ], [['i1', 'i2']]),
   };
-  const TARGET = { L1: [1, 1, 0], L2: [3, 3, 0.2], L3: [4, 5, 0.3], L4: [6, 9, 0.35], L5: [8, 12, 0.45] };
-  const SEEDS = { L1: 60, L2: 120, L3: 300, L4: 40, L5: 60 };
-  const only = new URLSearchParams(location.search).get('only');
+  const TARGET = { L1: [1, 1, 0], L2: [3, 3, 0.2], L3: [4, 5, 0.3], L4: [6, 9, 0.35], L5: [8, 12, 0.45], L6: [10, 16, 0.15], L7: [9, 13, 0.3], L8: [9, 16, 0.35], L9: [9, 15, 0.4], L10: [7, 16, 0.5] };
+  const SEEDS = { L1: 60, L2: 120, L3: 300, L4: 40, L5: 60, L6: 12, L7: 40, L8: 30, L9: 40, L10: 60 };
+  const q = new URLSearchParams(location.search), only = q.get('only');
+  if (q.get('seeds')) Object.keys(SEEDS).forEach((k) => { SEEDS[k] = +q.get('seeds'); });
 
   function instantiate(T, seed) {
     const R = rng(seed), lv = { rings: [], links: T.links };
-    const pos = {}; T.rings.forEach((r) => { pos[r.id] = r; });
+    // 先用 core 算出每条连接真实的杆根方向和夹套方向（套在大环里时方向是反的）
+    const geo = C.build({ rings: T.rings.map((r) => ({ id: r.id, x: r.x, y: r.y, r: r.r, angle: 0 })), links: T.links });
+    const idOf = (i) => T.rings[i].id;
+    const dirsOf = (id) => {
+      const out = [];
+      for (const L of geo.links) {
+        if (idOf(L.owner) === id) out.push(L.stubAt / C.DEG);
+        if (idOf(L.held) === id) out.push(L.clampAng / C.DEG);
+      }
+      return out;
+    };
     for (const r of T.rings) {
       const ring = { id: r.id, x: r.x, y: r.y, r: r.r };
+      const avoid = dirsOf(r.id);
       if (!r.opt.closed) {
         const w = 96 + Math.round(R() * 12);
         ring.gap = { at: 0, w };
-        // 缺口要避开：自己伸出的杆的根部、套在自己身上的夹套
-        const avoid = [];
-        for (const [o, h] of T.links) {
-          if (o === r.id) avoid.push(Math.atan2(pos[h].y - r.y, pos[h].x - r.x) / C.DEG);
-          if (h === r.id) avoid.push(Math.atan2(pos[o].y - r.y, pos[o].x - r.x) / C.DEG);
-        }
         const ok = [];
         for (let a = 0; a < 360; a += 3) if (avoid.every((v) => Math.abs(C.angDiff(a * C.DEG, v * C.DEG)) > (w / 2 + 14) * C.DEG)) ok.push(a);
-        if (!ok.length) return null;
+        if (!ok.length) { window.noGap = r.id + ' gap avoid=' + avoid.map(Math.round).join(','); return null; }
         ring.angle = ok[Math.floor(R() * ok.length)];
       } else ring.angle = 0;
       if (r.opt.knob) {
-        // 凸钉只能长在实心管子上：避开缺口，也避开杆和夹套的位置（都换算到环自身的角度）
-        const w = ring.gap ? ring.gap.w : 0, rel = [];
-        for (const [o, h] of T.links) {
-          if (o === r.id) rel.push(Math.atan2(pos[h].y - r.y, pos[h].x - r.x) / C.DEG - ring.angle);
-          if (h === r.id) rel.push(Math.atan2(pos[o].y - r.y, pos[o].x - r.x) / C.DEG - ring.angle);
-        }
+        // 凸钉只能长在实心管子上：避开缺口、杆和夹套；还要伸到空地里，不能一开始就顶着别的环
+        const w = ring.gap ? ring.gap.w : 0, len = 20 + Math.round(R() * 6);
+        const linkGap = (C.CLAMP_LEN + C.KNOB * 2) / r.r + 4 * C.DEG;
         const ok = [];
         for (let a = 0; a < 360; a += 3) {
           if (ring.gap && Math.abs(C.angDiff(a * C.DEG, 0)) <= (w / 2 + 22) * C.DEG) continue;
-          if (rel.some((v) => Math.abs(C.angDiff(a * C.DEG, v * C.DEG)) <= 40 * C.DEG)) continue;
-          ok.push(a);
+          const world = (a + ring.angle) * C.DEG;
+          if (avoid.some((v) => Math.abs(C.angDiff(world, v * C.DEG)) <= linkGap)) continue;
+          let clear = true;
+          for (let t = r.r + 8; t <= r.r + len + C.KNOB && clear; t += 4) {
+            const px = r.x + Math.cos(world) * t, py = r.y + Math.sin(world) * t;
+            for (const q of T.rings) {
+              if (q.id === r.id) continue;
+              if (Math.abs(Math.hypot(px - q.x, py - q.y) - q.r) < C.TUBE / 2 + C.KNOB + 3) { clear = false; break; }
+            }
+          }
+          if (clear) ok.push(a);
         }
-        if (!ok.length) return null;
-        ring.knobs = [{ at: ok[Math.floor(R() * ok.length)], len: 20 + Math.round(R() * 6) }];
+        if (!ok.length) { window.noGap = r.id + ' knob'; return null; }
+        ring.knobs = [{ at: ok[Math.floor(R() * ok.length)], len }];
       }
       lv.rings.push(ring);
     }
@@ -121,23 +184,27 @@
     const probs = C.validate(G);
     if (probs.length) return { bad: probs[0] };
     const s0 = C.initState(G);
-    const res = C.solve(G, s0, { maxDepth: 16, maxNodes: 60000 });
-    if (!res.moves) return { bad: res.aborted ? 'aborted' : 'unsolvable' };
+    const big = lv.rings.length > 9;
+    let res = C.solve(G, s0, { maxDepth: 20, maxNodes: big ? 15000 : 60000 }), approx = false;
+    if (!res.moves) {
+      const f = C.solveFast(G, s0, { maxNodes: 80000 });
+      if (!f.moves) return { bad: f.aborted ? 'aborted' : 'unsolvable' };
+      res = f; approx = true;
+    }
     const par = res.moves.length;
     let total = 0, worse = 0;
     for (let i = 0; i < G.rings.length; i++) {
       if (C.blockReason(G, s0, i)) continue;
       for (const d of [1, -1]) {
-        // 玩家视角：随手往一个方向转到底
         const n = C.cloneState(s0);
         const moved = C.sweep(G, n, i, d * Math.PI, null);
         if (Math.abs(moved) < 2 * C.DEG) continue;
         total++;
-        const r2 = C.solve(G, n, { maxDepth: par + 2, maxNodes: 30000 });
-        if (!r2.moves || r2.moves.length + 1 > par) worse++;
+        if (big) { const r2 = C.solveFast(G, n, { maxNodes: 15000 }); if (!r2.moves) worse++; }
+        else { const r2 = C.solve(G, n, { maxDepth: par + 2, maxNodes: 30000 }); if (!r2.moves || r2.moves.length + 1 > par) worse++; }
       }
     }
-    return { par, trap: total ? worse / total : 0, sol: res.moves };
+    return { par, approx, trap: total ? worse / total : 0, sol: res.moves };
   }
 
   const out = [];
@@ -147,16 +214,16 @@
     let best = null, stats = {};
     for (let seed = 1; seed <= SEEDS[name]; seed++) {
       const lv = instantiate(T, seed);
-      if (!lv) { stats.nogap = (stats.nogap || 0) + 1; continue; }
+      if (!lv) { stats.nogap = (stats.nogap || 0) + 1; if (q.get('debug')) out.push('  ' + seed + ' nogap ' + window.noGap); continue; }
       const m = measure(lv);
-      if (m.bad) { const k = m.bad.split(' ')[0] + (m.bad.includes('collides') ? 'C' : ''); stats[k] = (stats[k] || 0) + 1; continue; }
+      if (m.bad) { const k = m.bad.split(' ')[0] + (m.bad.includes('collides') ? 'C' : ''); stats[k] = (stats[k] || 0) + 1; if (q.get('debug')) out.push('  ' + seed + ' ' + m.bad); continue; }
       stats.ok = (stats.ok || 0) + 1; stats['p' + m.par] = (stats['p' + m.par] || 0) + 1;
       if (m.par < lo || m.par > hi) continue;
       const score = Math.abs(m.trap - trapT) + (hi - m.par) * 0.02;
       if (!best || score < best.score) best = { seed, score, lv, m };
     }
     out.push(name + ' stats=' + JSON.stringify(stats));
-    if (best) out.push(name + ' seed=' + best.seed + ' par=' + best.m.par + ' trap=' + best.m.trap.toFixed(2) + '\n' + JSON.stringify(best.lv));
+    if (best) out.push(name + ' seed=' + best.seed + ' par=' + best.m.par + (best.m.approx ? '~' : '') + ' trap=' + best.m.trap.toFixed(2) + '\n' + JSON.stringify(best.lv));
     else out.push(name + ' NO MATCH');
   }
   document.getElementById('out').textContent = out.join('\n');

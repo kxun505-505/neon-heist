@@ -101,17 +101,17 @@
 
   // 找手指下的环：管子、凸钉、它伸出的杆都算
   function pickRing(p) {
-    let best = -1, bestD = Infinity;
+    let best = -1, bestD = Infinity, inner = -1, innerR = Infinity;
     const tol = TUBE / 2 + 18 / scale;
     G.rings.forEach((R, i) => {
       if (!S.ring[i]) return;
-      let d = Math.abs(Math.hypot(p.x - R.x, p.y - R.y) - R.r);
+      const dc = Math.hypot(p.x - R.x, p.y - R.y);
+      let d = Math.abs(dc - R.r);
       for (const k of C.knobCircles(G, S, i, S.angles[i])) d = Math.min(d, Math.max(0, Math.hypot(p.x - k.x, p.y - k.y) - k.rad));
-      // 环内部也能抓，但优先级低一点
-      if (Math.hypot(p.x - R.x, p.y - R.y) < R.r) d = Math.min(d, tol * 0.9);
       if (d < tol && d < bestD) { best = i; bestD = d; }
+      if (dc < R.r && R.r < innerR) { inner = i; innerR = R.r; }
     });
-    return best;
+    return best >= 0 ? best : inner;
   }
 
   // ---------- 输入 ----------
@@ -274,9 +274,8 @@
   // ---------- 提示：求解器算出下一步，用手指动画演示 ----------
   function showHint(auto) {
     if (won || !G) return;
-    const res = C.solve(G, C.cloneState(S), { maxDepth: 16, maxNodes: 120000 });
-    if (!res.moves || !res.moves.length) { showTip('试试重来这一关'); return; }
-    const m = res.moves[0];
+    const m = C.hintMove(G, S, G.rings.length > 9 ? 8000 : 40000);
+    if (!m) { showTip('这一步走进死胡同了，点“重来”再试试'); return; }
     hint = { i: m.ring, delta: m.delta, t0: performance.now(), auto: !!auto };
     if (!auto) showTip('跟着手指转动发光的环', 2600);
   }
@@ -357,29 +356,69 @@
     const f = (c) => Math.round(c * (1 - t));
     return 'rgb(' + f(n >> 16) + ',' + f((n >> 8) & 255) + ',' + f(n & 255) + ')';
   }
-  const LX = -0.55, LY = -0.83; // 光线方向（左上）
-  function solidTube(center, outline, color, w, glow) {
+  const LX = -0.55, LY = -0.83; // 主光方向（左上）
+  const LANG = Math.atan2(LY, LX);
+  // 金属漆里的细小闪粉：一张噪点贴图，随环一起转
+  const flake = (() => {
+    const c = document.createElement('canvas'); c.width = c.height = 96;
+    const x = c.getContext('2d');
+    for (let i = 0; i < 260; i++) {
+      x.fillStyle = 'rgba(255,255,255,' + (0.25 + Math.random() * 0.75) + ')';
+      x.fillRect(Math.random() * 96, Math.random() * 96, Math.random() < 0.8 ? 0.7 : 1.3, Math.random() < 0.8 ? 0.7 : 1.3);
+    }
+    return c;
+  })();
+  let flakePattern = null;
+
+  /*
+   * 汽车烤漆质感的管子（光从左上来，上方是亮的天空、下方是暗的地面）：
+   * 投影 → 暗面 → 本色 → 清漆层里反射的天空（边缘清晰）→ 锐利的镜面高光 → 背光侧的环境反光 → 闪粉
+   * center(dx, dy) 画中心线；outline() 画管子轮廓，用来裁剪；glints() 画固定在世界坐标里的高光点
+   */
+  function paintTube(center, outline, color, w, glow, glints, spin) {
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    // 霓虹余辉（很淡，只保留氛围）
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = rgba(color, 0.07 * glow); ctx.lineWidth = w + 12; center(0, 0); ctx.stroke();
-    ctx.globalCompositeOperation = 'source-over';
-    // 投影
-    ctx.strokeStyle = 'rgba(5,0,15,0.38)'; ctx.lineWidth = w + 2; center(2.2, 4.5); ctx.stroke();
-    // 轮廓描边
-    ctx.strokeStyle = 'rgba(10,2,25,0.9)'; ctx.lineWidth = w + 2.4; center(0, 0); ctx.stroke();
+    if (glow > 1.01) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = rgba(color, 0.12 * (glow - 1)); ctx.lineWidth = w + 14; center(0, 0); ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    // 软投影：两层
+    ctx.strokeStyle = 'rgba(5,0,15,0.18)'; ctx.lineWidth = w + 7; center(3, 7); ctx.stroke();
+    ctx.strokeStyle = 'rgba(5,0,15,0.35)'; ctx.lineWidth = w + 1; center(1.8, 4); ctx.stroke();
+    ctx.strokeStyle = 'rgba(8,2,20,0.95)'; ctx.lineWidth = w + 2; center(0, 0); ctx.stroke();
     ctx.save();
     outline(); ctx.clip('evenodd');
-    ctx.strokeStyle = darken(color, 0.42); ctx.lineWidth = w + 2; center(0, 0); ctx.stroke();
-    ctx.strokeStyle = color; ctx.lineWidth = w * 0.92; center(LX * w * 0.14, LY * w * 0.14); ctx.stroke();
-    ctx.strokeStyle = lighten(color, 0.42); ctx.lineWidth = w * 0.46; center(LX * w * 0.26, LY * w * 0.26); ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = Math.max(1.2, w * 0.13); center(LX * w * 0.32, LY * w * 0.32); ctx.stroke();
-    // 底部反光（环境光）
-    ctx.strokeStyle = rgba(color, 0.55); ctx.lineWidth = w * 0.18; center(-LX * w * 0.36, -LY * w * 0.36); ctx.stroke();
+    const o = (k) => [LX * w * k, LY * w * k];
+    ctx.strokeStyle = darken(color, 0.62); ctx.lineWidth = w + 2; center(0, 0); ctx.stroke();
+    ctx.strokeStyle = darken(color, 0.25); ctx.lineWidth = w * 0.86; center(...o(0.1)); ctx.stroke();
+    ctx.strokeStyle = color; ctx.lineWidth = w * 0.62; center(...o(0.2)); ctx.stroke();
+    // 清漆里反射的天空：亮、偏暖，边缘清楚
+    ctx.strokeStyle = lighten(color, 0.55); ctx.lineWidth = w * 0.3; center(...o(0.3)); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,250,240,0.95)'; ctx.lineWidth = Math.max(1, w * 0.09); center(...o(0.34)); ctx.stroke();
+    // 背光侧的环境反光（地面霓虹的反射）
+    ctx.strokeStyle = 'rgba(120,220,255,0.55)'; ctx.lineWidth = Math.max(0.8, w * 0.07); center(...o(-0.42)); ctx.stroke();
+    ctx.strokeStyle = rgba(color, 0.5); ctx.lineWidth = w * 0.14; center(...o(-0.3)); ctx.stroke();
+    // 闪粉（随环转动）
+    if (!flakePattern) flakePattern = ctx.createPattern(flake, 'repeat');
+    if (spin) {
+      ctx.save();
+      ctx.translate(spin.x, spin.y); ctx.rotate(spin.a);
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.16;
+      ctx.fillStyle = flakePattern; ctx.fillRect(-spin.r - w, -spin.r - w, (spin.r + w) * 2, (spin.r + w) * 2);
+      ctx.restore();
+    }
+    if (glints) glints();
     ctx.restore();
   }
-  // 圆弧管：中心线 + 轮廓（带圆头）
-  function arcTube(cx, cy, r, a0, a1, color, w, glow, full) {
+
+  function glint(x, y, rad, a) {
+    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+    g.addColorStop(0, 'rgba(255,255,255,' + a + ')'); g.addColorStop(0.35, 'rgba(255,255,255,' + a * 0.5 + ')'); g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+  }
+
+  // 圆弧管
+  function arcTube(cx, cy, r, a0, a1, color, w, glow, full, spinAng) {
     const center = (dx, dy) => { ctx.beginPath(); ctx.arc(cx + dx, cy + dy, r, a0, a1); };
     const outline = () => {
       ctx.beginPath();
@@ -393,8 +432,16 @@
         ctx.closePath();
       }
     };
-    solidTube(center, outline, color, w, glow);
+    // 高光点固定在“朝向光源”的位置：外圈左上、内圈右下；环转动时漆面从高光下滑过
+    const inArc = (t) => full || C.norm(t - a0) <= C.norm(a1 - a0);
+    const glints = () => {
+      const ta = LANG, tb = LANG + Math.PI;
+      if (inArc(ta)) glint(cx + Math.cos(ta) * (r + w * 0.12), cy + Math.sin(ta) * (r + w * 0.12) + LY * w * 0.05, w * 1.1, 0.95);
+      if (inArc(tb)) glint(cx + Math.cos(tb) * (r - w * 0.12), cy + Math.sin(tb) * (r - w * 0.12), w * 0.8, 0.55);
+    };
+    paintTube(center, outline, color, w, glow, glints, spinAng != null ? { x: cx, y: cy, r, a: spinAng } : null);
   }
+
   // 直管（杆）
   function lineTube(x0, y0, x1, y1, color, w, glow) {
     const a = Math.atan2(y1 - y0, x1 - x0);
@@ -405,7 +452,7 @@
       ctx.arc(x0, y0, w / 2, a + Math.PI / 2, a + Math.PI * 1.5);
       ctx.closePath();
     };
-    solidTube(center, outline, color, w, glow);
+    paintTube(center, outline, color, w, glow, null, null);
   }
 
   function ringPath(R, cx, cy, ang) {
@@ -479,14 +526,14 @@
     // 滑脱后留在主环上的杆和空夹套，跟着主环一起转
     for (const L of G.links) {
       if (L.owner !== i || S.link[L.k]) continue;
-      const a = L.stubAt + ang, c = Math.cos(a), sn = Math.sin(a);
-      const r0 = R.r + TUBE / 2 - 2, r1 = R.r + L.stubLen - 4;
+      const a = L.stubAt + ang, c = Math.cos(a), sn = Math.sin(a), sg = L.stubIn ? -1 : 1;
+      const r0 = R.r + sg * (TUBE / 2 - 2), r1 = R.r + sg * (L.stubLen - 4), re = R.r + sg * L.stubLen;
       lineTube(cx + c * r0, cy + sn * r0, cx + c * r1, cy + sn * r1, R.color, STEM, glow);
-      drawClampAt(R.color, cx + c * (R.r + L.stubLen), cy + sn * (R.r + L.stubLen), a, 1, 1, 0, now);
+      drawClampAt(R.color, cx + c * re, cy + sn * re, a, 1, 1, 0, now);
     }
     const tw = TUBE * (1 + lf * 0.06);
-    if (R.gap) { const g = R.gap.at + ang; arcTube(cx, cy, R.r, g + R.gap.w / 2, g - R.gap.w / 2 + TAU, R.color, tw, glow, false); }
-    else arcTube(cx, cy, R.r, 0, TAU, R.color, tw, glow, true);
+    if (R.gap) { const g = R.gap.at + ang; arcTube(cx, cy, R.r, g + R.gap.w / 2, g - R.gap.w / 2 + TAU, R.color, tw, glow, false, ang); }
+    else arcTube(cx, cy, R.r, 0, TAU, R.color, tw, glow, true, ang);
   }
 
   function drawStem(L, now) {
@@ -521,18 +568,21 @@
     ctx.restore();
     ctx.fillStyle = 'rgba(10,2,25,0.95)';
     roundRect(-w / 2 - 1.5, -h / 2 - 1.5, w + 3, h + 3, 5); ctx.fill();
-    // 金属套筒：沿管子方向的圆柱明暗 + 一条镜面反光
-    const gr = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
-    gr.addColorStop(0, darken(color, 0.45)); gr.addColorStop(0.22, lighten(color, 0.25)); gr.addColorStop(0.38, lighten(color, 0.75));
-    gr.addColorStop(0.55, color); gr.addColorStop(1, darken(color, 0.5));
-    ctx.fillStyle = gr;
+    // 套筒本体：与主环同色的烤漆，横向是圆柱明暗（光从上方来）
+    const pg = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+    pg.addColorStop(0, darken(color, 0.2)); pg.addColorStop(0.18, lighten(color, 0.6)); pg.addColorStop(0.32, color);
+    pg.addColorStop(0.75, darken(color, 0.35)); pg.addColorStop(1, darken(color, 0.65));
+    ctx.fillStyle = pg;
     roundRect(-w / 2, -h / 2, w, h, 4); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    ctx.fillRect(-w / 2 + w * 0.3, -h / 2 + 2, 1.6, h - 4);
-    // 两道箍
-    ctx.fillStyle = 'rgba(10,2,25,0.45)';
-    ctx.fillRect(-w / 2 + 2.5, -h / 2, 1.4, h);
-    ctx.fillRect(w / 2 - 3.9, -h / 2, 1.4, h);
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    roundRect(-w / 2 + 3, -h / 2 + 2.2, w - 6, 1.6, 0.8); ctx.fill();
+    // 两端的镀铬箍：高对比的明暗带，像车上的镀铬饰条
+    const cg = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+    cg.addColorStop(0, '#5d5a70'); cg.addColorStop(0.2, '#ffffff'); cg.addColorStop(0.42, '#a7a4bd'); cg.addColorStop(0.55, '#2a2738');
+    cg.addColorStop(0.8, '#d9d6ee'); cg.addColorStop(1, '#4a4760');
+    ctx.fillStyle = cg;
+    roundRect(-w / 2 - 0.5, -h / 2 - 0.5, 3.4, h + 1, 1.5); ctx.fill();
+    roundRect(w / 2 - 2.9, -h / 2 - 0.5, 3.4, h + 1, 1.5); ctx.fill();
     ctx.restore();
   }
 

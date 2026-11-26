@@ -43,16 +43,23 @@
       const O = rings[idx[o]], H = rings[idx[h]];
       const dx = H.x - O.x, dy = H.y - O.y, d = Math.hypot(dx, dy);
       const ux = dx / d, uy = dy / d;
+      // 三种摆法：主环在外面（最常见）、主环套在大环里面、被扣环套在主环里面
+      let mode = 'out', ex = ux, ey = uy, rootR = O.r + TUBE / 2, clampSign = -1, stemLen = d - O.r - H.r;
+      if (d + O.r < H.r) { mode = 'ownerInside'; ex = -ux; ey = -uy; stemLen = H.r - d - O.r; }
+      else if (d + H.r < O.r) { mode = 'heldInside'; rootR = O.r - TUBE / 2; clampSign = 1; stemLen = O.r - d - H.r; }
+      // 夹套在被扣环管子上离主环最近的点
+      const cx = H.x + clampSign * ux * H.r * (mode === 'heldInside' ? 1 : 1), cy = H.y + clampSign * uy * H.r;
+      const rootDir = mode === 'heldInside' ? Math.atan2(uy, ux) : Math.atan2(ey, ex);
       return {
-        k, owner: O.i, held: H.i,
-        // 夹套位于被扣环管子上、正对主环圆心的点
-        clampAng: Math.atan2(-uy, -ux),
-        cx: H.x - ux * H.r, cy: H.y - uy * H.r,
-        sx: O.x + ux * (O.r + TUBE / 2), sy: O.y + uy * (O.r + TUBE / 2),
-        stemLen: d - O.r - H.r,
+        k, owner: O.i, held: H.i, mode,
+        clampAng: Math.atan2(cy - H.y, cx - H.x),
+        cx, cy,
+        sx: O.x + Math.cos(rootDir) * rootR, sy: O.y + Math.sin(rootDir) * rootR,
+        stemLen,
         // 滑脱后留下的凸起：相对主环自身的朝向（主环扣着东西时从没转过，所以用初始角度换算）
-        stubAt: Math.atan2(uy, ux) - norm((level.rings[O.i].angle || 0) * DEG),
-        stubLen: d - O.r - H.r,
+        stubAt: rootDir - norm((level.rings[O.i].angle || 0) * DEG),
+        stubIn: mode === 'heldInside', // 杆朝圆心方向长
+        stubLen: stemLen,
       };
     });
     return {
@@ -83,9 +90,9 @@
     const R = G.rings[i], out = [];
     for (const L of G.links) {
       if (L.owner !== i || s.link[L.k]) continue;
-      const a = L.stubAt + ang, c = Math.cos(a), sn = Math.sin(a);
-      for (let t = R.r + TUBE / 2 + STEM / 2; t < R.r + L.stubLen - 6; t += 4) out.push({ x: R.x + c * t, y: R.y + sn * t, rad: STEM / 2 });
-      const e = R.r + L.stubLen; // 空夹套中心，原来套在被扣环的管子上
+      const a = L.stubAt + ang, c = Math.cos(a), sn = Math.sin(a), sg = L.stubIn ? -1 : 1;
+      for (let t = TUBE / 2 + STEM / 2; t < L.stubLen - 6; t += 4) out.push({ x: R.x + c * (R.r + sg * t), y: R.y + sn * (R.r + sg * t), rad: STEM / 2 });
+      const e = R.r + sg * L.stubLen; // 空夹套中心，原来套在被扣环的管子上
       out.push({ x: R.x + c * e, y: R.y + sn * e, rad: CLAMP_LEN / 2 });
     }
     for (const k of R.knobs) {
@@ -228,6 +235,50 @@
     return { moves: null, nodes };
   }
 
+  /*
+   * 快速求解（不保证最少步数）：深度优先，优先尝试能断开更多连接的走法，记住走过的状态。
+   * 大关卡上广度优先太慢，提示和关卡生成在这里兜底。
+   */
+  function solveFast(G, start, opts) {
+    const maxNodes = (opts && opts.maxNodes) || 20000;
+    const seen = new Set();
+    let nodes = 0;
+    const live = (s) => s.link.reduce((n, v) => n + (v ? 1 : 0), 0) + s.ring.reduce((n, v) => n + (v ? 1 : 0), 0);
+    function dfs(s, path) {
+      if (s.ring.every((a) => !a)) return path;
+      if (++nodes > maxNodes) return null;
+      const key = stateKey(s);
+      if (seen.has(key)) return null;
+      seen.add(key);
+      const before = live(s), opts2 = [];
+      for (let i = 0; i < G.rings.length; i++) {
+        if (blockReason(G, s, i)) continue;
+        for (const d of candidateMoves(G, s, i)) {
+          const n = cloneState(s);
+          const moved = sweep(G, n, i, d, null);
+          if (Math.abs(moved) < 0.5 * DEG) continue;
+          opts2.push({ n, gain: before - live(n), m: { ring: i, delta: moved }, cost: Math.abs(moved) });
+        }
+      }
+      opts2.sort((a, b) => b.gain - a.gain || a.cost - b.cost);
+      for (const o of opts2) {
+        const r = dfs(o.n, path.concat([o.m]));
+        if (r) return r;
+      }
+      return null;
+    }
+    const moves = dfs(start, []);
+    return { moves, nodes, aborted: !moves && nodes > maxNodes };
+  }
+
+  // 提示用：先试最少步数，状态太多时退回快速求解
+  function hintMove(G, s, budget) {
+    const r = solve(G, cloneState(s), { maxDepth: 30, maxNodes: budget || 12000 });
+    if (r.moves && r.moves.length) return r.moves[0];
+    const f = solveFast(G, cloneState(s), { maxNodes: 30000 });
+    return f.moves && f.moves.length ? f.moves[0] : null;
+  }
+
   // 关卡合法性：初始无碰撞、无可直接飞走的环、无已滑脱的夹套
   function validate(G) {
     const s = initState(G), problems = [];
@@ -256,7 +307,9 @@
       if (linkCount(G, s, i) === 0) problems.push('ring ' + G.rings[i].id + ' has no link');
       for (let j = i + 1; j < G.rings.length; j++) {
         const A = G.rings[i], B = G.rings[j];
-        if (Math.hypot(A.x - B.x, A.y - B.y) < A.r + B.r + TUBE) problems.push('rings ' + A.id + B.id + ' overlap');
+        const dd = Math.hypot(A.x - B.x, A.y - B.y), small = Math.min(A.r, B.r), big = Math.max(A.r, B.r);
+        const nested = dd + small + TUBE + 6 < big;
+        if (!nested && dd < A.r + B.r + TUBE) problems.push('rings ' + A.id + B.id + ' overlap');
       }
     }
     return problems;
@@ -264,6 +317,6 @@
 
   root.RRCore = {
     TAU, DEG, TUBE, STEM, CLAMP_LEN, KNOB, norm, angDiff, build, initState, cloneState,
-    ownsLive, linkCount, blockReason, knobCircles, collision, releases, flyers, sweep, candidateMoves, solve, validate,
+    ownsLive, linkCount, blockReason, knobCircles, collision, releases, flyers, sweep, candidateMoves, solve, solveFast, hintMove, validate,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

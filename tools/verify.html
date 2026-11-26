@@ -11,10 +11,11 @@
     const G = C.build(lv);
     const problems = C.validate(G);
     const t = performance.now();
-    const res = C.solve(G, C.initState(G));
+    let res = C.solve(G, C.initState(G), { maxDepth: 20, maxNodes: lv.rings.length > 9 ? 15000 : 200000 }), approx = false;
+    if (!res.moves) { res = C.solveFast(G, C.initState(G), { maxNodes: 80000 }); approx = true; }
     out.push(JSON.stringify({
       level: n + 1, name: lv.en, rings: lv.rings.length, links: lv.links.length,
-      problems, par: res.moves ? res.moves.length : null,
+      problems, par: res.moves ? res.moves.length : null, approx,
       solution: res.moves ? res.moves.map((m) => lv.rings[m.ring].id + Math.round(m.delta / C.DEG)).join(' ') : null,
       ms: Math.round(performance.now() - t),
     }));
