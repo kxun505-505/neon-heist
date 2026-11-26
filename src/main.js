@@ -7,6 +7,9 @@
   const TUBE = C.TUBE, STEM = C.STEM, CLAMP_LEN = C.CLAMP_LEN, KNOB = C.KNOB;
   const PROGRESS_KEY = 'neonloops-progress-v2';
   const UNLOCK_ALL = /[?&]unlock/.test(location.search);
+  const BG_KEY = 'neonloops-bg';
+  const qBg = (location.search.match(/[?&]bg=(\d+)/) || [])[1];
+  let bgIndex = qBg != null ? +qBg - 1 : +(localStorage.getItem(BG_KEY) || 0);
   
 
   const $ = (id) => document.getElementById(id);
@@ -85,7 +88,7 @@
     scale = Math.min(aw / bounds.w, ah / bounds.h, 1.45);
     ox = W / 2 - bounds.cx * scale;
     oy = TOP + ah / 2 - bounds.cy * scale;
-    RRBg.paint(bg, W, H, DPR, { x: W / 2, y: TOP + ah / 2, r: Math.max(bounds.w, bounds.h) * scale * 0.62 });
+    RRBg.paint(bg, W, H, DPR, { x: W / 2, y: TOP + ah / 2, r: Math.max(bounds.w, bounds.h) * scale * 0.62 }, bgIndex);
   }
   function resize() {
     DPR = Math.min(3, window.devicePixelRatio || 1);
@@ -300,6 +303,26 @@
       if (open) b.addEventListener('click', () => { SFX.ensure(); SFX.button(); $('menu').classList.remove('show'); loadLevel(n); });
       box.appendChild(b);
     });
+    // 背景选择：每个场景画一张缩略图
+    const bgs = $('bgs');
+    bgs.innerHTML = '';
+    RRBg.scenes().forEach((name, k) => {
+      const b = document.createElement('button');
+      b.className = 'bgpick' + (k === bgIndex ? ' on' : '');
+      const c = document.createElement('canvas');
+      RRBg.paint(c, 72, 120, 2, null, k);
+      c.style.width = '100%'; c.style.height = 'auto';
+      b.appendChild(c);
+      const t = document.createElement('span'); t.textContent = name; b.appendChild(t);
+      b.addEventListener('click', () => {
+        SFX.ensure(); SFX.button();
+        bgIndex = k;
+        try { localStorage.setItem(BG_KEY, String(k)); } catch (e) { /* 隐私模式 */ }
+        layout();
+        [...bgs.children].forEach((el, j) => el.classList.toggle('on', j === k));
+      });
+      bgs.appendChild(b);
+    });
     $('menu').classList.add('show');
   }
   $('menu').addEventListener('click', (e) => { if (e.target.id === 'menu') $('menu').classList.remove('show'); });
@@ -327,6 +350,64 @@
     ctx.strokeStyle = rgba('#ffffff', 0.55); ctx.lineWidth = width * 0.3; path(); ctx.stroke();
   }
 
+
+  // 实体光泽管：先画投影，再在管子轮廓内按“光从左上方来”叠出暗面、本色、高光、镜面反光
+  function darken(hex, t) {
+    const n = parseInt(hex.slice(1), 16);
+    const f = (c) => Math.round(c * (1 - t));
+    return 'rgb(' + f(n >> 16) + ',' + f((n >> 8) & 255) + ',' + f(n & 255) + ')';
+  }
+  const LX = -0.55, LY = -0.83; // 光线方向（左上）
+  function solidTube(center, outline, color, w, glow) {
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    // 霓虹余辉（很淡，只保留氛围）
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.strokeStyle = rgba(color, 0.07 * glow); ctx.lineWidth = w + 12; center(0, 0); ctx.stroke();
+    ctx.globalCompositeOperation = 'source-over';
+    // 投影
+    ctx.strokeStyle = 'rgba(5,0,15,0.38)'; ctx.lineWidth = w + 2; center(2.2, 4.5); ctx.stroke();
+    // 轮廓描边
+    ctx.strokeStyle = 'rgba(10,2,25,0.9)'; ctx.lineWidth = w + 2.4; center(0, 0); ctx.stroke();
+    ctx.save();
+    outline(); ctx.clip('evenodd');
+    ctx.strokeStyle = darken(color, 0.42); ctx.lineWidth = w + 2; center(0, 0); ctx.stroke();
+    ctx.strokeStyle = color; ctx.lineWidth = w * 0.92; center(LX * w * 0.14, LY * w * 0.14); ctx.stroke();
+    ctx.strokeStyle = lighten(color, 0.42); ctx.lineWidth = w * 0.46; center(LX * w * 0.26, LY * w * 0.26); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = Math.max(1.2, w * 0.13); center(LX * w * 0.32, LY * w * 0.32); ctx.stroke();
+    // 底部反光（环境光）
+    ctx.strokeStyle = rgba(color, 0.55); ctx.lineWidth = w * 0.18; center(-LX * w * 0.36, -LY * w * 0.36); ctx.stroke();
+    ctx.restore();
+  }
+  // 圆弧管：中心线 + 轮廓（带圆头）
+  function arcTube(cx, cy, r, a0, a1, color, w, glow, full) {
+    const center = (dx, dy) => { ctx.beginPath(); ctx.arc(cx + dx, cy + dy, r, a0, a1); };
+    const outline = () => {
+      ctx.beginPath();
+      if (full) {
+        ctx.arc(cx, cy, r + w / 2, 0, TAU); ctx.moveTo(cx + r - w / 2, cy); ctx.arc(cx, cy, r - w / 2, 0, TAU);
+      } else {
+        ctx.arc(cx, cy, r + w / 2, a0, a1);
+        ctx.arc(cx + Math.cos(a1) * r, cy + Math.sin(a1) * r, w / 2, a1, a1 + Math.PI);
+        ctx.arc(cx, cy, r - w / 2, a1, a0, true);
+        ctx.arc(cx + Math.cos(a0) * r, cy + Math.sin(a0) * r, w / 2, a0 + Math.PI, a0 + TAU);
+        ctx.closePath();
+      }
+    };
+    solidTube(center, outline, color, w, glow);
+  }
+  // 直管（杆）
+  function lineTube(x0, y0, x1, y1, color, w, glow) {
+    const a = Math.atan2(y1 - y0, x1 - x0);
+    const center = (dx, dy) => { ctx.beginPath(); ctx.moveTo(x0 + dx, y0 + dy); ctx.lineTo(x1 + dx, y1 + dy); };
+    const outline = () => {
+      ctx.beginPath();
+      ctx.arc(x1, y1, w / 2, a - Math.PI / 2, a + Math.PI / 2);
+      ctx.arc(x0, y0, w / 2, a + Math.PI / 2, a + Math.PI * 1.5);
+      ctx.closePath();
+    };
+    solidTube(center, outline, color, w, glow);
+  }
+
   function ringPath(R, cx, cy, ang) {
     return () => {
       ctx.beginPath();
@@ -340,17 +421,19 @@
   function drawKnob(R, cx, cy, ang, k, glow) {
     const a = k.at + ang, c = Math.cos(a), s = Math.sin(a);
     const r0 = R.r + TUBE / 2 - 2, r1 = R.r + k.len - KNOB * 0.6;
-    neonPath(() => { ctx.beginPath(); ctx.moveTo(cx + c * r0, cy + s * r0); ctx.lineTo(cx + c * r1, cy + s * r1); }, R.color, STEM, glow);
+    lineTube(cx + c * r0, cy + s * r0, cx + c * r1, cy + s * r1, R.color, STEM, glow);
     // 末端方块
     ctx.save();
     ctx.translate(cx + c * (R.r + k.len), cy + s * (R.r + k.len));
     ctx.rotate(a);
     ctx.fillStyle = 'rgba(12,2,30,0.85)';
     roundRect(-KNOB - 1.5, -KNOB - 1.5, KNOB * 2 + 3, KNOB * 2 + 3, 4); ctx.fill();
-    ctx.fillStyle = R.color;
+    const kg = ctx.createLinearGradient(0, -KNOB, 0, KNOB);
+    kg.addColorStop(0, darken(R.color, 0.4)); kg.addColorStop(0.3, lighten(R.color, 0.6)); kg.addColorStop(0.55, R.color); kg.addColorStop(1, darken(R.color, 0.45));
+    ctx.fillStyle = kg;
     roundRect(-KNOB, -KNOB, KNOB * 2, KNOB * 2, 3); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.45)';
-    roundRect(-KNOB + 2, -KNOB + 2, KNOB * 2 - 4, 3, 1.5); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillRect(-KNOB + 2, -KNOB * 0.45, KNOB * 2 - 4, 1.4);
     ctx.restore();
   }
 
@@ -398,17 +481,19 @@
       if (L.owner !== i || S.link[L.k]) continue;
       const a = L.stubAt + ang, c = Math.cos(a), sn = Math.sin(a);
       const r0 = R.r + TUBE / 2 - 2, r1 = R.r + L.stubLen - 4;
-      neonPath(() => { ctx.beginPath(); ctx.moveTo(cx + c * r0, cy + sn * r0); ctx.lineTo(cx + c * r1, cy + sn * r1); }, R.color, STEM, glow);
+      lineTube(cx + c * r0, cy + sn * r0, cx + c * r1, cy + sn * r1, R.color, STEM, glow);
       drawClampAt(R.color, cx + c * (R.r + L.stubLen), cy + sn * (R.r + L.stubLen), a, 1, 1, 0, now);
     }
-    neonPath(ringPath(R, cx, cy, ang), R.color, TUBE * (1 + lf * 0.06), glow);
+    const tw = TUBE * (1 + lf * 0.06);
+    if (R.gap) { const g = R.gap.at + ang; arcTube(cx, cy, R.r, g + R.gap.w / 2, g - R.gap.w / 2 + TAU, R.color, tw, glow, false); }
+    else arcTube(cx, cy, R.r, 0, TAU, R.color, tw, glow, true);
   }
 
   function drawStem(L, now) {
     const O = G.rings[L.owner];
     const fl = flashLinks[L.k] != null ? Math.max(0, 1 - (now - flashLinks[L.k]) / 700) : 0;
     const { dx, dy } = ringOffset(L.owner, now);
-    neonPath(() => { ctx.beginPath(); ctx.moveTo(L.sx + dx, L.sy + dy); ctx.lineTo(L.cx, L.cy); }, O.color, STEM, 1 + fl * 2);
+    lineTube(L.sx + dx, L.sy + dy, L.cx, L.cy, O.color, STEM, 1 + fl * 2);
   }
 
   function drawClamp(L, now, alpha, sc) {
@@ -424,19 +509,30 @@
     ctx.rotate(dir + Math.PI / 2);
     ctx.scale(sc * (1 + fl * 0.25 * Math.sin(now / 50) ** 2), sc);
     const w = CLAMP_LEN, h = TUBE + 6;
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.fillStyle = rgba(color, 0.18 + fl * 0.3);
-    roundRect(-w / 2 - 6, -h / 2 - 6, w + 12, h + 12, 8); ctx.fill();
-    ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = 'rgba(12,2,30,0.9)';
+    if (fl > 0) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = rgba(color, 0.35 * fl);
+      roundRect(-w / 2 - 7, -h / 2 - 7, w + 14, h + 14, 9); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    // 投影（跟着世界坐标的左上光源走，这里近似成固定偏移）
+    ctx.save(); ctx.rotate(-(dir + Math.PI / 2));
+    ctx.fillStyle = 'rgba(5,0,15,0.4)'; ctx.beginPath(); ctx.ellipse(2.5, 5, w * 0.62, h * 0.62, dir + Math.PI / 2, 0, TAU); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = 'rgba(10,2,25,0.95)';
     roundRect(-w / 2 - 1.5, -h / 2 - 1.5, w + 3, h + 3, 5); ctx.fill();
-    const gr = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
-    gr.addColorStop(0, lighten(color, 0.55)); gr.addColorStop(0.5, color); gr.addColorStop(1, lighten(color, 0.15));
+    // 金属套筒：沿管子方向的圆柱明暗 + 一条镜面反光
+    const gr = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
+    gr.addColorStop(0, darken(color, 0.45)); gr.addColorStop(0.22, lighten(color, 0.25)); gr.addColorStop(0.38, lighten(color, 0.75));
+    gr.addColorStop(0.55, color); gr.addColorStop(1, darken(color, 0.5));
     ctx.fillStyle = gr;
     roundRect(-w / 2, -h / 2, w, h, 4); ctx.fill();
-    ctx.fillStyle = 'rgba(20,0,40,0.35)';
-    ctx.fillRect(-w / 2 + 4, -h / 2 + 2, 1.5, h - 4);
-    ctx.fillRect(w / 2 - 5.5, -h / 2 + 2, 1.5, h - 4);
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    ctx.fillRect(-w / 2 + w * 0.3, -h / 2 + 2, 1.6, h - 4);
+    // 两道箍
+    ctx.fillStyle = 'rgba(10,2,25,0.45)';
+    ctx.fillRect(-w / 2 + 2.5, -h / 2, 1.4, h);
+    ctx.fillRect(w / 2 - 3.9, -h / 2, 1.4, h);
     ctx.restore();
   }
 

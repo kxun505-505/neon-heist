@@ -5,7 +5,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0d0426; col
 canvas#game { position: fixed; inset: 0; touch-action: none; display: block; }
 
 .scanlines { position: fixed; inset: 0; pointer-events: none; z-index: 1;
-  background: repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0 2px, rgba(0,0,0,0.12) 2px 3px);
+  background: repeating-linear-gradient(to bottom, rgba(0,0,0,0) 0 2px, rgba(0,0,0,0.05) 2px 3px);
   mix-blend-mode: multiply; }
 
 button { font: inherit; color: inherit; cursor: pointer; border: 0; }
@@ -100,3 +100,11 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; }
 .card.current { border-color: rgba(255,61,242,0.8); }
 .card .hard { margin-left: 8px; font-size: 11px; padding: 2px 6px; border-radius: 6px; background: #ff3d9a; vertical-align: 2px; }
 .card .st { color: #ffe45c; font-weight: 800; font-size: 14px; }
+
+.bgtitle { margin: 16px 0 8px; font-size: 13px; letter-spacing: 3px; color: #28e7ff; text-align: left; }
+#bgs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.bgpick { padding: 0; border-radius: 10px; overflow: hidden; background: #000; border: 2px solid rgba(255,255,255,0.15); position: relative; }
+.bgpick canvas { display: block; }
+.bgpick span { position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 0; font-size: 11px; font-weight: 800; background: rgba(10,3,30,0.7); }
+.bgpick.on { border-color: #ff3df2; box-shadow: 0 0 12px rgba(255,61,242,0.7); }
+.panel { max-height: 92vh; overflow-y: auto; }
