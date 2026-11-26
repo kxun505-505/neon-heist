@@ -23,7 +23,9 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; }
   background: rgba(20,5,45,0.7); border: 1px solid rgba(255,211,107,0.5); box-shadow: 0 0 14px rgba(255,173,66,0.25); }
 #score { font-size: 22px; font-weight: 900; font-style: italic; color: #ffe45c; text-shadow: 0 0 10px rgba(255,173,66,0.8);
   font-variant-numeric: tabular-nums; }
-#scoreBox.bump { animation: bump .32s; }
+#scoreBox { width: 124px; flex: none; }
+#score { display: inline-block; }
+#score.bump { animation: bump .32s; }
 @keyframes bump { 30% { transform: scale(1.18); } 100% { transform: scale(1); } }
 
 .icon { width: 42px; height: 42px; border-radius: 12px; font-size: 20px; background: rgba(30,8,60,0.6);
@@ -91,7 +93,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; }
 #banner { position: fixed; left: 0; right: 0; top: 38%; z-index: 3; pointer-events: none; text-align: center;
   padding: 14px 0; background: linear-gradient(90deg, transparent, rgba(255,61,154,0.85) 20%, rgba(177,61,255,0.85) 80%, transparent);
   transform: translateX(-110%); opacity: 0; }
-#banner span { display: block; font-size: 38px; font-weight: 900; font-style: italic; letter-spacing: 6px; text-shadow: 0 3px 0 #2a0750, 0 0 16px #ff3df2; }
+#banner span { display: block; font-size: 40px; font-weight: 900; font-style: italic; letter-spacing: 6px; text-shadow: 0 3px 0 #2a0750, 0 0 16px #ff3df2; }
 #banner small { letter-spacing: 10px; font-weight: 800; color: #ffe45c; }
 #banner.show { animation: banner 1.9s cubic-bezier(.2,.8,.2,1) forwards; }
 @keyframes banner { 0% { transform: translateX(-110%); opacity: 1; } 18% { transform: translateX(0); } 78% { transform: translateX(0); opacity: 1; }
@@ -108,3 +110,39 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; }
 .bgpick span { position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 0; font-size: 11px; font-weight: 800; background: rgba(10,3,30,0.7); }
 .bgpick.on { border-color: #ff3df2; box-shadow: 0 0 12px rgba(255,61,242,0.7); }
 .panel { max-height: 92vh; overflow-y: auto; }
+
+/* 设置面板：迈阿密霓虹风（夕阳渐变边框 + 镀铬感按钮） */
+.icon svg { display: block; margin: auto; }
+.settings { position: relative; padding-top: 22px; }
+.ptitle { margin: 0 0 18px; font-size: 26px; font-weight: 900; font-style: italic; letter-spacing: 3px; text-transform: uppercase;
+  background: linear-gradient(180deg, #fff6c2, #ffb36b 45%, #ff3d9a); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 2px 0 #2a0750) drop-shadow(0 0 10px rgba(255,61,154,0.6)); }
+.close { position: absolute; top: -12px; right: -12px; width: 40px; height: 40px; border-radius: 50%; font-size: 24px; font-weight: 900; line-height: 1;
+  background: linear-gradient(180deg, #ff5c8a, #c4005c); border: 2px solid #ffd0e2; box-shadow: 0 0 14px rgba(255,61,154,0.8); }
+.toggles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
+.tog { position: relative; padding: 12px 0 8px; border-radius: 16px; display: flex; flex-direction: column; align-items: center; gap: 6px;
+  background: linear-gradient(160deg, #ff6fd8 0%, #ff8a4c 100%); border: 2px solid rgba(255,240,250,0.85);
+  box-shadow: 0 4px 0 #6a1257, 0 0 16px rgba(255,90,180,0.45); font-weight: 800; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+.tog svg { width: 34px; height: 34px; filter: drop-shadow(0 2px 0 rgba(60,0,50,0.5)); }
+.tog.off { background: linear-gradient(160deg, #4a3d66, #2b2140); border-color: rgba(255,255,255,0.25); box-shadow: 0 4px 0 #160d26; color: #9a8fb8; }
+.tog.off::after { content: ''; position: absolute; left: 50%; top: 10px; width: 3px; height: 40px; background: #ff4d6d; border-radius: 2px;
+  transform: translateX(-50%) rotate(45deg); box-shadow: 0 0 6px #ff4d6d; }
+.tog:active, .rowbtn:active, .row button:active { transform: translateY(2px); }
+.rowbtn { width: 100%; display: flex; align-items: center; gap: 10px; padding: 14px 14px; border-radius: 14px; margin-bottom: 10px; text-align: left;
+  background: rgba(20,5,45,0.7); border: 1px solid rgba(40,231,255,0.45); font-weight: 800; font-size: 16px; }
+.rowbtn .ico { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; font-size: 14px; font-weight: 900;
+  background: linear-gradient(180deg, #28e7ff, #1a8fd6); color: #0d0426; }
+.rowbtn .lbl { flex: 1; }
+.rowbtn .val { color: #28e7ff; font-size: 14px; }
+.rowbtn .chev { font-size: 22px; color: #ffb36b; }
+.langlist { display: none; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: -2px 0 12px; }
+.langlist.open { display: grid; }
+.langlist button { position: relative; padding: 10px 0; border-radius: 10px; font-weight: 800; background: rgba(30,8,60,0.85); border: 1px solid rgba(255,255,255,0.2); }
+.langlist button.on { border-color: #ff3df2; box-shadow: 0 0 10px rgba(255,61,242,0.6); color: #ffe45c; }
+.row button.secondary { background: linear-gradient(180deg, #ffb36b, #ff7a2f); border: 0; box-shadow: 0 4px 0 #8a3a10; color: #2a0750; }
+.row button.primary { box-shadow: 0 4px 0 #7a1240, 0 0 16px rgba(255,61,154,0.6); }
+.row button { position: relative; }
+/* iPhone 震动用的透明原生开关（铺满按钮，只拦截点击，不显示） */
+.hapsw { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; clip-path: inset(0 round 14px); }
+#tools button b { font-size: 18px; }
+.panel.settings { overflow: visible; }

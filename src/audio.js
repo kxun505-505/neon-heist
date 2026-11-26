@@ -55,6 +55,9 @@
       if (master) master.gain.value = muted ? 0 : 0.7;
       return muted;
     },
+    // 背景音乐：先占位，开关状态会保存，以后接入音乐时直接读取
+    get music() { return localStorage.getItem('neonloops-music') !== '0'; },
+    setMusic(on) { localStorage.setItem('neonloops-music', on ? '1' : '0'); },
     tick() { tone({ type: 'triangle', f0: 2600, f1: 1700, dur: 0.016, gain: 0.035 }); },
     grab() { tone({ type: 'sine', f0: 520, f1: 760, dur: 0.06, gain: 0.08 }); },
     drop() { tone({ type: 'sine', f0: 620, f1: 420, dur: 0.06, gain: 0.05 }); },

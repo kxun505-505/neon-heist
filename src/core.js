@@ -4,8 +4,10 @@
  * 对标原作的机制：
  * - 环是带缺口的 C 形管，或没有缺口的闭合环。环之间不重叠。
  * - 连接 = 扣件：主环伸出一根短杆，杆端的夹套套在被扣环的管子上。
- * - 被扣环转动时，管子在夹套里滑动；缺口转到夹套处，夹套就滑脱，这条连接永久断开。
- * - 滑脱后杆和空夹套留在主环上，成为跟着主环转的凸起，会撞到别的东西（对照原作视频确认）。
+ * - 被扣环转动时，管子在夹套里滑动；缺口转到夹套处，这个夹套就“松开”。
+ *   松开不是永久的：继续转、缺口离开夹套，就又扣回去了（对照原作：转出去的环可以再转回来）。
+ * - 一个零件身上所有还在的连接同时松开时，它就飞走；飞走后它的连接都消失，可能引发连锁。
+ * - 被扣的零件飞走后，主环上留下杆和空夹套，成为跟着主环转的凸起，会撞到别的东西（对照原作视频确认）。
  * - 主环还扣着别的环时转不动（杆被夹套固定住）。
  * - 杆必须长在主环的实心管子上，不能落在主环的缺口里。
  * - 环身上可能有凸起的短杆（凸钉），转动时凸钉会撞到别的环、杆、夹套，撞上就停。
@@ -110,7 +112,7 @@
   function knobCircles(G, s, i, ang) {
     const R = G.rings[i], out = [];
     for (const L of G.links) {
-      if (L.owner !== i || s.link[L.k]) continue;
+      if (L.owner !== i || s.link[L.k] || s.ring[L.held]) continue;
       const a = L.stubAt + ang, c = Math.cos(a), sn = Math.sin(a), sg = L.stubIn ? -1 : 1;
       for (let t = TUBE / 2 + STEM / 2; t < L.stubLen - 6; t += 4) out.push({ x: R.x + c * (R.r + sg * t), y: R.y + sn * (R.r + sg * t), rad: STEM / 2 });
       const e = R.r + sg * L.stubLen; // 空夹套中心，原来套在被扣环的管子上
@@ -182,7 +184,15 @@
     return null;
   }
 
-  // 检查环 i 当前角度下哪些夹套滑脱，返回断开的连接
+  // 这条连接现在是否松开（夹套落在缺口里 / 套筒已经离开直杆）
+  function isOpen(G, s, L) {
+    const H = G.rings[L.held];
+    if (H.kind === 'bar') return Math.abs(L.clampT0 - s.angles[L.held]) > H.half + CLAMP_LEN / 2 - 3;
+    if (!H.gap) return false;
+    return Math.abs(angDiff(L.clampAng, H.gap.at + s.angles[L.held])) <= H.releaseHalf;
+  }
+
+  // （旧接口，保留给验证脚本）环 i 当前松开的连接
   function releases(G, s, i) {
     const R = G.rings[i], out = [];
     if (R.kind === 'bar') {
@@ -200,11 +210,31 @@
     return out;
   }
 
-  // 没有任何连接的环飞走
+  // 身上所有还在的连接都松开的零件飞走（没有连接的也飞走）
   function flyers(G, s) {
     const out = [];
-    for (let i = 0; i < G.rings.length; i++) if (s.ring[i] && linkCount(G, s, i) === 0) out.push(i);
+    for (let i = 0; i < G.rings.length; i++) {
+      if (!s.ring[i]) continue;
+      let free = true;
+      for (const L of G.links) {
+        if (!s.link[L.k] || (L.owner !== i && L.held !== i)) continue;
+        if (!isOpen(G, s, L)) { free = false; break; }
+      }
+      if (free) out.push(i);
+    }
     return out;
+  }
+  // 连锁飞走：飞走的零件带走它的连接，可能让别的零件也全部松开
+  function cascade(G, s, events) {
+    for (;;) {
+      const f = flyers(G, s);
+      if (!f.length) return;
+      for (const i of f) {
+        s.ring[i] = false;
+        for (const L of G.links) if (s.link[L.k] && (L.owner === i || L.held === i)) s.link[L.k] = false;
+        if (events) events.push({ type: 'fly', i });
+      }
+    }
   }
 
   /*
@@ -220,14 +250,19 @@
       const next = bar ? s.angles[i] + dir * st : norm(s.angles[i] + dir * st);
       const hit = collision(G, s, i, next);
       if (hit) { if (events) events.push({ type: 'hit', p: hit, ring: i }); break; }
+      const before = events ? G.links.map((L) => s.link[L.k] && L.held === i && isOpen(G, s, L)) : null;
       s.angles[i] = next;
       moved += dir * st;
       left -= st;
-      const rel = releases(G, s, i);
-      if (rel.length) {
-        rel.forEach((k) => { s.link[k] = false; if (events) events.push({ type: 'release', k }); });
-        for (const f of flyers(G, s)) { s.ring[f] = false; if (events) events.push({ type: 'fly', i: f }); }
+      if (events) {
+        G.links.forEach((L, k) => {
+          if (!s.link[k] || L.held !== i) return;
+          const o = isOpen(G, s, L);
+          if (o && !before[k]) events.push({ type: 'open', k });
+          else if (!o && before[k]) events.push({ type: 'close', k });
+        });
       }
+      cascade(G, s, events);
     }
     return moved;
   }
@@ -243,10 +278,12 @@
       return out;
     }
     if (R.gap) {
-      for (const L of G.links) {
-        if (!s.link[L.k] || L.held !== i) continue;
-        const d = angDiff(L.clampAng, R.gap.at + s.angles[i]);
-        out.push(d, d > 0 ? d - TAU : d + TAU);
+      const mine = G.links.filter((L) => s.link[L.k] && L.held === i);
+      const aim = (target) => { const d = angDiff(target, R.gap.at + s.angles[i]); out.push(d, d > 0 ? d - TAU : d + TAU); };
+      for (const L of mine) aim(L.clampAng);
+      for (let a = 0; a < mine.length; a++) for (let b = a + 1; b < mine.length; b++) {
+        const dd = angDiff(mine[b].clampAng, mine[a].clampAng);
+        if (Math.abs(dd) < 2 * R.releaseHalf) aim(mine[a].clampAng + dd / 2);
       }
     }
     if (R.knobs.length || G.links.some((L) => L.owner === i)) out.push(TAU - 1e-6, -TAU + 1e-6); // 转到底，用来挪开凸起
@@ -293,7 +330,13 @@
     const maxNodes = (opts && opts.maxNodes) || 20000;
     const seen = new Set();
     let nodes = 0;
-    const live = (s) => s.link.reduce((n, v) => n + (v ? 1 : 0), 0) + s.ring.reduce((n, v) => n + (v ? 1 : 0), 0);
+    // 进度分：飞走的零件最重要，其次是已经松开的夹套（新规则下松开不会立刻减少连接数）
+    const live = (s) => {
+      let n = 0;
+      for (let i = 0; i < s.ring.length; i++) if (s.ring[i]) n += 10;
+      for (const L of G.links) if (s.link[L.k]) n += isOpen(G, s, L) ? 0 : 1;
+      return n;
+    };
     function dfs(s, path) {
       if (s.ring.every((a) => !a)) return path;
       if (++nodes > maxNodes) return null;
@@ -357,9 +400,10 @@
         }
       }
     });
+    if (flyers(G, s).length) problems.push('something flies at start');
     for (let i = 0; i < G.rings.length; i++) {
       if (collision(G, s, i, s.angles[i])) problems.push('ring ' + G.rings[i].id + ' collides at start');
-      if (releases(G, s, i).length) problems.push('ring ' + G.rings[i].id + ' already released');
+      if (G.links.some((L) => s.link[L.k] && L.held === i && isOpen(G, s, L))) problems.push('ring ' + G.rings[i].id + ' already released');
       if (linkCount(G, s, i) === 0) problems.push('ring ' + G.rings[i].id + ' has no link');
       for (let j = i + 1; j < G.rings.length; j++) {
         const A = G.rings[i], B = G.rings[j];
@@ -374,6 +418,6 @@
 
   root.RRCore = {
     TAU, DEG, TUBE, STEM, CLAMP_LEN, KNOB, BAR, barCircles, norm, angDiff, build, initState, cloneState,
-    ownsLive, linkCount, blockReason, knobCircles, collision, releases, flyers, sweep, candidateMoves, solve, solveFast, hintMove, validate,
+    ownsLive, linkCount, blockReason, isOpen, cascade, knobCircles, collision, releases, flyers, sweep, candidateMoves, solve, solveFast, hintMove, validate,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

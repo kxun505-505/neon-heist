@@ -3,7 +3,7 @@
  */
 (function () {
   'use strict';
-  const C = RRCore, LEVELS = RRLevels, SFX = RRAudio, TAU = C.TAU, DEG = C.DEG;
+  const C = RRCore, LEVELS = RRLevels, SFX = RRAudio, HAP = RRHaptics, I18N = RRI18n, t = RRI18n.t, TAU = C.TAU, DEG = C.DEG;
   const TUBE = C.TUBE, STEM = C.STEM, CLAMP_LEN = C.CLAMP_LEN, KNOB = C.KNOB, BAR = C.BAR;
   const SILVER = '#cfcbe3';
   const PROGRESS_KEY = 'neonloops-progress-v2';
@@ -61,12 +61,12 @@
     moves = 0; score = 0; shownScore = 0; won = false;
     drag = null; hint = null; combo = { n: 0, t: 0 };
     fx = []; shakes = {}; lift = {}; flashLinks = {};
-    $('lvNum').textContent = 'LEVEL ' + (n + 1);
-    $('lvName').textContent = lv.name;
+    $('lvNum').textContent = t('level') + ' ' + (n + 1);
+    $('lvName').textContent = lv.en;
     $('score').textContent = '0';
     $('win').classList.remove('show');
     layout();
-    showTip(lv.tip);
+    showTip(t('tips')[n] || '');
     if (lv.hard) showBanner();
     if (n === 0 && !everDragged) setTimeout(() => { if (levelIndex === 0 && !everDragged) showHint(true); }, 700);
   }
@@ -81,6 +81,7 @@
   }
   function showBanner() {
     const el = $('banner');
+    $('bannerText').textContent = t('hard');
     el.classList.remove('show');
     void el.offsetWidth;
     el.classList.add('show');
@@ -140,19 +141,19 @@
     if (why) {
       shakes[i] = performance.now();
       SFX.locked();
-      buzz(18);
+      HAP.fire('blocked');
       if (why === 'owner') {
         // 把它扣住的环闪一下，告诉玩家要先处理谁
         G.links.forEach((L) => { if (S.link[L.k] && L.owner === i) flashLinks[L.k] = performance.now(); });
-        showTip('它还扣着别的环，先把被扣住的环转出来', 2600);
-      } else showTip('闭合的环转不动，等扣在它身上的环都离开', 2600);
-      if (G.rings[i].kind === 'bar') showTip('直杆只能沿着自己的方向推拉', 2600);
+        showTip(t('tipOwner'), 2600);
+      } else showTip(t('tipClosed'), 2600);
       return;
     }
     try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 合成事件 */ }
     const R = G.rings[i];
     drag = { i, id: e.pointerId, last: Math.atan2(p.y - R.y, p.x - R.x), lastP: p, bar: R.kind === 'bar', total: 0, tick: 0, lastHit: 0, moved: false };
     lift[i] = { t0: performance.now(), on: true };
+    HAP.fire('grab');
     if (hint && !hint.auto) hint = null;
     SFX.grab();
   });
@@ -190,7 +191,7 @@
       if (hint) hint = null;
     }
     drag.tick += drag.bar ? Math.abs(moved) / 60 : Math.abs(moved);
-    if (drag.tick > 10 * DEG) { drag.tick = 0; SFX.tick(); }
+    if (drag.tick > 10 * DEG) { drag.tick = 0; SFX.tick(); HAP.fire('tick'); }
     handleEvents(events);
   }
 
@@ -202,15 +203,18 @@
         if (now - (drag ? drag.lastHit : 0) > 140) {
           if (drag) drag.lastHit = now;
           SFX.bump();
-          buzz(8);
+          HAP.fire('bump');
           fx.push({ type: 'bump', x: ev.p.x, y: ev.p.y, t0: now });
           shakes[ev.ring] = now - 200; // 轻微一抖
         }
-      } else if (ev.type === 'release') {
+      } else if (ev.type === 'open') {
         const L = G.links[ev.k];
         fx.push({ type: 'slip', L, t0: now, color: G.rings[L.owner].color });
         SFX.slip();
-        buzz(12);
+        HAP.fire('open');
+      } else if (ev.type === 'close') {
+        SFX.tick();
+        HAP.fire('close');
       } else if (ev.type === 'fly') {
         flew++;
         flyAway(ev.i, now);
@@ -250,7 +254,7 @@
         fx.push({ type: 'chunk', color: R.color, x, y, pts, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 80, vr: (Math.random() - 0.5) * 10, t0: now + Math.random() * 40, life: 0.75 + Math.random() * 0.35 });
       }
       fx.push({ type: 'plus', x: R.x + R.ux * sv, y: R.y + R.uy * sv, t0: now, text: '+' + 200 * Math.min(combo.n + 1, 5) });
-      buzz(30);
+      HAP.fire('fly');
       return;
     }
     const ang = S.angles[i];
@@ -271,7 +275,7 @@
     }
     fx.push({ type: 'pop', R, ang, t0: now });
     fx.push({ type: 'plus', x: R.x, y: R.y, t0: now, text: '+' + 200 * Math.min(combo.n + 1, 5) });
-    buzz(30);
+    HAP.fire('fly');
   }
 
   function endDrag(e, forced) {
@@ -284,11 +288,11 @@
   cv.addEventListener('pointerup', (e) => endDrag(e));
   cv.addEventListener('pointercancel', (e) => endDrag(e));
 
-  function buzz(ms) { if (navigator.vibrate) navigator.vibrate(ms); }
+
 
   let scoreTimer = 0;
   function bumpScore() {
-    const el = $('scoreBox');
+    const el = $('score');
     el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
     clearTimeout(scoreTimer);
   }
@@ -300,10 +304,11 @@
     setTimeout(() => {
       SFX.win();
       const last = levelIndex === LEVELS.length - 1;
-      $('winTitle').textContent = last ? '试玩通关！' : ['Nice!', 'Great!', 'Awesome!', 'Superb!'][levelIndex % 4];
+      $('winTitle').textContent = last ? t('demoDone') : t('wins')[levelIndex % 4];
       $('winScore').textContent = String(score);
-      $('winInfo').textContent = '拖动 ' + moves + ' 次';
-      $('btnNext').textContent = last ? '回到关卡' : '下一关 ›';
+      $('winInfo').textContent = t('moves', { n: moves });
+      $('btnNext').textContent = last ? t('toLevels') : t('next');
+      HAP.fire('win');
       $('win').classList.add('show');
     }, 750);
   }
@@ -312,20 +317,60 @@
   function showHint(auto) {
     if (won || !G) return;
     const m = C.hintMove(G, S, G.rings.length > 9 ? 8000 : 40000);
-    if (!m) { showTip('这一步走进死胡同了，点“重来”再试试'); return; }
+    if (!m) { showTip(t('tipDead')); return; }
     hint = { i: m.ring, delta: m.delta, t0: performance.now(), auto: !!auto };
-    if (!auto) showTip('跟着手指转动发光的环', 2600);
+    if (!auto) showTip(t('tipHint'), 2600);
   }
 
   // ---------- 按钮 ----------
-  function btn(id, fn) { $(id).addEventListener('click', () => { SFX.ensure(); SFX.button(); fn(); }); }
+  function btn(id, fn) { $(id).addEventListener('click', () => { SFX.ensure(); SFX.button(); if (!/iP(hone|ad|od)/.test(navigator.userAgent)) HAP.fire('tap'); fn(); }); }
   btn('btnReset', () => loadLevel(levelIndex));
   btn('btnHint', () => showHint(false));
-  btn('btnMute', () => { $('btnMute').classList.toggle('off', SFX.toggle()); });
-  btn('btnMenu', openMenu);
+  // ---------- 设置 ----------
+  function syncToggles() {
+    $('togMusic').classList.toggle('off', !SFX.music);
+    $('togSound').classList.toggle('off', SFX.muted);
+    $('togVibe').classList.toggle('off', !HAP.enabled);
+    $('langVal').textContent = I18N.name(I18N.lang);
+  }
+  function openSettings() { syncToggles(); $('langList').classList.remove('open'); $('settings').classList.add('show'); }
+  function closeSettings() { $('settings').classList.remove('show'); }
+  btn('btnSettings', openSettings);
+  btn('btnCloseSettings', closeSettings);
+  btn('togMusic', () => { SFX.setMusic(!SFX.music); syncToggles(); showTip(t('musicSoon'), 1800); });
+  btn('togSound', () => { SFX.toggle(); syncToggles(); });
+  btn('togVibe', () => { HAP.set(!HAP.enabled); syncToggles(); });
+  btn('btnLang', () => {
+    const box = $('langList');
+    if (!box.children.length) {
+      I18N.ORDER.forEach((code) => {
+        const b = document.createElement('button');
+        b.textContent = I18N.name(code);
+        b.dataset.code = code;
+        b.addEventListener('click', () => { SFX.button(); HAP.fire('tap'); I18N.set(code); refreshTexts(); syncToggles(); markLang(); });
+        box.appendChild(b);
+        HAP.attach(b);
+      });
+    }
+    markLang();
+    box.classList.toggle('open');
+  });
+  function markLang() { [...$('langList').children].forEach((b) => b.classList.toggle('on', b.dataset.code === I18N.lang)); }
+  btn('btnHome', () => { closeSettings(); openMenu(); });
+  btn('btnRestart', () => { closeSettings(); loadLevel(levelIndex); });
+  $('settings').addEventListener('click', (e) => { if (e.target.id === 'settings') closeSettings(); });
+  // 切换语言后刷新所有文字
+  function refreshTexts() {
+    I18N.apply();
+    $('lvNum').textContent = t('level') + ' ' + (levelIndex + 1);
+    if ($('menu').classList.contains('show')) openMenu();
+  }
   btn('btnNext', () => { $('win').classList.remove('show'); if (levelIndex < LEVELS.length - 1) loadLevel(levelIndex + 1); else openMenu(); });
   btn('btnRetry', () => { $('win').classList.remove('show'); loadLevel(levelIndex); });
-  $('btnMute').classList.toggle('off', SFX.muted);
+  // iPhone：按钮上盖透明原生开关，直接点按就有震感
+  ['btnSettings', 'btnReset', 'btnHint', 'togMusic', 'togSound', 'togVibe', 'btnLang', 'btnHome', 'btnRestart', 'btnCloseSettings', 'btnNext', 'btnRetry']
+    .forEach((id) => HAP.attach($(id)));
+  I18N.apply();
 
   function openMenu() {
     const box = $('levels');
@@ -334,15 +379,16 @@
       const b = document.createElement('button');
       const open = unlocked(n), best = progress[n];
       b.className = 'card' + (open ? '' : ' locked') + (n === levelIndex ? ' current' : '');
-      b.innerHTML = '<span class="no">' + (n + 1) + '</span><span class="nm">' + lv.name + (lv.hard ? '<b class="hard">困难</b>' : '') +
-        '<small>' + lv.en + '</small></span><span class="st">' + (open ? (best != null ? '✓ ' + best : '') : '🔒') + '</span>';
+      b.innerHTML = '<span class="no">' + (n + 1) + '</span><span class="nm">' + lv.en + (lv.hard ? '<b class="hard">' + t('hard') + '</b>' : '') +
+        '</span><span class="st">' + (open ? (best != null ? '✓ ' + best : '') : '🔒') + '</span>';
       if (open) b.addEventListener('click', () => { SFX.ensure(); SFX.button(); $('menu').classList.remove('show'); loadLevel(n); });
       box.appendChild(b);
     });
     // 背景选择：每个场景画一张缩略图
     const bgs = $('bgs');
     bgs.innerHTML = '';
-    RRBg.scenes().forEach((name, k) => {
+    RRBg.scenes().forEach((_, k) => {
+      const name = t('bgs')[k];
       const b = document.createElement('button');
       b.className = 'bgpick' + (k === bgIndex ? ' on' : '');
       const c = document.createElement('canvas');
@@ -599,7 +645,8 @@
   }
 
   function drawClamp(L, now, alpha, sc) {
-    const fl = flashLinks[L.k] != null ? Math.max(0, 1 - (now - flashLinks[L.k]) / 700) : 0;
+    let fl = flashLinks[L.k] != null ? Math.max(0, 1 - (now - flashLinks[L.k]) / 700) : 0;
+    if (C.isOpen(G, S, L)) fl = Math.max(fl, 0.55 + 0.25 * Math.sin(now / 120));
     drawClampAt(L.mode === 'bar' ? SILVER : G.rings[L.owner].color, L.cx, L.cy, L.clampAng + Math.PI, alpha, sc, fl, now);
   }
 
@@ -837,6 +884,9 @@
   if (qLevel >= 0 && qLevel < LEVELS.length && unlocked(qLevel)) loadLevel(qLevel);
   else { loadLevel(Math.max(0, Math.min(LEVELS.length - 1, Object.keys(progress).length))); openMenu(); }
   requestAnimationFrame(frame);
+  if (/[?&]open=settings/.test(location.search)) openSettings();
+  const qLang = (location.search.match(/[?&]lang=(\w+)/) || [])[1];
+  if (qLang) { I18N.set(qLang); refreshTexts(); syncToggles(); }
 
   // 给验证脚本用的接口
   window.__neon = {

@@ -70,33 +70,17 @@
     ], [['h2', 'm']]),
     // 树形 + 一个被两边扣住的环，多根凸钉互相卡位
     L5: () => tree([
-      ['h', null, 0, 40, { at: [0, -20], closed: true }],
+      ['h', null, 0, 40, { at: [-20, -20], closed: true }],
       ['a', 'h', -90, 40, { knob: true }],
       ['b', 'h', 150, 40, { knob: true }],
-      ['c', 'h', 30, 40, {}],
-      ['m', 'b', 30, 40, {}],
+      ['m', 'h', 30, 40, {}],
+      ['r', null, 0, 40, { at: [150, -69] }],
+      ['n', 'r', -90, 34, { stem: 16, knob: true }],
       ['g', 'a', -90, 34, { stem: 16 }],
       ['k', 'b', 180, 36, { knob: true, stem: 16 }],
-      ['d', 'c', 0, 38, { knob: true }],
-      ['e', 'd', 90, 36, { knob: true, stem: 16 }],
-    ], [['c', 'm']]),
-    // 第 6 关：两个闭合环 + 一座桥，外围一圈 C 环，环多但拆法直接（对标原作第 6 关：大而不难）
-    L6: () => tree([
-      ['h1', null, 0, 38, { at: [-75, -55], closed: true }],
-      ['h2', null, 0, 38, { at: [75, 55], closed: true }],
-      ['x', 'h1', 0, 38, { at: [0, 0] }],
-      ['a', 'h1', -90, 38, {}], ['b', 'h1', 180, 38, { knob: true }], ['c', 'h1', 120, 38, {}], ['d', 'h1', -30, 38, {}],
-      ['e', 'h2', 90, 38, {}], ['f', 'h2', 0, 38, { knob: true }], ['g', 'h2', -60, 38, {}], ['k', 'h2', 150, 38, {}],
-      ['a2', 'a', -90, 34, { stem: 16 }], ['e2', 'e', 90, 34, { stem: 16 }],
-    ], [['h2', 'x']]),
-    // 第 7 关：一棵向下分叉的树，枝头带凸钉
-    L7: () => tree([
-      ['h', null, 0, 40, { at: [0, -60], closed: true }],
-      ['a', 'h', -150, 38, { knob: true }], ['b', 'h', -30, 38, {}], ['c', 'h', 90, 40, {}],
-      ['d', 'c', 45, 38, { knob: true }], ['e', 'c', 135, 38, { knob: true }],
-      ['f', 'd', 45, 34, { stem: 16 }], ['g', 'e', 135, 34, { stem: 16, knob: true }],
-      ['a2', 'a', -150, 34, { stem: 16 }], ['b2', 'b', -30, 34, { stem: 16, knob: true }],
-    ]),
+      ['d', 'm', 90, 38, { knob: true }],
+      ['e', 'd', 150, 34, { knob: true, stem: 16 }],
+    ], [['r', 'm']]),
     // 第 8 关：底下一排三个闭合环，两座桥托着上面的塔（对标原作第 8 关：高、底部是闭合环）
     L8: () => tree([
       ['h1', null, 0, 36, { at: [-120, 90], closed: true }],
@@ -126,13 +110,11 @@
     L10: () => tree([
       ['B', null, 0, 100, { at: [0, 0], knob: true }],
       ['i1', 'B', 0, 30, { at: [-45, -26] }],
-      ['i2', 'B', 0, 28, { at: [40, -33] }],
       ['o1', 'B', -90, 34, { stem: 18 }],
       ['o2', 'B', 180, 36, { knob: true }], ['o3', 'B', 0, 36, { knob: true }],
       ['p2', 'o2', 135, 32, { stem: 16, knob: true }], ['p3', 'o3', 45, 32, { stem: 16 }],
       ['q', 'o1', -90, 32, { stem: 16, knob: true }],
-      ['r2', 'p2', 90, 30, { stem: 16, knob: true }], ['r3', 'p3', 90, 30, { stem: 16, knob: true }],
-    ], [['i1', 'i2']], [
+    ], [], [
       ['z1', 'i1', 60, 56, {}],
       ['z2', 'o1', 0, 86, {}],
     ]),
@@ -208,7 +190,7 @@
     const big = lv.rings.length > 9;
     let res = C.solve(G, s0, { maxDepth: 20, maxNodes: big ? 15000 : 60000 }), approx = false;
     if (!res.moves) {
-      const f = C.solveFast(G, s0, { maxNodes: 80000 });
+      const f = C.solveFast(G, s0, { maxNodes: +(q.get('fast') || (big ? 30000 : 80000)) });
       if (!f.moves) return { bad: f.aborted ? 'aborted' : 'unsolvable' };
       res = f; approx = true;
     }

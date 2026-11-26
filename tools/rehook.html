@@ -1,0 +1,21 @@
+<!doctype html><meta charset="utf-8"><script src="../src/core.js"></script><pre id="out"></pre><script>
+// 回归测试：被两个主环扣住的环，从一个夹套里转出来后还能转回去重新扣上（主环还在、没有别的阻挡）
+const C = RRCore, out = [];
+const lv = { rings: [
+  { id: 'o1', x: -100, y: 0, r: 40 },                       // 闭合主环 1（还扣着 k，不会飞走）
+  { id: 'k', x: -100, y: -96, r: 38, gap: { at: 0, w: 100 }, angle: 0 },
+  { id: 'h', x: 0, y: 0, r: 42, gap: { at: 0, w: 100 }, angle: 90 }, // 被 o1、o2 同时扣住
+  { id: 'o2', x: 100, y: 0, r: 40 },
+], links: [['o1', 'k'], ['o1', 'h'], ['o2', 'h']] };
+const G = C.build(lv), s = C.initState(G);
+out.push('problems ' + JSON.stringify(C.validate(G)));
+const L = G.links[1];
+// 把 h 的缺口转到 o1 的夹套（180°）
+let ev = []; C.sweep(G, s, 2, C.angDiff(Math.PI, s.angles[2]), ev);
+out.push('转到夹套: open=' + C.isOpen(G, s, L) + ' h还在=' + s.ring[2] + ' 事件=' + ev.map((e) => e.type).join(','));
+// 再转回去 90°
+ev = []; const moved = C.sweep(G, s, 2, -Math.PI / 2, ev);
+out.push('转回去: 实际转了 ' + Math.round(moved / C.DEG) + '° open=' + C.isOpen(G, s, L) + ' 事件=' + ev.map((e) => e.type).join(','));
+out.push(Math.round(moved / C.DEG) === -90 && !C.isOpen(G, s, L) ? 'PASS 可以转回去重新扣上' : 'FAIL');
+document.getElementById('out').textContent = out.join('\n');
+</script>
