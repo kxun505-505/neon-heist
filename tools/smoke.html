@@ -27,11 +27,21 @@
     for (let k = 0; k < 30 && st().frameCount === 0; k++) await sleep(100); // 等第一帧（无头浏览器里第一帧可能晚到，最后再统一检查）
     check('开机停在第 6 关并打开主页', st().levelIndex === 5 && $('menu').classList.contains('show'));
     check('主页列出 10 关', d.querySelectorAll('#levels .card').length === 10);
-    check('主页列出 4 个背景', d.querySelectorAll('#bgs .bgpick').length === 4);
+    check('主页按章节分组（' + d.querySelector('#levels .chapterhead').textContent + '）', d.querySelectorAll('#levels .chapterhead').length === 1);
+    check('标题是“章节名 · 章内关卡号”：' + $('lvName').textContent + ' / ' + $('lvNum').textContent, $('lvName').textContent === 'SUNSET COAST · 6' && $('lvNum').textContent === 'LEVEL 6');
+    // 相册：第 5 关已通关 → 照片 1 解锁；照片 2 要通关第 10 关；3、4 和视频还没做
+    $('btnAlbum').click(); await sleep(150);
+    const slots = d.querySelectorAll('#albumBody .aslot');
+    check('相册打开，第 1 章有 4 张照片 + 1 段视频（' + slots.length + ' 格）', $('album').classList.contains('show') && slots.length === 5);
+    check('照片 1 已解锁（通关了第 5 关）', slots[0].classList.contains('got'));
+    check('照片 2 还锁着（要通关第 10 关）', !slots[1].classList.contains('got') && /10/.test(slots[1].textContent));
+    check('照片 3、4 和视频显示即将上线', /Coming soon/.test(slots[2].textContent) && /Coming soon/.test(slots[4].textContent));
+    slots[0].click(); await sleep(100);
+    check('点照片打开大图', $('viewer').classList.contains('show') && /photo1/.test($('viewImg').src));
+    $('btnCloseViewer').click(); await sleep(50);
+    $('btnCloseAlbum').click(); await sleep(50);
+    check('右下角陪玩角色已加载（表情 ' + w.__neon.girl() + '）', /idle/.test($('girlA').src) || /idle/.test($('girlB').src));
     check('第 6 关的零件都在（' + st().ring.filter(Boolean).length + ' 个）', st().ring.filter(Boolean).length === w.RRLevels[5].rings.length);
-    // 选背景
-    d.querySelectorAll('#bgs .bgpick')[2].click(); await sleep(100);
-    check('切换背景后选中第 3 个', d.querySelectorAll('#bgs .bgpick')[2].classList.contains('on'));
     // 选第 2 关
     d.querySelectorAll('#levels .card')[1].click(); await sleep(150);
     check('点关卡卡片进入第 2 关', st().levelIndex === 1 && !$('menu').classList.contains('show'));
@@ -70,10 +80,46 @@
     }
     await sleep(2200);
     check('第 1 关通关并弹出过关面板', st().won && $('win').classList.contains('show'));
+    check('过关时角色换成眨眼表情', w.__neon.girl() === 'wink');
+    check('第 1 关不解锁照片', !$('winPhoto').classList.contains('show'));
     check('过关按钮里的震动开关没被文字覆盖', !w.RRHaptics || $('btnNext').querySelector('span#btnNextLabel') != null);
     $('btnNext').click(); await sleep(200);
     check('点下一关进入第 2 关', st().levelIndex === 1 && !st().won);
     check('画面仍在绘制（frameCount=' + st().frameCount + '）', st().frameCount > 0);
+    // 第 5 关第一次通关 → 解锁照片 1：过关面板出现“新照片”，角色换成开心表情
+    w.localStorage.setItem('neonloops-progress-v2', JSON.stringify({ 0: 800, 1: 2200, 2: 3200, 3: 6000 }));
+    w.localStorage.removeItem('neonloops-seen');
+    w = await load('../index.html?level=5&' + Date.now());
+    w.addEventListener('error', (e) => errs.push(e.message + ' @' + (e.filename || '').split('/').pop() + ':' + e.lineno));
+    await sleep(600);
+    {
+      const d2 = w.document, C2 = w.RRCore, G2 = C2.build(w.RRLevels[4]), cv2 = d2.getElementById('game');
+      const st2 = () => w.__neon.state;
+      const fire2 = (type, p) => cv2.dispatchEvent(new w.PointerEvent(type, { pointerId: 4, clientX: p.x, clientY: p.y, bubbles: true, isPrimary: true, pointerType: 'touch' }));
+      for (let k = 0; k < 20 && !st2().won; k++) {
+        const s2 = st2(), m = C2.hintMove(G2, { angles: s2.angles, ring: s2.ring, link: s2.link }, 20000);
+        if (!m) break;
+        const R = G2.rings[m.ring];
+        let best = 0, bestD = -1;
+        for (let q = 0; q < 72; q++) {
+          const a = (q / 72) * C2.TAU, px = R.x + Math.cos(a) * R.r, py = R.y + Math.sin(a) * R.r;
+          let dmin = Infinity;
+          G2.rings.forEach((Q, j) => { if (j !== m.ring && s2.ring[j] && Q.kind !== 'bar') dmin = Math.min(dmin, Math.abs(Math.hypot(px - Q.x, py - Q.y) - Q.r)); });
+          if (dmin > bestD) { bestD = dmin; best = a; }
+        }
+        const at = (a) => w.__neon.toScreen(R.x + Math.cos(a) * R.r, R.y + Math.sin(a) * R.r);
+        fire2('pointerdown', at(best));
+        const n = Math.max(2, Math.ceil(Math.abs(m.delta) / (4 * C2.DEG)));
+        for (let q = 1; q <= n; q++) { fire2('pointermove', at(best + (m.delta * q) / n)); if (q % 4 === 0) await sleep(5); }
+        fire2('pointerup', at(best + m.delta)); await sleep(40);
+      }
+      await sleep(2300);
+      check('第 5 关通关', st2().won);
+      check('过关面板显示“解锁了新照片”', d2.getElementById('winPhoto').classList.contains('show') && /photo1/.test(d2.getElementById('winPhotoImg').src));
+      check('解锁照片时角色换成开心表情（' + w.__neon.girl() + '）', w.__neon.girl() === 'happy');
+      d2.getElementById('winPhoto').click(); await sleep(100);
+      check('点新照片打开大图', d2.getElementById('viewer').classList.contains('show'));
+    }
     check('没有任何脚本报错', errs.length === 0);
     errs.forEach((e) => log.push('  ERROR ' + e));
     out();

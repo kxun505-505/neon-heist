@@ -8,9 +8,15 @@
   const SILVER = '#cfcbe3';
   const PROGRESS_KEY = 'neonloops-progress-v2';
   const UNLOCK_ALL = /[?&]unlock/.test(location.search);
-  const BG_KEY = 'neonloops-bg';
+  // 背景跟着章节走；?bg=N 只用于测试时强制指定
   const qBg = (location.search.match(/[?&]bg=(\d+)/) || [])[1];
-  let bgIndex = qBg != null ? +qBg - 1 : +(localStorage.getItem(BG_KEY) || 0);
+  let bgIndex = 0;
+  const CH = RRChapters, PER = CH.PER_CHAPTER, EVERY = CH.PHOTO_EVERY;
+  const chapterIndex = (n) => Math.min(CH.list.length - 1, Math.floor(n / PER));
+  const chapterOf = (n) => CH.list[chapterIndex(n)];
+  // 第 n 关（从 0 数）通关后是否解锁照片，返回照片序号（0~3）或 -1
+  const photoAt = (n) => ((n % PER) + 1) % EVERY === 0 ? Math.floor((n % PER) / EVERY) : -1;
+  const photoUnlocked = (ci, k) => progress[ci * PER + (k + 1) * EVERY - 1] != null;
   
 
   const $ = (id) => document.getElementById(id);
@@ -30,6 +36,7 @@
   // ---------- 关卡状态 ----------
   let levelIndex = 0, G = null, S = null, bounds = null;
   let moves = 0, score = 0, shownScore = 0, won = false, everDragged = false;
+  let lastProgress = performance.now(), lastStuck = 0, blockedTaps = [];
   let drag = null, hint = null, combo = { n: 0, t: 0 };
   let fx = [];            // 各种一次性动画
   let shakes = {}, lift = {}, flashLinks = {};
@@ -64,8 +71,13 @@
     moves = 0; score = 0; shownScore = 0; won = false;
     drag = null; hint = null; combo = { n: 0, t: 0 };
     fx = []; shakes = {}; lift = {}; flashLinks = {}; slowmo = null; timeScale = 1;
+    const chap = chapterOf(n);
+    $('lvName').textContent = chap.name + ' · ' + ((n % PER) + 1);
     $('lvNum').textContent = t('level') + ' ' + (n + 1);
-    $('lvName').textContent = lv.en;
+    bgIndex = qBg != null ? +qBg - 1 : chap.bg;
+    Girl.setChapter(chap);
+    lastProgress = performance.now(); blockedTaps = [];
+    if (n % PER === 0 && progress[n] == null) setTimeout(() => Girl.react('greet'), 600);
     $('score').textContent = '0';
     $('win').classList.remove('show');
     layout();
@@ -96,7 +108,8 @@
     if (!bounds) return;
     // 棋盘区域：HUD 下方留出提示条的位置，底部让出工具栏（自动包含 iPhone 刘海和底部横条的安全区）
     const TOP = $('hud').getBoundingClientRect().bottom + 44;
-    const BOTTOM = H - $('tools').getBoundingClientRect().top + 8;
+    const gr = $('girl').getBoundingClientRect();
+    const BOTTOM = H - Math.min($('tools').getBoundingClientRect().top, gr.top + gr.height * 0.42) + 8;
     const aw = W - 24, ah = Math.max(200, H - TOP - BOTTOM);
     scale = Math.min(aw / bounds.w, ah / bounds.h, 1.45);
     ox = W / 2 - bounds.cx * scale;
@@ -145,6 +158,9 @@
       shakes[i] = performance.now();
       SFX.locked();
       HAP.fire('blocked');
+      const tnow = performance.now();
+      blockedTaps = blockedTaps.filter((x) => tnow - x < 10000).concat([tnow]);
+      if (blockedTaps.length >= 3) { blockedTaps = []; stuckReact(); }
       if (why === 'owner') {
         // 把它扣住的环闪一下，告诉玩家要先处理谁
         G.links.forEach((L) => { if (S.link[L.k] && L.owner === i) flashLinks[L.k] = performance.now(); });
@@ -239,6 +255,8 @@
         const words = ['', '', 'Great!', 'Excellent!', 'Amazing!', 'Unreal!'];
         fx.push({ type: 'word', text: words[Math.min(combo.n, 5)], x: wx, y: wy, t0: ft });
       } else fx.push({ type: 'word', text: 'Good!', x: wx, y: wy, t0: ft, small: true });
+      lastProgress = now;
+      if ((combo.n >= 2 || flew >= 2) && !S.ring.every((a) => !a)) Girl.react('combo');
       if (S.ring.every((a) => !a)) {
         // 最后一个零件：慢镜头收尾
         // 最后一个零件刚起步就进入慢镜头，让它在慢动作里拖着光带冲出去
@@ -314,7 +332,18 @@
   function win() {
     won = true;
     if (drag) endDrag(null, true);
+    const firstClear = progress[levelIndex] == null;
     saveScore(levelIndex, score);
+    const pk = photoAt(levelIndex), ci = chapterIndex(levelIndex), psrc = pk >= 0 ? chapterOf(levelIndex).photos[pk] : null;
+    const newPhoto = firstClear && pk >= 0;
+    if (newPhoto) markNew(ci, pk);
+    setTimeout(() => Girl.react(newPhoto ? 'photo' : 'clear'), 450);
+    $('winPhoto').classList.toggle('show', newPhoto);
+    $('winPhoto').classList.toggle('soon', newPhoto && !psrc);
+    if (newPhoto) {
+      $('winPhotoImg').src = psrc || chapterOf(levelIndex).girl.expr.happy;
+      $('winPhoto').onclick = () => { if (psrc) openViewer('img', psrc, ci, pk); };
+    }
     setTimeout(() => {
       SFX.win();
       const last = levelIndex === LEVELS.length - 1;
@@ -333,7 +362,7 @@
     const m = C.hintMove(G, S, G.rings.length > 9 ? 8000 : 40000);
     if (!m) { showTip(t('tipDead')); return; }
     hint = { i: m.ring, delta: m.delta, t0: performance.now(), auto: !!auto };
-    if (!auto) showTip(t('tipHint'), 2600);
+    if (!auto) { showTip(t('tipHint'), 2600); Girl.react('hint'); }
   }
 
   // ---------- 按钮 ----------
@@ -379,6 +408,10 @@
   });
   function markLang() { [...$('langList').children].forEach((b) => b.classList.toggle('on', b.dataset.code === I18N.lang)); }
   btn('btnHome', () => { closeSettings(); openMenu(); });
+  btn('btnAlbum', openAlbum);
+  btn('btnCloseAlbum', () => { $('album').classList.remove('show'); $('albumNew').classList.toggle('on', hasNew()); });
+  btn('btnCloseViewer', closeViewer);
+  $('viewer').addEventListener('click', (e) => { if (e.target.id === 'viewer' || e.target.id === 'viewImg') closeViewer(); });
   btn('btnRestart', () => { closeSettings(); loadLevel(levelIndex); });
   $('settings').addEventListener('click', (e) => { if (e.target.id === 'settings') closeSettings(); });
   // 切换语言后刷新所有文字
@@ -386,6 +419,7 @@
     I18N.apply();
     $('lvNum').textContent = t('level') + ' ' + (levelIndex + 1);
     if ($('menu').classList.contains('show')) openMenu();
+    if ($('album').classList.contains('show')) openAlbum();
   }
   btn('btnNext', () => { $('win').classList.remove('show'); if (levelIndex < LEVELS.length - 1) loadLevel(levelIndex + 1); else openMenu(); });
   btn('btnRetry', () => { $('win').classList.remove('show'); loadLevel(levelIndex); });
@@ -398,38 +432,151 @@
     const box = $('levels');
     box.innerHTML = '';
     LEVELS.forEach((lv, n) => {
+      if (n % PER === 0) {
+        const h = document.createElement('div');
+        h.className = 'chapterhead';
+        h.textContent = chapterOf(n).name;
+        box.appendChild(h);
+      }
       const b = document.createElement('button');
       const open = unlocked(n), best = progress[n];
       b.className = 'card' + (open ? '' : ' locked') + (n === levelIndex ? ' current' : '');
-      b.innerHTML = '<span class="no">' + (n + 1) + '</span><span class="nm">' + lv.en + (lv.hard ? '<b class="hard">' + t('hard') + '</b>' : '') +
+      b.innerHTML = '<span class="no">' + ((n % PER) + 1) + '</span><span class="nm">' + t('level') + ' ' + (n + 1) +
+        (lv.hard ? '<b class="hard">' + t('hard') + '</b>' : '') + (photoAt(n) >= 0 ? '<b class="cam">✦</b>' : '') +
         '</span><span class="st">' + (open ? (best != null ? '✓ ' + best : '') : '🔒') + '</span>';
       if (open) b.addEventListener('click', () => { SFX.ensure(); SFX.button(); $('menu').classList.remove('show'); loadLevel(n); });
       box.appendChild(b);
     });
-    // 背景选择：每个场景画一张缩略图
-    const bgs = $('bgs');
-    bgs.innerHTML = '';
-    RRBg.scenes().forEach((_, k) => {
-      const name = t('bgs')[k];
-      const b = document.createElement('button');
-      b.className = 'bgpick' + (k === bgIndex ? ' on' : '');
-      const c = document.createElement('canvas');
-      RRBg.paint(c, 72, 120, 2, null, k);
-      c.style.width = '100%'; c.style.height = 'auto';
-      b.appendChild(c);
-      const label = document.createElement('span'); label.textContent = name; b.appendChild(label);
-      b.addEventListener('click', () => {
-        SFX.ensure(); SFX.button();
-        bgIndex = k;
-        try { localStorage.setItem(BG_KEY, String(k)); } catch (e) { /* 隐私模式 */ }
-        layout();
-        [...bgs.children].forEach((el, j) => el.classList.toggle('on', j === k));
-      });
-      bgs.appendChild(b);
-    });
+    $('albumNew').classList.toggle('on', hasNew());
     $('menu').classList.add('show');
   }
   $('menu').addEventListener('click', (e) => { if (e.target.id === 'menu') $('menu').classList.remove('show'); });
+
+  // ---------- 相册 ----------
+  const SEEN_KEY = 'neonloops-seen';
+  let seen = {};
+  try { seen = JSON.parse(localStorage.getItem(SEEN_KEY)) || {}; } catch (e) { seen = {}; }
+  const keyOf = (ci, k) => ci + ':' + k;
+  function markNew(ci, k) { if (seen[keyOf(ci, k)] == null) seen[keyOf(ci, k)] = false; saveSeen(); }
+  function markSeen(ci, k) { seen[keyOf(ci, k)] = true; saveSeen(); }
+  function saveSeen() { try { localStorage.setItem(SEEN_KEY, JSON.stringify(seen)); } catch (e) { /* 隐私模式 */ } }
+  const hasNew = () => Object.values(seen).some((v) => v === false);
+
+  function openAlbum() {
+    const body = $('albumBody');
+    body.innerHTML = '';
+    CH.list.forEach((chap, ci) => {
+      const sec = document.createElement('div');
+      sec.className = 'asec';
+      sec.innerHTML = '<div class="ahead"><b>' + chap.name + '</b><span>' + chap.girl.name + '</span></div>';
+      const grid = document.createElement('div');
+      grid.className = 'agrid';
+      chap.photos.forEach((src, k) => {
+        const got = photoUnlocked(ci, k), lvNo = ci * PER + (k + 1) * EVERY;
+        const cell = document.createElement('button');
+        cell.className = 'aslot' + (got && src ? ' got' : '') + (seen[keyOf(ci, k)] === false ? ' new' : '');
+        if (got && src) {
+          cell.innerHTML = '<img src="' + src + '" alt="" loading="lazy" decoding="async"><span class="tag">' + t('photoN', { n: k + 1 }) + '</span>';
+          cell.addEventListener('click', () => openViewer('img', src, ci, k));
+        } else {
+          const sub = got ? t('comingSoon') : t('unlockAt', { n: lvNo }) + (src ? '' : ' · ' + t('comingSoon'));
+          cell.innerHTML = '<span class="lock">' + (got ? '✦' : '🔒') + '</span><span class="tag">' + t('photoN', { n: k + 1 }) + '<small>' + sub + '</small></span>';
+        }
+        grid.appendChild(cell);
+      });
+      const all = chap.photos.every((_, k) => photoUnlocked(ci, k));
+      const vid = document.createElement('button');
+      vid.className = 'aslot video' + (all && chap.video ? ' got' : '');
+      vid.innerHTML = '<span class="lock">' + (all && chap.video ? '▶' : '🔒') + '</span><span class="tag">' + t('video') + '<small>' +
+        (chap.video ? (all ? t('tapToView') : t('videoLocked')) : t('comingSoon')) + '</small></span>';
+      if (all && chap.video) vid.addEventListener('click', () => openViewer('video', chap.video));
+      grid.appendChild(vid);
+      sec.appendChild(grid);
+      body.appendChild(sec);
+    });
+    $('album').classList.add('show');
+  }
+  function openViewer(kind, src, ci, k) {
+    const img = $('viewImg'), vid = $('viewVid');
+    img.style.display = kind === 'img' ? '' : 'none';
+    vid.style.display = kind === 'video' ? '' : 'none';
+    if (kind === 'img') { img.src = src; if (ci != null) markSeen(ci, k); }
+    else { vid.src = src; vid.play().catch(() => { /* 需要用户再点一下 */ }); }
+    $('viewer').classList.add('show');
+    $('albumNew').classList.toggle('on', hasNew());
+  }
+  function closeViewer() { $('viewVid').pause(); $('viewer').classList.remove('show'); if ($('album').classList.contains('show')) openAlbum(); }
+
+  // ---------- 陪玩角色：静态立绘 + 代码微动画（呼吸、摇摆、眨眼、换表情、说话气泡） ----------
+  const Girl = (() => {
+    const el = $('girl'), A = $('girlA'), B = $('girlB'), BL = $('girlBlink'), bubble = $('bubble');
+    let chap = null, front = A, cur = 'idle', backTimer = 0, bubbleTimer = 0, blinkTimer = 0, lastLine = {}, swapToken = 0;
+    function src(expr) { return (chap && (chap.girl.expr[expr] || chap.girl.expr.idle)) || ''; }
+    function show(expr) {
+      if (!chap || expr === cur) return;
+      cur = expr;
+      const back = front === A ? B : A, old = front, token = ++swapToken;
+      // 新表情加载好再淡入；同一次切换只执行一次（缓存命中时 complete 和 onload 可能都会触发）
+      const swap = () => {
+        if (token !== swapToken) return;
+        back.onload = null;
+        back.classList.add('on'); old.classList.remove('on'); front = back;
+      };
+      back.onload = swap;
+      back.src = src(expr);
+      if (back.complete && back.naturalWidth) swap();
+    }
+    function say(text) {
+      bubble.textContent = text;
+      bubble.classList.remove('show'); void bubble.offsetWidth; bubble.classList.add('show');
+      clearTimeout(bubbleTimer);
+      bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 2800);
+    }
+    function pick(group) {
+      const L = chap.girl.lines[group];
+      const arr = (L && (L[I18N.lang] || L.en)) || [];
+      if (!arr.length) return '';
+      let k = Math.floor(Math.random() * arr.length);
+      if (arr.length > 1 && k === lastLine[group]) k = (k + 1) % arr.length;
+      lastLine[group] = k;
+      return arr[k];
+    }
+    const EXPR = { greet: 'happy', stuck: 'pout', combo: 'surprised', clear: 'wink', photo: 'happy', hint: 'thinking' };
+    function react(group) {
+      if (!chap) return;
+      show(EXPR[group] || 'idle');
+      const line = pick(group);
+      if (line) say(line);
+      el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
+      clearTimeout(backTimer);
+      backTimer = setTimeout(() => show('idle'), 2800);
+    }
+    function blinkLoop() {
+      clearTimeout(blinkTimer);
+      blinkTimer = setTimeout(() => {
+        if (chap && chap.girl.expr.blink && cur === 'idle') { BL.classList.add('on'); setTimeout(() => BL.classList.remove('on'), 130); }
+        blinkLoop();
+      }, 3000 + Math.random() * 3000);
+    }
+    function setChapter(c) {
+      if (chap === c) return;
+      chap = c;
+      el.classList.toggle('left', c.girl.side === 'left');
+      // 先把这一章的表情图都预加载，换表情时不闪
+      Object.values(c.girl.expr).forEach((u) => { const im = new Image(); im.decoding = 'async'; im.src = u; });
+      swapToken++; cur = 'idle'; A.onload = B.onload = null; A.src = src('idle'); A.classList.add('on'); B.classList.remove('on'); front = A;
+      BL.src = c.girl.expr.blink || '';
+      blinkLoop();
+    }
+    return { setChapter, react, get expr() { return cur; } };
+  })();
+
+  function stuckReact() {
+    const now = performance.now();
+    if (now - lastStuck < 15000 || won) return;
+    lastStuck = now; lastProgress = now;
+    Girl.react('stuck');
+  }
 
   // ---------- 绘制 ----------
   function lighten(hex, t) {
@@ -983,6 +1130,7 @@
   function frame() {
     requestAnimationFrame(frame);
     const now = performance.now();
+    if (G && !won && now - lastProgress > 25000 && !document.querySelector('.overlay.show')) stuckReact();
     // 慢镜头：0.28 倍速持续约 1 秒，再在 0.5 秒内恢复
     let sm = 0;
     if (probeHold != null && slowmo) slowmo.t0 = now - probeHold * 1000; // 截图时定格在指定时刻
@@ -1037,6 +1185,10 @@
   requestAnimationFrame(frame);
   if (!(qLevel >= 0 && qLevel < LEVELS.length && unlocked(qLevel))) openMenu();
   if (/[?&]open=settings/.test(location.search)) openSettings();
+  if (/[?&]notrans/.test(location.search)) document.body.classList.add('notrans');
+  const qReact = (location.search.match(/[?&]react=(\w+)/) || [])[1];
+  if (qReact) setTimeout(() => { $('tip').classList.remove('show'); Girl.react(qReact); }, 500);
+  if (/[?&]open=album/.test(location.search)) setTimeout(openAlbum, 300);
   if (/[?&]debug=fc/.test(location.search)) setTimeout(() => { document.title = 'FC ' + frameCount; }, 1500);
   // 截图检查特效用：?probe=short|burst|slow&pi=环序号&pt=秒
   const probe = (location.search.match(/[?&]probe=(\w+)/) || [])[1];
@@ -1054,7 +1206,7 @@
   // 给验证脚本用的接口
   window.__neon = {
     get state() { return { levelIndex, angles: S.angles.slice(), ring: S.ring.slice(), link: S.link.slice(), moves, score, won, dragging: !!drag, frameCount }; },
-    loadLevel,
+    loadLevel, openAlbum, girl: () => Girl.expr,
     toScreen(x, y) { return { x: ox + x * scale, y: oy + y * scale }; },
   };
 })();

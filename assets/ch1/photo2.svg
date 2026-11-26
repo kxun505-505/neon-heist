@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 1600" width="900" height="1600">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a1460"/><stop offset="0.6" stop-color="#ff5c8a"/><stop offset="1" stop-color="#ffb05a"/></linearGradient></defs>
+  <rect width="900" height="1600" fill="url(#g)"/>
+  <circle cx="450" cy="980" r="230" fill="#fff1c4" opacity="0.85"/>
+  <rect y="1100" width="900" height="500" fill="#1f7f9e" opacity="0.7"/>
+  <path d="M330,1600 C340,1250 390,1120 450,1120 C510,1120 560,1250 570,1600 Z" fill="#0d0426" opacity="0.85"/>
+  <circle cx="450" cy="1040" r="70" fill="#0d0426" opacity="0.85"/>
+  <rect x="120" y="140" width="660" height="210" rx="28" fill="#0d0426" opacity="0.75"/>
+  <text x="450" y="225" text-anchor="middle" font-family="-apple-system, sans-serif" font-size="44" font-weight="900" fill="#ffe45c">PHOTO 2 · PLACEHOLDER</text>
+  <text x="450" y="295" text-anchor="middle" font-family="-apple-system, sans-serif" font-size="34" font-weight="700" fill="#28e7ff">Coastal highway · Pink convertible</text>
+  <text x="450" y="1520" text-anchor="middle" font-family="-apple-system, sans-serif" font-size="40" font-weight="900" fill="#ffffff">LV 10</text>
+</svg>

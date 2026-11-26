@@ -22,8 +22,8 @@
       <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1l-.4-2.6h-4l-.4 2.6a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L4.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z"/></svg>
     </button>
     <div class="title">
-      <div id="lvNum">LEVEL 1</div>
       <div id="lvName"></div>
+      <div id="lvNum">LEVEL 1</div>
     </div>
     <div id="scoreBox"><span id="score">0</span></div>
   </header>
@@ -35,6 +35,14 @@
     <button id="btnReset"><b>⟲</b><span data-i18n="restart">Restart</span></button>
     <button id="btnHint"><b>✦</b><span data-i18n="hint">Hint</span></button>
   </footer>
+
+  <!-- 陪玩角色（右下角） -->
+  <div id="girl" class="girl" aria-hidden="true">
+    <div class="g-sway"><div class="g-breathe"><div class="g-pop">
+      <img id="girlA" class="on" alt="" decoding="async"><img id="girlB" alt="" decoding="async"><img id="girlBlink" alt="" decoding="async">
+    </div></div></div>
+    <div id="bubble" class="bubble"></div>
+  </div>
 
   <!-- 设置 -->
   <section id="settings" class="overlay">
@@ -72,8 +80,7 @@
       <h1 class="logo">NEON<em>LOOPS</em></h1>
       <p class="sub" data-i18n="subtitle">Sunset Coast · Demo</p>
       <div id="levels"></div>
-      <div class="bgtitle" data-i18n="background">Background</div>
-      <div id="bgs"></div>
+      <button id="btnAlbum" class="rowbtn albumbtn"><span class="ico">✦</span><span class="lbl" data-i18n="album">Album</span><span id="albumNew" class="newdot"></span><span class="chev">›</span></button>
       <p class="how" data-i18n="how"></p>
     </div>
   </section>
@@ -83,6 +90,7 @@
       <h2 id="winTitle" class="logo small">Nice!</h2>
       <div id="winScore" class="bigscore">0</div>
       <p id="winInfo"></p>
+      <button id="winPhoto" class="winphoto"><img id="winPhotoImg" alt=""><span><b data-i18n="newPhoto">New photo unlocked!</b><small data-i18n="tapToView">Tap to view</small></span></button>
       <div class="row">
         <button id="btnRetry" class="secondary"><span data-i18n="retry">Retry</span></button>
         <button id="btnNext" class="primary"><span id="btnNextLabel" data-i18n="next">Next ›</span></button>
@@ -90,10 +98,25 @@
     </div>
   </section>
 
+  <section id="album" class="overlay">
+    <div class="panel album">
+      <button id="btnCloseAlbum" class="close" aria-label="Close">×</button>
+      <h2 class="ptitle" data-i18n="album">Album</h2>
+      <div id="albumBody"></div>
+    </div>
+  </section>
+
+  <section id="viewer" class="overlay viewer">
+    <img id="viewImg" alt="">
+    <video id="viewVid" playsinline controls preload="none"></video>
+    <button id="btnCloseViewer" class="close" aria-label="Close">×</button>
+  </section>
+
   <script src="src/i18n.js"></script>
   <script src="src/haptics.js"></script>
   <script src="src/core.js"></script>
   <script src="src/levels.js"></script>
+  <script src="src/chapters.js"></script>
   <script src="src/audio.js"></script>
   <script src="src/bg.js"></script>
   <script src="src/main.js"></script>

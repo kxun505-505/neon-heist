@@ -9,6 +9,7 @@
   const D = {
     en: {
       _name: 'English',
+      album: 'Album', newPhoto: 'New photo unlocked!', tapToView: 'Tap to view', comingSoon: 'Coming soon', unlockAt: 'Clear level {n}', videoLocked: 'Collect all 4 photos', photoN: 'Photo {n}', video: 'Video',
       level: 'LEVEL', hard: 'HARD', settings: 'Settings', music: 'Music', sound: 'Sound', vibration: 'Vibration',
       language: 'Language', home: 'Home', restart: 'Restart', hint: 'Hint', subtitle: 'Sunset Coast · Demo',
       background: 'Background', next: 'Next ›', retry: 'Retry', toLevels: 'Levels', moves: 'Moves: {n}',
@@ -32,6 +33,7 @@
     },
     ja: {
       _name: '日本語',
+      album: 'アルバム', newPhoto: '新しい写真を解放！', tapToView: 'タップで見る', comingSoon: '近日公開', unlockAt: 'レベル{n}をクリア', videoLocked: '写真を4枚集めよう', photoN: '写真 {n}', video: 'ムービー',
       level: 'レベル', hard: 'ハード', settings: '設定', music: '音楽', sound: '効果音', vibration: '振動',
       language: '言語', home: 'ホーム', restart: 'やり直す', hint: 'ヒント', subtitle: 'サンセットコースト · 体験版',
       background: '背景', next: '次へ ›', retry: 'もう一度', toLevels: 'レベル', moves: '操作回数：{n}',
@@ -55,6 +57,7 @@
     },
     ko: {
       _name: '한국어',
+      album: '앨범', newPhoto: '새 사진 해금!', tapToView: '탭해서 보기', comingSoon: '곧 공개', unlockAt: '레벨 {n} 클리어', videoLocked: '사진 4장을 모으세요', photoN: '사진 {n}', video: '영상',
       level: '레벨', hard: '어려움', settings: '설정', music: '음악', sound: '효과음', vibration: '진동',
       language: '언어', home: '홈', restart: '다시 하기', hint: '힌트', subtitle: '선셋 코스트 · 체험판',
       background: '배경', next: '다음 ›', retry: '다시', toLevels: '레벨', moves: '이동 횟수: {n}',
@@ -78,6 +81,7 @@
     },
     pt: {
       _name: 'Português',
+      album: 'Álbum', newPhoto: 'Nova foto desbloqueada!', tapToView: 'Toque para ver', comingSoon: 'Em breve', unlockAt: 'Vença o nível {n}', videoLocked: 'Junte as 4 fotos', photoN: 'Foto {n}', video: 'Vídeo',
       level: 'NÍVEL', hard: 'DIFÍCIL', settings: 'Configurações', music: 'Música', sound: 'Som', vibration: 'Vibração',
       language: 'Idioma', home: 'Início', restart: 'Reiniciar', hint: 'Dica', subtitle: 'Costa do Pôr do Sol · Demo',
       background: 'Fundo', next: 'Próximo ›', retry: 'Repetir', toLevels: 'Níveis', moves: 'Movimentos: {n}',
@@ -101,6 +105,7 @@
     },
     zh: {
       _name: '中文',
+      album: '相册', newPhoto: '解锁了新照片！', tapToView: '点击查看', comingSoon: '即将上线', unlockAt: '通关第 {n} 关', videoLocked: '集齐 4 张照片解锁', photoN: '照片 {n}', video: '视频',
       level: '关卡', hard: '困难', settings: '设置', music: '音乐', sound: '音效', vibration: '震动',
       language: '语言', home: '主页', restart: '重来', hint: '提示', subtitle: '日落海岸 · 试玩版',
       background: '背景', next: '下一关 ›', retry: '重玩', toLevels: '关卡', moves: '拖动 {n} 次',
@@ -124,6 +129,7 @@
     },
     ru: {
       _name: 'Русский',
+      album: 'Альбом', newPhoto: 'Новое фото открыто!', tapToView: 'Нажмите, чтобы посмотреть', comingSoon: 'Скоро', unlockAt: 'Пройдите уровень {n}', videoLocked: 'Соберите все 4 фото', photoN: 'Фото {n}', video: 'Видео',
       level: 'УРОВЕНЬ', hard: 'СЛОЖНО', settings: 'Настройки', music: 'Музыка', sound: 'Звук', vibration: 'Вибрация',
       language: 'Язык', home: 'Главная', restart: 'Заново', hint: 'Подсказка', subtitle: 'Закатный берег · Демо',
       background: 'Фон', next: 'Далее ›', retry: 'Ещё раз', toLevels: 'Уровни', moves: 'Ходов: {n}',
