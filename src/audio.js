@@ -112,6 +112,27 @@
       [261.63, 329.63, 392].forEach((f) => tone({ type: 'triangle', f0: f, dur: 1.2, gain: 0.08, at: 0.45 }));
     },
     button() { tone({ type: 'triangle', f0: 1200, f1: 900, dur: 0.05, gain: 0.07 }); },
+    // 烟花升空：带一点颤音的上扬哨声 + 嘶嘶的尾焰
+    launch() {
+      if (!ensure() || muted) return;
+      const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(700, t); o.frequency.exponentialRampToValueAtTime(2100, t + 0.38);
+      lfo.frequency.value = 28; lg.gain.value = 40; lfo.connect(lg); lg.connect(o.frequency);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.045, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
+      o.connect(g); g.connect(master); o.start(t); lfo.start(t); o.stop(t + 0.42); lfo.stop(t + 0.42);
+      noise({ dur: 0.35, gain: 0.04, f: 5000, q: 0.7, type: 'highpass' });
+    },
+    // 烟花炸开：低沉的“砰” + 一阵散开的噪声；连击越高音调越亮
+    boom(n) {
+      const k = 1 + Math.min(n | 0, 5) * 0.08;
+      tone({ type: 'sine', f0: 150 * k, f1: 42, dur: 0.42, gain: 0.26 });
+      noise({ dur: 0.5, gain: 0.14, f: 1100 * k, q: 0.5, type: 'lowpass' });
+      noise({ dur: 0.12, gain: 0.08, f: 3000, q: 0.8 });
+    },
+    // 烟花余烬的噼啪声
+    crackle() {
+      for (let i = 0; i < 9; i++) noise({ dur: 0.025, gain: 0.05 + Math.random() * 0.05, f: 4500 + Math.random() * 3000, q: 1.5, at: Math.random() * 0.35, type: 'highpass' });
+    },
     // 霓虹灯短路：三下“滋”的电火花，节奏和画面上的闪烁对齐
     zap() {
       [[0, 0.05], [0.08, 0.045], [0.155, 0.085]].forEach(([at, dur]) => {

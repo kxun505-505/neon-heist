@@ -24,8 +24,7 @@
     const d = w.document, $ = (id) => d.getElementById(id);
     const check = (name, ok) => log.push((ok ? 'OK   ' : 'FAIL ') + name);
     const st = () => w.__neon.state;
-    for (let k = 0; k < 30 && st().frameCount === 0; k++) await sleep(100); // 等第一帧
-    check('开机后画面已经开始绘制（frameCount=' + st().frameCount + '）', st().frameCount > 0);
+    for (let k = 0; k < 30 && st().frameCount === 0; k++) await sleep(100); // 等第一帧（无头浏览器里第一帧可能晚到，最后再统一检查）
     check('开机停在第 6 关并打开主页', st().levelIndex === 5 && $('menu').classList.contains('show'));
     check('主页列出 10 关', d.querySelectorAll('#levels .card').length === 10);
     check('主页列出 4 个背景', d.querySelectorAll('#bgs .bgpick').length === 4);
