@@ -1,0 +1,254 @@
+{
+ "n": 13,
+ "seed": 12,
+ "template": "BIG",
+ "metrics": {
+  "pieces": 12,
+  "rings": 10,
+  "bars": 2,
+  "closed": 0,
+  "knobs": 5,
+  "links": 11,
+  "bridges": 1,
+  "nested": 1,
+  "chain": 3,
+  "cycle": false,
+  "problems": [],
+  "scale": 0.806,
+  "clear": true,
+  "minRingPx": 29,
+  "tubePx": 9.7,
+  "exact": true,
+  "par": 8,
+  "solution": "p3-102° p2-50° q3-82° q-70° k+122° z1-43px z2-58px B-187°",
+  "revisit": 0,
+  "hint": true,
+  "first": 7,
+  "bad": 2,
+  "dead": 0,
+  "unknown": 0,
+  "trap": 0.29,
+  "ms": 5671
+ },
+ "level": {
+  "rings": [
+   {
+    "id": "B",
+    "x": 0,
+    "y": 0,
+    "r": 104,
+    "gap": {
+     "at": 0,
+     "w": 99
+    },
+    "angle": 18,
+    "knobs": [
+     {
+      "at": 99,
+      "len": 20
+     }
+    ],
+    "color": "#ff4d6d"
+   },
+   {
+    "id": "i1",
+    "x": -36,
+    "y": -30,
+    "r": 36,
+    "gap": {
+     "at": 0,
+     "w": 101
+    },
+    "angle": 315,
+    "color": "#ffe45c"
+   },
+   {
+    "id": "o1",
+    "x": 0,
+    "y": -160,
+    "r": 38,
+    "gap": {
+     "at": 0,
+     "w": 102
+    },
+    "angle": 186,
+    "color": "#3dffb0"
+   },
+   {
+    "id": "o2",
+    "x": -139,
+    "y": 80,
+    "r": 38,
+    "gap": {
+     "at": 0,
+     "w": 103
+    },
+    "angle": 192,
+    "knobs": [
+     {
+      "at": 234,
+      "len": 21
+     }
+    ],
+    "color": "#ff3df2"
+   },
+   {
+    "id": "o3",
+    "x": -139,
+    "y": -80,
+    "r": 38,
+    "gap": {
+     "at": 0,
+     "w": 100
+    },
+    "angle": 165,
+    "color": "#4d8bff"
+   },
+   {
+    "id": "p2",
+    "x": -184,
+    "y": 158,
+    "r": 36,
+    "gap": {
+     "at": 0,
+     "w": 105
+    },
+    "angle": 18,
+    "knobs": [
+     {
+      "at": 93,
+      "len": 23
+     }
+    ],
+    "color": "#b6ff4a"
+   },
+   {
+    "id": "p3",
+    "x": -272,
+    "y": 158,
+    "r": 36,
+    "gap": {
+     "at": 0,
+     "w": 108
+    },
+    "angle": 132,
+    "color": "#ff3df2"
+   },
+   {
+    "id": "q",
+    "x": 0,
+    "y": -250,
+    "r": 36,
+    "gap": {
+     "at": 0,
+     "w": 106
+    },
+    "angle": 189,
+    "knobs": [
+     {
+      "at": 78,
+      "len": 23
+     }
+    ],
+    "color": "#ff4d6d"
+   },
+   {
+    "id": "q3",
+    "x": 76,
+    "y": -294,
+    "r": 36,
+    "gap": {
+     "at": 0,
+     "w": 101
+    },
+    "angle": 258,
+    "knobs": [
+     {
+      "at": 174,
+      "len": 21
+     }
+    ],
+    "color": "#ffad42"
+   },
+   {
+    "id": "k",
+    "x": 0,
+    "y": 156,
+    "r": 36,
+    "gap": {
+     "at": 0,
+     "w": 98
+    },
+    "angle": 123,
+    "color": "#b6ff4a"
+   },
+   {
+    "id": "z1",
+    "type": "bar",
+    "x": -17,
+    "y": 19,
+    "dir": 150,
+    "len": 58,
+    "color": "#ffad42"
+   },
+   {
+    "id": "z2",
+    "type": "bar",
+    "x": 54,
+    "y": -171,
+    "dir": 70,
+    "len": 87,
+    "color": "#28e7ff"
+   }
+  ],
+  "links": [
+   [
+    "i1",
+    "B"
+   ],
+   [
+    "o1",
+    "B"
+   ],
+   [
+    "o2",
+    "B"
+   ],
+   [
+    "o3",
+    "B"
+   ],
+   [
+    "o2",
+    "p2"
+   ],
+   [
+    "p2",
+    "p3"
+   ],
+   [
+    "o1",
+    "q"
+   ],
+   [
+    "q",
+    "q3"
+   ],
+   [
+    "B",
+    "k"
+   ],
+   [
+    "i1",
+    "z1"
+   ],
+   [
+    "o1",
+    "z2"
+   ]
+  ],
+  "tip": "大环里套着零件"
+ },
+ "codeHash": "405a1aaf81b5",
+ "levelHash": "466f5e6f27e1"
+}

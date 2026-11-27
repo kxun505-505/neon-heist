@@ -4,7 +4,8 @@
 - `src/core.js`：机制、碰撞、求解器。游戏和生成器共用。
 - `src/layout.js`：排版，以及避让陪玩角色。游戏和生成器共用。
 - `tools/levelgen/levelgen.js`：生成和验收。验收的数字都在文件开头的 `RULES` 里。
-- `tools/levelgen/curve.js`：1-40 关每关的目标。
+- `tools/levelgen/curve.js`：1-100 关每关的目标。
+- 批量生成（`batch` / `poolcheck`，结果放在 `levels-pool/`）见 `docs/codex-handoff.md`。
 
 改了这里的任何数字，要同时改代码里对应的地方，反过来也一样。
 
@@ -12,7 +13,9 @@
 
 ```sh
 node tools/levelgen/cli.js check              # 验收 src/levels.js 的全部关卡，全过退出码为 0
-node tools/levelgen/cli.js curve              # 看 1-40 关的目标
+node tools/levelgen/cli.js curve              # 看 1-100 关的目标
+node tools/levelgen/cli.js batch --from 11 --to 100 --jobs 8   # 批量生成到 levels-pool/，可断点续跑
+node tools/levelgen/cli.js poolcheck --to 100                  # src/levels.js + levels-pool/ 整体验收
 node tools/levelgen/cli.js gen --level 12 --seeds 150 --out /tmp/L12.json
 node tools/levelgen/cli.js apply --level 12 --file /tmp/L12.json --name 中文名 --en "ENGLISH NAME" --tip "提示"
 ```
@@ -105,8 +108,9 @@ node tools/levelgen/cli.js apply --level 12 --file /tmp/L12.json --name 中文�
 | 20 H | 12-14 | 11-17 | 0.4 | |
 | 21-39 | 11-16 | 9-20 | 0.25-0.45 | 只组合，不再加新机制 |
 | 40 H | 15-17 | 14-21 | 0.45 | |
+| 41-100 | 11-17 | 8-21 | 普通 0.2-0.35，困难 0.4-0.45 | 不加新机制。每 5 关一组锯齿：困难关后面是缓冲关；4 种结构主题轮换（凸钉多 / 直杆多 / 桥多 / 混合），三角和方格网格交替 |
 
-依据见 `docs/original-analysis.md`。原作第 20 关以后有 15-25 个零件，环也缩得很小。这里把零件数压在 17 个以内，用第一步陷阱和布局推理来补难度。
+依据见 `docs/original-analysis.md`。原作第 20 关以后有 15-25 个零件，环也缩得很小。这里把零件数压在 17 个以内，用第一步陷阱和布局推理来补难度。第 41-100 关没有拿到原作视频（YouTube 要求登录验证），按原作第 20-40 关的规律外推：高位平台、锯齿、困难关之后放缓。
 
 ## 6. 发布前检查
 

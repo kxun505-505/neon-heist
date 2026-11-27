@@ -554,11 +554,13 @@
       r.first++;
       const n = f.s;
       if (n.ring.every((a) => !a)) continue;
-      let bad;
+      // 能解开的第一步不可能是死局，只对走错的那些查死局（死局检查很贵）
+      let bad, solvable = false;
       if (ob) bad = !ob.good.has(f.key);
       else {
         const fast = C.solveFast(G, C.cloneState(n), { maxNodes: 3000 });
         if (fast.moves && fast.moves.length <= par - 1) continue;
+        solvable = !!fast.moves;
         if (exact) {
           const r2 = C.solve(G, C.cloneState(n), { maxDepth: par - 1, maxNodes: (o && o.trapNodes) || RULES.TRAP_NODES });
           if (r2.moves) continue;
@@ -566,7 +568,7 @@
           bad = true;
         } else bad = false;
       }
-      const dead = isDead(G, n);
+      const dead = (bad || !exact) && !solvable && isDead(G, n);
       if (dead) r.dead++;
       if (bad || (!exact && dead)) r.bad++;
     }
@@ -596,8 +598,9 @@
     if (m.problems.length || o.solve === false) { m.ms = Math.round(now() - t0); return m; }
     const s0 = C.initState(G);
     // 先试一次算完最少步数和第一步分析；预算不够时退回普通的广度优先（找到第一个解就停）
+    // （optimalBfs 和 solve 的预算、状态去重完全一样，前者没算出来时后者也算不出来，不用再跑一遍）
     const ob = o.trap !== false ? optimalBfs(G, s0, RULES.BFS.maxDepth, o.nodes || RULES.BFS.maxNodes) : null;
-    let res = ob ? { moves: ob.moves } : C.solve(G, C.cloneState(s0), { maxDepth: RULES.BFS.maxDepth, maxNodes: o.nodes || RULES.BFS.maxNodes });
+    let res = ob ? { moves: ob.moves } : o.trap !== false ? { moves: null } : C.solve(G, C.cloneState(s0), { maxDepth: RULES.BFS.maxDepth, maxNodes: o.nodes || RULES.BFS.maxNodes });
     m.exact = !!res.moves;
     if (!res.moves) {
       const f2 = C.solveFast(G, C.cloneState(s0), { maxNodes: RULES.FAST.maxNodes });
@@ -670,6 +673,7 @@
       const lv = instantiate(T, seed);
       if (lv.fail) { bump(lv.fail.split(' ')[0]); continue; }
       if (isHard(n)) lv.hard = true;
+      if (slot.new) lv.tip = slot.new; // 引入新机制的关卡带一句提示（中文；其他语言在 src/i18n.js 里补）
       // 先做便宜的检查，过了再求解
       const quick = measure(lv, { n, solve: false });
       if (quick.problems.length) { bump('invalid'); continue; }
@@ -707,7 +711,7 @@
         const m = stats(lv, C.build(lv)); maxPieces = Math.max(maxPieces, m.pieces); features(m).forEach((x) => feats.add(x)); sigs.add(signature(lv, m));
         return;
       }
-      const m = measure(lv, { n, trap: o.trap !== false });
+      const m = (o.cached && o.cached(i, lv)) || measure(lv, { n, trap: o.trap !== false });
       const groupStart = Math.floor(i / CH.SET) * CH.SET;
       const groupD = rows.filter((r) => r.n > groupStart && r.n < n && r.m.par != null).map((r) => diffIndex(r.m));
       const fails = accept(lv, m, n, { prevMaxPieces: maxPieces, prevFeatures: n > 1 ? feats : null, prevSigs: sigs, groupD });

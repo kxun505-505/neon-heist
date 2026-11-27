@@ -2,3 +2,6 @@
 .tools/
 assets-src/*
 !assets-src/README.md
+levels-pool/*.tmp
+levels-pool/progress.log
+levels-pool/attempts.json
