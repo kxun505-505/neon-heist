@@ -43,7 +43,7 @@ assets/ch1、ch2       游戏用素材（立绘 WebP、照片、视频；ch2 现
 assets-src/           4K 母版（没进 git，体积大，只在用户的 Mac 上），用 tools/assets.sh 转成游戏用素材
 tools/levelgen/       关卡生成器和验收（cli.js / levelgen.js / curve.js），Node 16+，零依赖
 levels-pool/          批量生成的关卡池（每关一个 Lnnn.json），给 Codex 长时间跑
-tools/*.html          浏览器测试页（用 tools/verify.sh 在无头 Chrome 里跑）
+tools/*.html          浏览器测试页（用 tools/verify.sh 在无头 Chrome 里跑）；icon.html + icon.sh 生成应用图标
 docs/                 规格和记录（见第 6 节）
 ```
 
@@ -92,7 +92,7 @@ BUDGET=1700000 tools/verify.sh playtest.html  # 用合成触摸事件把每关�
 - `.tools/` 没进 git，里面还有 yt-dlp、ffmpeg 和原作视频。
 - 测试用的 Chrome 在 `/Applications/Google Chrome.app`。
 
-## 5. 当前状态（2026-11-27）
+## 5. 当前状态（2026-11-28）
 
 **已完成**
 - 40 关，分 2 章：第 1 章 SUNSET COAST 是第 1-20 关，第 2 章 NEON CITY 是第 21-40 关。每 5 关的最后一关是困难关。
@@ -102,12 +102,12 @@ BUDGET=1700000 tools/verify.sh playtest.html  # 用合成触摸事件把每关�
 - 主页：一屏放下。顶部是相册条，然后是章节按钮，下面是左右滑动的关卡转盘。
 - 名字 NEON HEIST，logo 用 C 夕阳复古样式（`lg-outrun`）。
 - 关卡生成器：1-100 关的难度曲线，可以批量生成、断点续跑。
+- 40 关全部通过验收（含第 25 关的 F 项）。
+- App 图标按 C 夕阳复古重做：`tools/icon.html` 画，`tools/icon.sh` 出 `icon.png`（180）和 `store-icon-512.png`（Google Play 商店用）。
 
 **待办**
-- **第 25 关**：作为困难关，它没有同组的第 24 关难，验收 F 项不合格，暂时用旧候选。用 `batch` 重做。
 - **第 41-100 关**：交给 Codex 跑，见 `docs/codex-handoff.md`。生成好之后，用 `cli.js apply` 或拼装脚本写进 `src/levels.js`，补 6 种语言的提示（`src/i18n.js` 的 `tips`）和奖励素材路径（`src/chapters.js`）。
 - **素材**：第 1 章还缺正式的照片 16 张和视频 4 段；第 2 章的角色设定、立绘、照片和视频都还没做。出图需求的写法参考 `docs/ch1-gpt-asset-pack.md`。
-- **App 图标**：还是旧的，要按 C 样式的 logo 重做。
 - **测试版仓库名**：还叫 neon-loops-staging，用户没要求改。改名会改变测试版网址，要先问用户。
 - **正式版**：还停在 11-25。用户确认后，把 `fx-b` 合进 `main`，推到 `origin`。
 

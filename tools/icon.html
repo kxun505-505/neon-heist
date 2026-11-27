@@ -1,18 +1,62 @@
-<!doctype html><body style="margin:0"><canvas id="c" width="180" height="180" style="display:block"></canvas>
+<!doctype html><body style="margin:0;background:#000"><canvas id="c" style="display:block"></canvas>
 <script>
-// 原创图标：夕阳渐变底 + 两个霓虹 C 形环和一个夹套
-const c = document.getElementById('c').getContext('2d');
-const g = c.createLinearGradient(0, 0, 0, 180);
-g.addColorStop(0, '#1a0640'); g.addColorStop(0.6, '#7a1f73'); g.addColorStop(1, '#ff7a5a');
-c.fillStyle = g; c.fillRect(0, 0, 180, 180);
-function ring(x, y, r, col, gapAt) {
+// 原创图标，C 夕阳复古风（和主页 logo lg-outrun 一致）：横条切割的夕阳 + 透视网格地面 + 两个扣在一起的霓虹 C 形环。
+// 用法：tools/icon.sh 生成 icon.png（180）和 store-icon-512.png（512）。?s=尺寸
+const S = +(new URLSearchParams(location.search).get('s') || 180);
+const cv = document.getElementById('c'); cv.width = cv.height = S;
+const c = cv.getContext('2d'); c.scale(S / 512, S / 512);
+// 天空
+let g = c.createLinearGradient(0, 0, 0, 512);
+g.addColorStop(0, '#12042e'); g.addColorStop(0.42, '#4a0f63'); g.addColorStop(0.62, '#b8246f'); g.addColorStop(0.66, '#1a0533'); g.addColorStop(1, '#0b0220');
+c.fillStyle = g; c.fillRect(0, 0, 512, 512);
+// 星点
+c.fillStyle = 'rgba(255,230,250,0.7)';
+for (const [x, y, r] of [[60, 70, 2.2], [130, 40, 1.6], [420, 60, 2], [470, 130, 1.5], [36, 170, 1.4], [350, 30, 1.4]]) { c.beginPath(); c.arc(x, y, r, 0, 7); c.fill(); }
+// 夕阳：黄 → 橙 → 粉，下半截横条切割
+const sx = 256, sy = 250, sr = 150, hz = 330;
+// 夕阳单独画在一层上再切横条，这样切口露出的是天空
+const sun = document.createElement('canvas'); sun.width = sun.height = 512;
+const u = sun.getContext('2d');
+u.beginPath(); u.rect(0, 0, 512, hz); u.clip();
+u.shadowColor = 'rgba(255,94,168,0.9)'; u.shadowBlur = 60;
+g = u.createLinearGradient(0, sy - sr, 0, sy + sr);
+g.addColorStop(0, '#fff3a8'); g.addColorStop(0.35, '#ffb36b'); g.addColorStop(0.7, '#ff5ea8'); g.addColorStop(1, '#c13dff');
+u.fillStyle = g;
+u.beginPath(); u.arc(sx, sy, sr, 0, Math.PI * 2); u.fill();
+u.shadowBlur = 0;
+u.globalCompositeOperation = 'destination-out';
+let y = sy + 6, h = 5;
+while (y < hz) { u.fillRect(sx - sr - 2, y, sr * 2 + 4, h); y += h + 16 - h * 0.9; h += 3.2; }
+c.drawImage(sun, 0, 0);
+// 地平线光
+g = c.createLinearGradient(0, hz - 6, 0, hz + 6);
+g.addColorStop(0, 'rgba(255,94,168,0)'); g.addColorStop(0.5, '#ff7ac0'); g.addColorStop(1, 'rgba(255,94,168,0)');
+c.fillStyle = g; c.fillRect(0, hz - 6, 512, 12);
+// 透视网格地面
+c.save(); c.beginPath(); c.rect(0, hz, 512, 512 - hz); c.clip();
+c.strokeStyle = 'rgba(255,61,242,0.75)'; c.lineWidth = 3; c.shadowColor = '#ff3df2'; c.shadowBlur = 10;
+for (let i = -10; i <= 10; i++) { c.beginPath(); c.moveTo(256 + i * 18, hz); c.lineTo(256 + i * 120, 512); c.stroke(); }
+for (let k = 0; k < 9; k++) { const yy = hz + Math.pow(k / 8, 2.1) * (512 - hz) + 4; c.globalAlpha = 0.35 + 0.65 * k / 8; c.beginPath(); c.moveTo(0, yy); c.lineTo(512, yy); c.stroke(); }
+c.restore();
+// 两个扣在一起的 C 形环（汽车烤漆管：外发光 + 主色 + 高光）
+function ring(x, y, r, col, dark, gapAt, gw) {
+  const a0 = gapAt + gw / 2, a1 = gapAt - gw / 2 + Math.PI * 2;
   c.lineCap = 'round';
-  for (const [w, a] of [[30, 0.12], [20, 0.25]]) { c.strokeStyle = col; c.globalAlpha = a; c.lineWidth = w; c.beginPath(); c.arc(x, y, r, gapAt + 0.95, gapAt - 0.95 + Math.PI * 2); c.stroke(); }
-  c.globalAlpha = 1; c.strokeStyle = col; c.lineWidth = 13; c.beginPath(); c.arc(x, y, r, gapAt + 0.95, gapAt - 0.95 + Math.PI * 2); c.stroke();
-  c.strokeStyle = 'rgba(255,255,255,0.6)'; c.lineWidth = 4; c.beginPath(); c.arc(x, y, r, gapAt + 0.95, gapAt - 0.95 + Math.PI * 2); c.stroke();
+  c.save(); c.shadowColor = col; c.shadowBlur = 40; c.strokeStyle = dark; c.lineWidth = 50; c.beginPath(); c.arc(x, y, r, a0, a1); c.stroke(); c.restore();
+  const lg = c.createLinearGradient(x - r, y - r, x + r, y + r);
+  lg.addColorStop(0, '#ffffff'); lg.addColorStop(0.25, col); lg.addColorStop(1, dark);
+  c.strokeStyle = lg; c.lineWidth = 40; c.beginPath(); c.arc(x, y, r, a0, a1); c.stroke();
+  c.strokeStyle = 'rgba(255,255,255,0.75)'; c.lineWidth = 8; c.beginPath(); c.arc(x, y, r - 9, a0 + 0.15, a1 - 0.15); c.stroke();
 }
-ring(62, 92, 36, '#ff3df2', -2.2);
-ring(124, 92, 36, '#28e7ff', 0.9);
-c.fillStyle = '#ff3df2'; c.fillRect(96, 88, 10, 8);
-c.fillStyle = '#ffd0fb'; c.beginPath(); c.roundRect(82, 80, 12, 24, 3); c.fill();
+ring(162, 300, 90, '#ff3df2', '#7a0a8a', -2.35, 1.2);
+ring(350, 300, 90, '#28e7ff', '#0a4a8a', 0.75, 1.2);
+// 镀铬夹套：从粉环伸出的杆 + 套在青环管子上的夹套
+c.save(); c.shadowColor = 'rgba(0,0,0,0.6)'; c.shadowBlur = 12;
+g = c.createLinearGradient(0, 284, 0, 316);
+g.addColorStop(0, '#ffffff'); g.addColorStop(0.45, '#c9cfe6'); g.addColorStop(0.55, '#5a5f80'); g.addColorStop(1, '#e8ecff');
+c.fillStyle = g; c.fillRect(236, 290, 30, 20);
+g = c.createLinearGradient(0, 262, 0, 338);
+g.addColorStop(0, '#ffffff'); g.addColorStop(0.45, '#d8dcf0'); g.addColorStop(0.55, '#4a4e70'); g.addColorStop(1, '#f2f4ff');
+c.fillStyle = g; c.beginPath(); c.roundRect(254, 266, 22, 68, 7); c.fill();
+c.restore();
 </script>

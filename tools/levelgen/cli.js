@@ -4,7 +4,7 @@
  *
  *   node tools/levelgen/cli.js check [--from N] [--to N] [--file 关卡.json] [--json]
  *       按 docs/level-rules.md 验收关卡（默认 src/levels.js 全部关卡）。全部通过时退出码 0，否则 1。
- *   node tools/levelgen/cli.js gen --level N [--seeds 60] [--seed0 1] [--out 文件.json] [--minutes 10]
+ *   node tools/levelgen/cli.js gen --level N [--seeds 60] [--seed0 1] [--out 文件.json] [--minutes 10] [--maxD 难度指数上限]
  *       按 tools/levelgen/curve.js 第 N 关的目标生成一关，打印指标；--out 保存关卡 JSON。
  *   node tools/levelgen/cli.js measure --file 关卡.json --level N
  *       量一关的指标并验收（不跨关卡检查）。
@@ -110,7 +110,7 @@ function gen(o) {
   const groupD = prev.slice(g0).filter((e) => e.level).map((e) => GEN.diffIndex(e.metrics || GEN.measure(e.level, { n: e.n }))).filter((d) => d != null);
   // 提示文字在 apply 时才写进去，生成时先不查
   const ctx = { prevMaxPieces: maxPieces, prevFeatures: n > 1 ? feats : null, prevSigs: sigs, groupD, noTipCheck: true };
-  const res = GEN.generate(n, { seeds: +o.seeds || 60, seed0: +o.seed0 || 1, ctx, timeLimit: o.minutes ? +o.minutes * 60000 : 0, first: !!o.first });
+  const res = GEN.generate(n, { seeds: +o.seeds || 60, seed0: +o.seed0 || 1, ctx, timeLimit: o.minutes ? +o.minutes * 60000 : 0, first: !!o.first, maxD: o.maxD != null ? +o.maxD : null });
   console.log(`第 ${n} 关：试了 ${Object.values(res.stats).reduce((a, b) => a + b, 0)} 个种子，用时 ${(res.ms / 1000).toFixed(0)}s`);
   console.log('淘汰原因统计：' + JSON.stringify(res.stats));
   if (!res.best) { console.log('没有通过验收的候选。可以加 --seeds、换 --seed0，或者放宽 curve.js 里这一关的范围。'); return 1; }

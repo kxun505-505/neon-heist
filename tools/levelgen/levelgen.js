@@ -688,8 +688,9 @@
       const m = measure(lv, { n });
       const fails = accept(lv, m, n, o.ctx);
       if (fails.length) { bump(fails[0].slice(0, 6)); continue; }
-      bump('ok');
       m.D = diffIndex(m);
+      if (o.maxD != null && m.D > o.maxD) { bump('tooHard'); continue; } // 普通关不能比同组困难关还难
+      bump('ok');
       const mid = (slot.par[0] + slot.par[1]) / 2;
       // 越贴近目标步数越好；陷阱多、要回头再拖的零件多、环越大越好；精确最少步数优先
       const score = Math.abs(m.par - mid) / (slot.par[1] - slot.par[0] + 1) - Math.min(m.trap, 0.8) - 0.1 * m.revisit - 0.15 * m.dead / Math.max(1, m.first) - 0.01 * m.minRingPx + (m.exact ? 0 : 0.5);
