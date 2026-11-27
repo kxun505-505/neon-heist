@@ -26,7 +26,7 @@
     const st = () => w.__neon.state;
     for (let k = 0; k < 30 && st().frameCount === 0; k++) await sleep(100); // 等第一帧（无头浏览器里第一帧可能晚到，最后再统一检查）
     check('开机停在第 6 关并打开主页', st().levelIndex === 5 && $('menu').classList.contains('show'));
-    check('主页列出 10 关', d.querySelectorAll('#levels .card').length === 10);
+    check('主页列出全部 ' + w.RRLevels.length + ' 关', d.querySelectorAll('#levels .card').length === w.RRLevels.length);
     const heads = d.querySelectorAll('#levels .chapterhead');
     check('主页第 1 章显示进度（' + heads[0].textContent + '）', /SUNSET COAST/.test(heads[0].textContent) && /5\/20/.test(heads[0].textContent));
     check('后面 3 章锁住并写明解锁标准（' + heads[1].textContent + '）', heads.length === 4 && heads[1].classList.contains('locked') && /20/.test(heads[1].textContent));

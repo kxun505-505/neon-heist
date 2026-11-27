@@ -97,12 +97,41 @@
           },
         },
         // 16 张照片：第 1-4、6-9、11-14、16-19 关；4 段视频：第 5、10、15、20 关（困难关）
-        // 现在只有 10 关：照片 1-8 和视频 1-2 先用占位，其余还没做
+        // 照片 1-8 和视频 1-2 先用占位，其余还没做（显示 Coming soon）
         photos: [1, 2, 3, 4, 5, 6, 7, 8].map((k) => 'assets/ch1/photo' + k + '.svg').concat(Array(8).fill(null)),
         videos: ['assets/ch1/video1.mp4', 'assets/ch1/video2.mp4', null, null],
       },
       // 后面几章还没做关卡和角色，先占位：界面上显示为锁住的章节和背景
-      { id: 'ch2', name: 'NEON CITY', bg: 1, girl: null, photos: Array(16).fill(null), videos: Array(4).fill(null) },
+      {
+        id: 'ch2',
+        name: 'NEON CITY',
+        bg: 1, // 霓虹城市
+        // 第 2 章陪玩角色：占位（正式立绘和设定还没做）。轮廓先用第 1 章的，关卡就是按它避让生成的
+        girl: {
+          name: 'Coming soon',
+          side: 'right',
+          mask: [[0.296, 0.581], [0.248, 0.69], [0.184, 0.707], [0.16, 0.721], [0.112, 0.804], [0.091, 0.898], [0.109, 0.952], [0.125, 0.951], [0.126, 0.893], [0.112, 0.811]],
+          expr: ['idle', 'happy', 'surprised', 'wink', 'pout', 'thinking', 'blink'].reduce((o, e) => { o[e] = 'assets/ch2/girl/' + e + '.svg'; return o; }, {}),
+          lines: {
+            greet: {
+              en: ['Welcome to the city. Lights are on, let\'s play.'], ja: ['街へようこそ。ネオンが点いたわ、始めよう。'], ko: ['도시에 온 걸 환영해. 불 켜졌어, 시작하자.'],
+              pt: ['Bem-vindo à cidade. As luzes acenderam, vamos jogar.'], zh: ['欢迎来到霓虹城，灯亮了，开始吧。'], ru: ['Добро пожаловать в город. Огни горят, играем.'],
+            },
+            stuck: {
+              en: ['Take a breath. Which one is really free?'], ja: ['深呼吸。本当に動けるのはどれ？'], ko: ['숨 한번 쉬고. 진짜 풀린 건 뭘까?'],
+              pt: ['Respira. Qual está livre de verdade?'], zh: ['深呼吸，哪个才是真正能动的？'], ru: ['Выдохни. Какое кольцо по-настоящему свободно?'],
+            },
+            combo: { en: ['Smooth!'], ja: ['なめらか！'], ko: ['깔끔해!'], pt: ['Suave!'], zh: ['漂亮！'], ru: ['Чисто!'] },
+            clear: { en: ['City lights, cleared.'], ja: ['街の灯り、クリア。'], ko: ['도시 불빛, 클리어.'], pt: ['Luzes da cidade, limpas.'], zh: ['霓虹，搞定。'], ru: ['Огни города — пройдено.'] },
+            photo: { en: ['New photo unlocked.'], ja: ['新しい写真が解放されたよ。'], ko: ['새 사진이 열렸어.'], pt: ['Nova foto liberada.'], zh: ['解锁了一张新照片。'], ru: ['Новое фото открыто.'] },
+            video: { en: ['New video unlocked.'], ja: ['新しい動画が解放されたよ。'], ko: ['새 영상이 열렸어.'], pt: ['Novo vídeo liberado.'], zh: ['解锁了一段新视频。'], ru: ['Новое видео открыто.'] },
+            hint: { en: ['Here, watch.'], ja: ['ほら、見てて。'], ko: ['자, 봐봐.'], pt: ['Olha aqui.'], zh: ['看这里。'], ru: ['Смотри.'] },
+          },
+        },
+        // 占位图：照片 1-16（第 21-24、26-29、31-34、36-39 关）；视频还没做
+        photos: Array.from({ length: 16 }, (_, k) => 'assets/ch2/photo' + (k + 1) + '.svg'),
+        videos: Array(4).fill(null),
+      },
       { id: 'ch3', name: 'GOLDEN BEACH', bg: 2, girl: null, photos: Array(16).fill(null), videos: Array(4).fill(null) },
       { id: 'ch4', name: 'BAYOU DUSK', bg: 3, girl: null, photos: Array(16).fill(null), videos: Array(4).fill(null) },
     ],

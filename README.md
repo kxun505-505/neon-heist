@@ -1,5 +1,5 @@
 # 霓虹转环 NEON LOOPS · 试玩版
-圆环解扣类解谜的网页试玩，目前 10 关，日落海岸霓虹画风。玩法对标 Rotate Rings（`com.nebula.rotaterings`），美术、音效、关卡全部原创。
+圆环解扣类解谜的网页试玩，目前 40 关（2 章），日落海岸霓虹画风。玩法对标 Rotate Rings（`com.nebula.rotaterings`），美术、音效、关卡全部原创。
 
 ## 运行
 - 线上：GitHub Pages（见仓库 About 链接）。iPhone 用 Safari 打开后“添加到主屏幕”可全屏玩。

@@ -433,8 +433,11 @@
     LEVELS.forEach((lv, n) => {
       if (n % PER === 0) {
         const ci = chapterIndex(n), h = document.createElement('div');
-        h.className = 'chapterhead';
-        h.innerHTML = '<b>' + chapterOf(n).name + '</b><span>' + t('progressN', { a: chapterCount(ci), b: PER }) + '</span>';
+        // 上一章 20 关没全部通关：这一章锁住，写明解锁标准（?unlock 调试时照常显示进度）
+        const shut = !UNLOCK_ALL && ci > 0 && !chapterDone(ci - 1);
+        h.className = 'chapterhead' + (shut ? ' locked' : '');
+        h.innerHTML = shut ? '<b>🔒 ' + chapterOf(n).name + '</b><span>' + t('bgLocked', { n: PER, c: CH.list[ci - 1].name }) + '</span>'
+          : '<b>' + chapterOf(n).name + '</b><span>' + t('progressN', { a: chapterCount(ci), b: PER }) + '</span>';
         box.appendChild(h);
       }
       const b = document.createElement('button');

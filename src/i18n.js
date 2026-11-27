@@ -30,6 +30,8 @@
         'Two closed rings hold up the tower. Take it apart from the top.',
         'New: bars slide only along their length. Slide one out of its silver sleeve.',
         'Hard: work out what blocks what before you move.',
+        '', '', // 第 11、12 关没有提示
+        'New: a big ring holds pieces inside. They can only leave through its gap.',
       ],
     },
     ja: {
@@ -55,6 +57,8 @@
         '塔を支えるのは2つの閉じたリング。上から崩していこう。',
         '新登場：バーは長さの方向にだけスライド。銀色のスリーブから抜こう。',
         'ハード：動かす前に、どれが何をふさいでいるか考えよう。',
+        '', '', // 第 11、12 关没有提示
+        '新登場：大きなリングの中のパーツは、そのすき間からしか出られません。',
       ],
     },
     ko: {
@@ -80,6 +84,8 @@
         '탑은 닫힌 링 두 개가 받치고 있어요. 위에서부터 해체하세요.',
         '새 조각: 막대는 길이 방향으로만 밀려요. 은색 슬리브에서 빼내세요.',
         '어려움: 움직이기 전에 무엇이 무엇을 막는지 먼저 살펴보세요.',
+        '', '', // 第 11、12 关没有提示
+        '새 조각: 큰 링 안의 조각은 그 링의 틈으로만 나갈 수 있어요.',
       ],
     },
     pt: {
@@ -105,6 +111,8 @@
         'Dois anéis fechados sustentam a torre. Desmonte de cima para baixo.',
         'Novo: as barras só deslizam no comprimento. Tire uma da luva prateada.',
         'Difícil: veja o que bloqueia o quê antes de mexer.',
+        '', '', // 第 11、12 关没有提示
+        'Novo: peças dentro do anel grande só saem pela abertura dele.',
       ],
     },
     zh: {
@@ -130,6 +138,8 @@
         '塔底是两个闭合环，先把塔顶拆掉。',
         '新零件：直杆只能沿自己的方向推拉，滑出银色套筒就自由了。',
         '困难：先看清谁挡着谁，再动手。',
+        '', '', // 第 11、12 关没有提示
+        '新零件：大环里的零件只能从大环的缺口出去。',
       ],
     },
     ru: {
@@ -155,6 +165,8 @@
         'Башню держат два замкнутых кольца. Разбирайте её сверху.',
         'Новое: стержни скользят только вдоль. Выведите стержень из серебряной втулки.',
         'Сложно: сначала поймите, что чему мешает, потом двигайте.',
+        '', '', // 第 11、12 关没有提示
+        'Новое: детали внутри большого кольца выходят только через его разрез.',
       ],
     },
   };
