@@ -1,0 +1,7 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>shot</title>
+<!-- 截图用：把游戏装进 390×844 的框里（参考屏）。tools/shot.sh 会打开 shot.html?level=N&... -->
+<body style="margin:0;background:#000">
+<iframe id="f" style="width:390px;height:844px;border:0;display:block"></iframe>
+<script>document.getElementById('f').src = '../index.html' + (location.search || '?unlock&level=1') + '&notrans';</script>

@@ -49,30 +49,16 @@
   let timeScale = 1, fxClock = 0, fxReal = performance.now(), slowmo = null, probeHold = null;
   const fxTime = () => fxClock + (performance.now() - fxReal) * timeScale;
 
-  function levelBounds(lv) {
-    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (const r of lv.rings) {
-      if (r.type === 'bar') {
-        const ux = Math.cos(r.dir * DEG), uy = Math.sin(r.dir * DEG), h = r.len / 2 + BAR;
-        for (const sg of [1, -1]) {
-          x0 = Math.min(x0, r.x + ux * h * sg - BAR); x1 = Math.max(x1, r.x + ux * h * sg + BAR);
-          y0 = Math.min(y0, r.y + uy * h * sg - BAR); y1 = Math.max(y1, r.y + uy * h * sg + BAR);
-        }
-        continue;
-      }
-      const ext = r.r + TUBE / 2 + Math.max(0, ...(r.knobs || []).map((k) => k.len + KNOB));
-      x0 = Math.min(x0, r.x - ext); x1 = Math.max(x1, r.x + ext);
-      y0 = Math.min(y0, r.y - ext); y1 = Math.max(y1, r.y + ext);
-    }
-    return { x0, y0, x1, y1, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, w: x1 - x0, h: y1 - y0 };
-  }
+  // 零件占地（含转动时扫过的凸钉和空夹套杆），排版和特效方向都用它
+  let footprint = null;
 
   function loadLevel(n) {
     levelIndex = n;
     const lv = LEVELS[n];
     G = C.build(lv);
     S = C.initState(G);
-    bounds = levelBounds(lv);
+    footprint = RRLayout.footprint(lv);
+    bounds = RRLayout.boundsOf(footprint);
     moves = 0; score = 0; shownScore = 0; won = false;
     drag = null; hint = null; combo = { n: 0, t: 0 };
     fx = []; shakes = {}; lift = {}; flashLinks = {}; slowmo = null; timeScale = 1;
@@ -111,15 +97,14 @@
   // ---------- 坐标 ----------
   function layout() {
     if (!bounds) return;
-    // 棋盘区域：HUD 下方留出提示条的位置，底部让出工具栏（自动包含 iPhone 刘海和底部横条的安全区）
-    const TOP = $('hud').getBoundingClientRect().bottom + 44;
-    const gr = $('girl').getBoundingClientRect();
-    const BOTTOM = H - Math.min($('tools').getBoundingClientRect().top, gr.top + gr.height * 0.42) + 8;
-    const aw = W - 24, ah = Math.max(200, H - TOP - BOTTOM);
-    scale = Math.min(aw / bounds.w, ah / bounds.h, 1.45);
-    ox = W / 2 - bounds.cx * scale;
-    oy = TOP + ah / 2 - bounds.cy * scale;
-    RRBg.paint(bg, W, H, DPR, { x: W / 2, y: TOP + ah / 2, r: Math.max(bounds.w, bounds.h) * scale * 0.62 }, bgIndex);
+    // 棋盘区域：HUD 下方留出提示条的位置，底部让出按钮栏（自动包含 iPhone 刘海和底部横条的安全区）
+    const area = { x0: 12, x1: W - 12, y0: $('hud').getBoundingClientRect().bottom + 44, y1: $('tools').getBoundingClientRect().top - 8 };
+    if (area.y1 - area.y0 < 200) area.y1 = area.y0 + 200;
+    // 不压到右下角的陪玩角色：按立绘的实际轮廓避让，躲不开时整体缩小
+    const f = RRLayout.fit(footprint, area, Girl.rects());
+    scale = f.scale; ox = f.ox; oy = f.oy;
+    const cx = ox + bounds.cx * scale, cy = oy + bounds.cy * scale;
+    RRBg.paint(bg, W, H, DPR, { x: cx, y: cy, r: Math.max(bounds.w, bounds.h) * scale * 0.62 }, bgIndex);
   }
   function resize() {
     DPR = Math.min(3, window.devicePixelRatio || 1);
@@ -372,7 +357,7 @@
   // ---------- 提示：求解器算出下一步，用手指动画演示 ----------
   function showHint(auto) {
     if (won || !G) return;
-    const m = C.hintMove(G, S, G.rings.length > 9 ? 8000 : 40000);
+    const m = C.hintMove(G, S, C.hintBudget(G));
     if (!m) { showTip(t('tipDead')); return; }
     hint = { i: m.ring, delta: m.delta, t0: performance.now(), auto: !!auto };
     if (!auto) { showTip(t('tipHint'), 2600); Girl.react('hint'); }
@@ -620,7 +605,14 @@
       BL.src = c.girl.expr.blink || '';
       blinkLoop();
     }
-    return { setChapter, react, get expr() { return cur; } };
+    // 立绘在屏幕上的实际轮廓（没有角色或被隐藏时为空）
+    function rects() {
+      if (!chap || !chap.girl || !chap.girl.mask) return [];
+      const r = el.getBoundingClientRect();
+      if (!r.width || getComputedStyle(el).display === 'none') return [];
+      return RRLayout.girlRects({ left: r.left, top: r.top, width: r.width, height: r.height }, chap.girl.mask);
+    }
+    return { setChapter, react, rects, get expr() { return cur; } };
   })();
 
   function stuckReact() {

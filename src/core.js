@@ -226,9 +226,11 @@
   }
   // 连锁飞走：飞走的零件带走它的连接，可能让别的零件也全部松开
   function cascade(G, s, events) {
+    let flown = 0;
     for (;;) {
       const f = flyers(G, s);
-      if (!f.length) return;
+      if (!f.length) return flown;
+      flown += f.length;
       for (const i of f) {
         s.ring[i] = false;
         for (const L of G.links) if (s.link[L.k] && (L.owner === i || L.held === i)) s.link[L.k] = false;
@@ -238,31 +240,90 @@
   }
 
   /*
+   * 一次转动过程中别的零件都不动，所以能碰到的东西可以预先算好、筛掉够不着的（只有发生飞走时才重算）。
+   * 结果和 collision() 完全一样：保留的顺序不变，筛掉的都是几何上不可能碰到的。
+   */
+  function sweepCtx(G, s, i) {
+    const R = G.rings[i], obstacles = [], pieces = [];
+    for (let j = 0; j < G.rings.length; j++) {
+      if (j === i || !s.ring[j]) continue;
+      const Q = G.rings[j];
+      pieces.push(j);
+      if (Q.kind !== 'bar') for (const q of knobCircles(G, s, j, s.angles[j])) obstacles.push(q);
+      else if (R.kind !== 'bar') for (const q of barCircles(Q, s.angles[j])) obstacles.push(q);
+    }
+    for (const L of G.links) {
+      if (!s.link[L.k] || L.held === i || L.owner === i) continue;
+      for (const q of linkCircles(L)) obstacles.push(q);
+      obstacles.push(clampCircle(L));
+    }
+    if (R.kind === 'bar') return { pieces, obs: obstacles, mine: true };
+    // 环转动时，自己的凸起离圆心的距离不变：只有落在这个距离范围里的东西才可能碰到
+    const mine0 = knobCircles(G, s, i, 0);
+    let lo = Infinity, hi = -Infinity;
+    for (const p of mine0) { const d = Math.hypot(p.x - R.x, p.y - R.y); lo = Math.min(lo, d - p.rad); hi = Math.max(hi, d + p.rad); }
+    const band = (q, a, b) => { const d = Math.hypot(q.x - R.x, q.y - R.y); return d + q.rad > a - 6 && d - q.rad < b + 6; };
+    const obs = obstacles.filter((q) => band(q, R.r - TUBE / 2, R.r + TUBE / 2) || (mine0.length && band(q, lo, hi)));
+    const near = mine0.length ? pieces.filter((j) => {
+      const Q = G.rings[j];
+      if (Q.kind === 'bar') {
+        // 直杆上的点到我圆心的距离范围
+        let mn = Infinity, mx = -Infinity;
+        for (const q of barCircles(Q, s.angles[j])) { const d = Math.hypot(q.x - R.x, q.y - R.y); mn = Math.min(mn, d - q.rad); mx = Math.max(mx, d + q.rad); }
+        return mn < hi + 6 && mx > lo - 6;
+      }
+      const d = Math.hypot(Q.x - R.x, Q.y - R.y);
+      return Math.abs(d - Q.r) - TUBE / 2 < hi + 6 && d + Q.r + TUBE / 2 > lo - 6;
+    }) : [];
+    return { pieces: near, obs, mine: mine0.length > 0 };
+  }
+  function collisionCtx(G, s, i, ang, ctx) {
+    const R = G.rings[i];
+    const mine = R.kind === 'bar' ? barCircles(R, ang) : ctx.mine ? knobCircles(G, s, i, ang) : [];
+    for (const j of ctx.pieces) {
+      const Q = G.rings[j];
+      for (const p of mine) if (hitsPiece(Q, s.angles[j], p)) return p;
+    }
+    for (const q of ctx.obs) {
+      for (const p of mine) if (hitsCircle(p, q)) return { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 };
+      if (R.kind !== 'bar' && hitsTube(R, ang, q)) return q;
+    }
+    return null;
+  }
+
+  /*
    * 把环 i 往 delta 方向转，逐步检测碰撞和滑脱（会原地修改 s）。
    * events 记录过程中发生的事：{type:'release', k} / {type:'fly', i} / {type:'hit', p}
+   * 只有环 i 扣着的连接会变，所以只在其中某条刚松开时才检查飞走（结果和每一步都检查一样）。
    */
   function sweep(G, s, i, delta, events) {
     const dir = Math.sign(delta), bar = G.rings[i].kind === 'bar';
     let left = Math.abs(delta), moved = 0;
+    const mineL = G.links.filter((L) => L.held === i);
+    let open = mineL.map((L) => s.link[L.k] && isOpen(G, s, L));
+    let ctx = sweepCtx(G, s, i);
     while (left > 1e-9) {
       if (!s.ring[i]) break;
       const st = Math.min(bar ? SLIDE : STEP, left);
       const next = bar ? s.angles[i] + dir * st : norm(s.angles[i] + dir * st);
-      const hit = collision(G, s, i, next);
+      const hit = collisionCtx(G, s, i, next, ctx);
       if (hit) { if (events) events.push({ type: 'hit', p: hit, ring: i }); break; }
-      const before = events ? G.links.map((L) => s.link[L.k] && L.held === i && isOpen(G, s, L)) : null;
       s.angles[i] = next;
       moved += dir * st;
       left -= st;
-      if (events) {
-        G.links.forEach((L, k) => {
-          if (!s.link[k] || L.held !== i) return;
-          const o = isOpen(G, s, L);
-          if (o && !before[k]) events.push({ type: 'open', k });
-          else if (!o && before[k]) events.push({ type: 'close', k });
-        });
+      let opened = false;
+      for (let k = 0; k < mineL.length; k++) {
+        const L = mineL[k];
+        if (!s.link[L.k]) { open[k] = false; continue; }
+        const o = isOpen(G, s, L);
+        if (o && !open[k]) { opened = true; if (events) events.push({ type: 'open', k: L.k }); }
+        else if (!o && open[k] && events) events.push({ type: 'close', k: L.k });
+        open[k] = o;
       }
-      cascade(G, s, events);
+      if (opened && cascade(G, s, events)) {
+        ctx = sweepCtx(G, s, i);
+        open = mineL.map((L) => s.link[L.k] && isOpen(G, s, L));
+      }
     }
     return moved;
   }
@@ -364,6 +425,8 @@
     return { moves, nodes, aborted: !moves && nodes > maxNodes };
   }
 
+  // 游戏里提示按钮的求解预算（关卡验收也用它检查开局时提示能用）
+  const hintBudget = (G) => (G.rings.length > 9 ? 8000 : 40000);
   // 提示用：先试最少步数，状态太多时退回快速求解
   function hintMove(G, s, budget) {
     const r = solve(G, cloneState(s), { maxDepth: 30, maxNodes: budget || 12000 });
@@ -418,6 +481,6 @@
 
   root.RRCore = {
     TAU, DEG, TUBE, STEM, CLAMP_LEN, KNOB, BAR, barCircles, norm, angDiff, build, initState, cloneState,
-    ownsLive, linkCount, blockReason, isOpen, cascade, knobCircles, collision, releases, flyers, sweep, candidateMoves, solve, solveFast, hintMove, validate,
+    ownsLive, linkCount, blockReason, isOpen, cascade, knobCircles, collision, releases, flyers, sweep, candidateMoves, solve, solveFast, hintMove, hintBudget, validate,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

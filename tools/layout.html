@@ -1,0 +1,70 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>layout</title>
+<!--
+  排版检查（真实页面）：在几种常见屏幕尺寸下打开游戏，逐关检查
+  1. 棋盘（含转动时扫过的凸钉和空夹套）不压到右下角陪玩角色的轮廓；
+  2. 棋盘不出屏幕、不压到顶部 HUD 和底部按钮；
+  3. 参考屏 390×844 上的缩放和 src/layout.js 里的 REF 算出来的一致（生成器验收用的就是 REF）；
+  4. 参考屏上最小环半径、管子粗细不低于下限（困难关可到 90%）。
+  用法：tools/verify.sh layout.html
+-->
+<pre id="out"></pre>
+<script src="../src/core.js"></script>
+<script src="../src/layout.js"></script>
+<script src="../src/chapters.js"></script>
+<script src="levelgen/curve.js"></script>
+<script src="levelgen/levelgen.js"></script>
+<script>
+  const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  const log = [];
+  const out = () => { document.getElementById('out').textContent = log.join('\n'); };
+  const SIZES = [[390, 844, 'iPhone 12-15（参考屏）'], [375, 667, 'iPhone SE'], [430, 932, 'iPhone Pro Max'], [360, 780, 'Android'], [820, 1180, 'iPad'], [1280, 800, '桌面']];
+  async function run() {
+    let fails = 0;
+    for (const [w, h, label] of SIZES) {
+      const f = document.createElement('iframe');
+      f.style.cssText = `width:${w}px;height:${h}px;border:0;position:absolute;left:0;top:0`;
+      document.body.appendChild(f);
+      await new Promise((r) => { f.onload = r; f.src = '../index.html?unlock&level=1&notrans'; });
+      const win = f.contentWindow;
+      for (let k = 0; k < 50 && !win.__neon; k++) await sleep(50);
+      await sleep(200);
+      const d = win.document, L = win.RRLayout;
+      const rect = (id) => d.getElementById(id).getBoundingClientRect();
+      let bad = [];
+      for (let n = 0; n < win.RRLevels.length; n++) {
+        win.__neon.loadLevel(n);
+        await sleep(20);
+        const lv = win.RRLevels[n], a = win.__neon.toScreen(0, 0), b = win.__neon.toScreen(1, 0), s = b.x - a.x;
+        const chap = win.RRChapters.list[Math.floor(n / win.RRChapters.PER_CHAPTER)];
+        const gr = rect('girl');
+        const girl = chap.girl ? L.girlRects({ left: gr.left, top: gr.top, width: gr.width, height: gr.height }, chap.girl.mask, 0) : [];
+        const fp = L.footprint(lv);
+        const hud = rect('hud').bottom, tools = rect('tools').top;
+        const probs = [];
+        for (const c of fp) {
+          const p = win.__neon.toScreen(c.x, c.y), rr = c.rad * s;
+          if (p.x - rr < 0 || p.x + rr > w || p.y - rr < hud || p.y + rr > tools) { probs.push('出界'); break; }
+        }
+        if (!L.clearOf(fp, s, a.x, a.y, girl)) probs.push('压到角色');
+        if (w === 390 && h === 844) {
+          const ref = L.refFit(lv, chap.girl && chap.girl.mask);
+          if (Math.abs(ref.scale - s) / s > 0.005) probs.push(`缩放 ${s.toFixed(3)} ≠ REF ${ref.scale.toFixed(3)}`);
+          const R = RRGen.RULES, k = RRGen.isHard(n + 1) ? R.HARD_SIZE : 1;
+          const minR = Math.min(...lv.rings.filter((r) => r.type !== 'bar').map((r) => r.r)) * s;
+          if (minR < R.RING_PX_MIN * k - 0.05) probs.push(`最小环 ${minR.toFixed(1)}px`);
+          if (win.RRCore.TUBE * s < R.TUBE_PX_MIN * k - 0.05) probs.push(`管子 ${(win.RRCore.TUBE * s).toFixed(1)}px`);
+        }
+        if (probs.length) bad.push(`L${n + 1} ${probs.join('、')}`);
+      }
+      log.push((bad.length ? 'FAIL ' : 'OK   ') + `${w}×${h} ${label}` + (bad.length ? '：' + bad.join('；') : ''));
+      fails += bad.length;
+      f.remove();
+      out();
+    }
+    log.push(fails ? 'FAIL 排版检查没通过' : 'PASS 所有尺寸下棋盘都不压角色、不出界，参考屏尺寸达标');
+    out();
+  }
+  run().catch((e) => { log.push('FAIL ' + e.message); out(); });
+</script>

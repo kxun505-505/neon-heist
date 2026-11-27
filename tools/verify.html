@@ -1,24 +1,29 @@
 <!doctype html>
 <meta charset="utf-8">
 <title>verify</title>
-<!-- 关卡检查：合法性（无重叠、无初始碰撞、无已滑脱的夹套）+ 最少拖动次数 -->
+<!--
+  关卡验收（浏览器版，和 node tools/levelgen/cli.js check 是同一份代码）：
+  合法性、可解、尺寸、避让陪玩角色、难度曲线、节奏和结构，标准见 docs/level-rules.md。
+  用法：tools/verify.sh（默认就是这个页面）
+-->
 <script src="../src/core.js"></script>
+<script src="../src/layout.js"></script>
+<script src="../src/chapters.js"></script>
 <script src="../src/levels.js"></script>
+<script src="levelgen/curve.js"></script>
+<script src="levelgen/levelgen.js"></script>
 <pre id="out"></pre>
 <script>
-  const C = RRCore, out = [];
-  RRLevels.forEach((lv, n) => {
-    const G = C.build(lv);
-    const problems = C.validate(G);
-    const t = performance.now();
-    let res = C.solve(G, C.initState(G), { maxDepth: 20, maxNodes: lv.rings.length > 9 ? 15000 : 200000 }), approx = false;
-    if (!res.moves) { res = C.solveFast(G, C.initState(G), { maxNodes: 80000 }); approx = true; }
+  const rows = RRGen.checkAll(RRLevels), out = [];
+  for (const r of rows) {
+    const m = r.m;
     out.push(JSON.stringify({
-      level: n + 1, name: lv.en, rings: lv.rings.length, links: lv.links.length,
-      problems, par: res.moves ? res.moves.length : null, approx,
-      solution: res.moves ? res.moves.map((m) => lv.rings[m.ring].id + Math.round(m.delta / C.DEG)).join(' ') : null,
-      ms: Math.round(performance.now() - t),
+      level: r.n, name: RRLevels[r.n - 1].en, hard: RRGen.isHard(r.n), pieces: m.pieces, par: m.par, exact: m.exact,
+      trap: m.trap, dead: m.dead, revisit: m.revisit, D: m.D, minRingPx: m.minRingPx, tubePx: m.tubePx, ms: m.ms,
+      result: r.fails.length ? 'FAIL' : 'PASS', fails: r.fails, solution: m.solution,
     }));
-  });
+  }
+  const bad = rows.filter((r) => r.fails.length).length;
+  out.push(bad ? `FAIL ${bad} 关没通过验收` : `PASS ${rows.length} 关全部通过验收`);
   document.getElementById('out').textContent = out.join('\n');
 </script>
