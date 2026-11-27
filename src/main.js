@@ -323,7 +323,8 @@
         // 最后一个零件：慢镜头收尾
         // 最后一个零件刚起步就进入慢镜头，让它在慢动作里拖着光带冲出去
         slowmo = { t0: now + (flew - 1) * 70 + RECOIL * 1000 + 30 };
-        setTimeout(() => SFX.slowmo(), (flew - 1) * 70 + 60);
+        // 劫案皮肤不放原来的慢镜头音效：它是往下扫的，听起来像挑战失败
+        if (!HEIST) setTimeout(() => SFX.slowmo(), (flew - 1) * 70 + 60);
         win();
       }
     }

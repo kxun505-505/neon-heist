@@ -11,11 +11,12 @@
  *   3. 落槽（gate）：缺口转到夹套处 = 转盘的槽口对上了锁杆，锁杆“咚”地落进去。比卡位低、重、长，
  *      前面带一下锁杆擦过槽边的轻响，后面带一下回弹。这是玩家最想听到的声音。
  *   4. 出槽（regate）：缺口转走、重新扣上：先一下短促的刮擦，再一下中等的咔哒。
- *   5. 开锁弹出（shackle）：零件飞走 = 挂锁锁梁被弹簧弹开，钢件会“铮”地响一会儿，连击时一级级升调。
- *      接着几枚硬币落下的叮当声（连击越多硬币越多）。
+ *   5. 悄悄开锁（unlatch）：零件飞走。偷东西要兴奋但要小声（用户 11-28 的要求），所以不“炫耀”：
+ *      一下被手指捂住的闷锁扣声，接一缕很轻、慢慢淡掉的钢件余韵和一口气似的风声。连击时余韵按五声音阶往上走一点。
  *   6. 其他：撞到警报触点（闷的金属敲击 + 一声很轻的传感器提示）、拧不动（被锁住的把手晃三下）、
- *      手指按上转盘（滚花表面的轻触）、直杆是金条在卡座里滑（低沉的“嗒”）、
- *      过关是金库门的三根门闩依次退开，最后收银机“咔-叮”。
+ *      手指按上转盘（滚花表面的轻触）、直杆是金条在卡座里滑（低沉的“嗒”）。
+ *   7. 过关 = 保险箱打开：把手咔咔咔三下（音高一下比一下高）→ 门闩一起退开“咔-嗵” → 门缝的密封松开“嘶”
+ *      （往上扫）→ 厚重的门荡开 → 面板弹出时收银机“咔-叮”。整段的音高都往上走；往下走会像挑战失败。
  * 每种声音预先合成 3-4 个略有差别的版本，播放时再随机微调音高，听起来不会像机器重复。
  * 环越大，声音越低：每个环有自己的“嗓音”。声音按零件在屏幕上的位置左右声像。
  */
@@ -100,15 +101,27 @@
     regate: { dur: 0.07, scrape: [{ at: 0, dur: 0.02, f: 2300, q: 3, g: 0.25 }], hits: [
       { at: 0.019, g: 0.8, modes: [[2600, 0.005, 0.5], [4100, 0.0035, 0.35], [200, 0.006, 0.3]], click: 0.5 },
     ] },
-    // 挂锁锁梁弹开：钢件“铮”一声，再一下“嗒”（锁梁撞到限位）
-    shackle: { dur: 0.36, hits: [
-      { at: 0, g: 1, modes: [[1980, 0.11, 0.35], [3140, 0.075, 0.28], [4870, 0.045, 0.2], [7020, 0.025, 0.12], [820, 0.03, 0.25], [170, 0.025, 0.55]], click: 0.9, clickDec: 0.0006 },
-      { at: 0.028, g: 0.45, modes: [[1250, 0.02, 0.4], [2600, 0.012, 0.3], [130, 0.02, 0.5]], click: 0.4 },
+    // 悄悄开锁：锁扣被手指捂着松开，闷、短、不响亮；后面带一下很轻的到位声
+    unlatch: { dur: 0.08, hits: [
+      { at: 0, g: 1, modes: [[1650, 0.012, 0.4], [2620, 0.008, 0.3], [420, 0.015, 0.4], [960, 0.01, 0.3]], click: 0.25, clickDec: 0.0004 },
+      { at: 0.022, g: 0.2, modes: [[3100, 0.003, 0.3], [4700, 0.002, 0.2]], click: 0.15 },
     ] },
-    // 硬币：落地，再轻轻弹一下
-    coin: { dur: 0.22, hits: [
-      { at: 0, g: 1, modes: [[5274, 0.06, 0.32], [7930, 0.04, 0.24], [10900, 0.025, 0.14], [3720, 0.08, 0.12], [13200, 0.012, 0.08]], click: 0.35, clickDec: 0.0002 },
-      { at: 0.048, g: 0.32, modes: [[5274, 0.04, 0.32], [7930, 0.03, 0.24], [3720, 0.05, 0.12]], click: 0.2, clickDec: 0.0002 },
+    // 开锁后的余韵：没有撞击噪声，几个钢件泛音慢慢淡掉
+    shimmer: { dur: 0.7, hits: [
+      { at: 0, g: 1, modes: [[2093, 0.2, 0.3], [3140, 0.14, 0.18], [4186, 0.09, 0.1], [1047, 0.16, 0.12]] },
+    ] },
+    // 保险箱把手：棘轮咔哒（播放三次，一下比一下高）
+    handle: { dur: 0.06, hits: [
+      { at: 0, g: 0.4, modes: [[3000, 0.003, 0.5], [4600, 0.002, 0.3]], click: 0.4 },
+      { at: 0.002, g: 1, modes: [[2200, 0.006, 0.5], [3500, 0.004, 0.35], [900, 0.012, 0.3], [180, 0.01, 0.4]], click: 0.5, clickDec: 0.0003 },
+    ] },
+    // 门闩一起退开：先滑出去，再“咔-嗵”到底。比原来的门闩亮，不发闷
+    unbolt: { dur: 0.3, scrape: [{ at: 0, dur: 0.05, f: 1800, q: 2, g: 0.2 }], hits: [
+      { at: 0.05, g: 1, modes: [[320, 0.06, 0.5], [690, 0.045, 0.4], [1240, 0.03, 0.35], [2150, 0.018, 0.25], [3600, 0.008, 0.15], [95, 0.07, 0.7]], click: 0.55, clickDec: 0.0006 },
+    ] },
+    // 门锁舌最后一下“叮”
+    latch: { dur: 0.35, hits: [
+      { at: 0, g: 1, modes: [[2637, 0.12, 0.3], [3951, 0.08, 0.2], [5274, 0.05, 0.12]], click: 0.3, clickDec: 0.0002 },
     ] },
     // 撞到警报触点：闷的金属敲击
     knock: { dur: 0.1, hits: [
@@ -125,10 +138,6 @@
     // 金条在卡座里滑过一格
     slide: { dur: 0.05, hits: [
       { at: 0, g: 1, modes: [[720, 0.013, 0.45], [1540, 0.008, 0.3], [2650, 0.004, 0.15], [170, 0.016, 0.5], [1050, 0.01, 0.25]], click: 0.3 },
-    ] },
-    // 金库门闩：先刮着退出去，最后“咚”到底
-    bolt: { dur: 0.36, scrape: [{ at: 0, dur: 0.075, f: 1300, q: 2, g: 0.3 }], hits: [
-      { at: 0.072, g: 1, modes: [[196, 0.09, 0.6], [436, 0.06, 0.45], [884, 0.035, 0.3], [1660, 0.016, 0.2], [2900, 0.007, 0.1], [72, 0.11, 0.9], [1290, 0.03, 0.3], [640, 0.05, 0.4]], click: 0.5, clickDec: 0.0008 },
     ] },
     // 收银机：抽屉弹出“咔”+ 铃“叮”两下
     ching: { dur: 0.75, hits: [
@@ -236,12 +245,11 @@
     friction,
     gate(r, pan) { play('gate', { gain: 0.62, rate: voice(r), pan: pan * 0.5, jit: 0.015 }); },
     regate(r, pan) { play('regate', { gain: 0.38, rate: voice(r), pan: pan * 0.5 }); },
-    // 零件飞走：锁梁弹开（连击升调）+ 硬币
+    // 零件飞走：悄悄开锁。闷锁扣 + 慢慢淡掉的余韵（连击时往上走一点），都很小声
     release(combo, pan) {
       const c = Math.max(0, Math.min(combo | 0, STEPS.length - 1));
-      play('shackle', { gain: 0.5, rate: Math.pow(2, STEPS[c] / 12), pan: pan * 0.5, jit: 0.01 });
-      const coins = 2 + Math.min(c, 4);
-      for (let i = 0; i < coins; i++) play('coin', { gain: 0.16 + Math.random() * 0.1, rate: 0.9 + Math.random() * 0.25, pan: pan * 0.5 + (Math.random() - 0.5) * 0.6, at: 0.06 + i * 0.045 + Math.random() * 0.05 });
+      play('unlatch', { gain: 0.24, pan: pan * 0.5 });
+      play('shimmer', { gain: 0.06 + c * 0.006, rate: Math.pow(2, STEPS[c] / 12), pan: pan * 0.5, at: 0.012, jit: 0.008 });
     },
     // 撞到凸钉（警报触点）：闷响 + 一声很轻的传感器提示
     knock(pan) {
@@ -258,17 +266,36 @@
     // 松手：很轻的一下，比按下更低
     drop(pan) { play('touch', { gain: 0.12, rate: 0.8, pan: pan * 0.5 }); },
     button() { play('button', { gain: 0.3 }); },
-    // 飞走时的风声（跑车拖影还在，只保留风声，不要引擎声）
+    // 飞走时的风声：很轻的一口气，慢起慢收（跑车拖影还在，不要引擎声）
     whoosh(n) {
       if (!setup()) return;
       const t = ac.currentTime, src = ac.createBufferSource(), bp = ac.createBiquadFilter(), g = ac.createGain();
       src.buffer = noiseBuf; bp.type = 'bandpass'; bp.Q.value = 1.2;
-      bp.frequency.setValueAtTime(3800 + (n | 0) * 200, t); bp.frequency.exponentialRampToValueAtTime(600, t + 0.28);
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.07, t + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
-      src.connect(bp); bp.connect(g); g.connect(out); src.start(t, Math.random() * 0.5); src.stop(t + 0.32);
+      bp.frequency.setValueAtTime(2600 + (n | 0) * 150, t); bp.frequency.exponentialRampToValueAtTime(900, t + 0.42);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.022, t + 0.08); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45);
+      src.connect(bp); bp.connect(g); g.connect(out); src.start(t, Math.random() * 0.4); src.stop(t + 0.47);
     },
-    // 过关第一段：金库门的三根门闩依次退开
-    vault() { [0, 0.17, 0.34].forEach((at, i) => play('bolt', { gain: 0.6, at, rate: [1, 0.95, 0.9][i], jit: 0.01 })); },
+    // 过关第一段：保险箱打开。把手三下（越来越高）→ 门闩一起退开 → 锁舌“叮” → 密封松开“嘶”（往上扫）→ 厚门荡开
+    vault() {
+      [0, 0.075, 0.15].forEach((at, i) => play('handle', { gain: [0.32, 0.36, 0.4][i], at, rate: [1, 1.12, 1.26][i], jit: 0.01 }));
+      play('unbolt', { gain: 0.55, at: 0.25, jit: 0.01 });
+      play('unbolt', { gain: 0.28, at: 0.29, rate: 1.19, jit: 0.01 });
+      play('latch', { gain: 0.2, at: 0.36, jit: 0.005 });
+      if (!setup()) return;
+      const t = ac.currentTime + 0.4;
+      // 密封松开：气流声从低往高扫
+      const src = ac.createBufferSource(), bp = ac.createBiquadFilter(), g = ac.createGain();
+      src.buffer = noiseBuf; bp.type = 'bandpass'; bp.Q.value = 0.8;
+      bp.frequency.setValueAtTime(700, t); bp.frequency.exponentialRampToValueAtTime(5200, t + 0.55);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.06, t + 0.18); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6);
+      src.connect(bp); bp.connect(g); g.connect(out); src.start(t, Math.random() * 0.3); src.stop(t + 0.62);
+      // 厚门荡开：很低的一下“呼”，音高往上走
+      const o = ac.createOscillator(), lp = ac.createBiquadFilter(), og = ac.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(62, t + 0.05); o.frequency.exponentialRampToValueAtTime(118, t + 0.6);
+      lp.type = 'lowpass'; lp.frequency.value = 400;
+      og.gain.setValueAtTime(0.0001, t + 0.05); og.gain.exponentialRampToValueAtTime(0.1, t + 0.22); og.gain.exponentialRampToValueAtTime(0.0001, t + 0.65);
+      o.connect(lp); lp.connect(og); og.connect(out); o.start(t + 0.05); o.stop(t + 0.68);
+    },
     // 过关第二段（弹出过关面板时）：收银机“咔-叮”+ 一个温暖的和弦垫底
     win() {
       play('ching', { gain: 0.42, jit: 0.005 });

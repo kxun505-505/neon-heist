@@ -22,9 +22,9 @@
   const list = [
     ['卡位', () => HA.detent(false, 36, 0, 100)], ['大格', () => HA.detent(true, 36, 0, 100)],
     ['大环卡位', () => HA.detent(false, 70, 0, 100)], ['落槽（松开夹套）', () => HA.gate(36, 0)], ['出槽（重新扣上）', () => HA.regate(36, 0)],
-    ['开锁弹出', () => HA.release(0, 0)], ['连击 ×3', () => [0, 1, 2].forEach((c) => setTimeout(() => HA.release(c, c - 1), c * 160))],
+    ['悄悄开锁（飞走）', () => { HA.release(0, 0); HA.whoosh(0); }], ['连击 ×3', () => [0, 1, 2].forEach((c) => setTimeout(() => { HA.release(c, c - 1); HA.whoosh(c); }, c * 160))],
     ['撞警报触点', () => HA.knock(0)], ['拧不动', () => HA.locked(0)], ['按上转盘', () => HA.touch(0)], ['松手', () => HA.drop(0)],
-    ['金条滑一格', () => HA.slideStep(0)], ['金库门闩', () => HA.vault()], ['过关', () => HA.win()], ['困难关警报', () => HA.alarm()], ['按钮', () => HA.button()],
+    ['金条滑一格', () => HA.slideStep(0)], ['保险箱打开', () => HA.vault()], ['过关整段', () => { HA.vault(); setTimeout(() => HA.win(), 1150); }], ['困难关警报', () => HA.alarm()], ['按钮', () => HA.button()],
   ];
   for (const [name, fn] of list) { const b = document.createElement('button'); b.textContent = name; b.onclick = () => { RRAudio.ensure(); fn(); }; $('btns').appendChild(b); }
   // 拖动转盘
