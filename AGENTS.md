@@ -59,14 +59,14 @@ docs/                 规格和记录（见第 6 节）
 
 ## 4. 发布和仓库
 
-所有仓库都在 GitHub 账号 `kxun505-505` 下，都是公开仓库，都是这个产品专用的。三个网站都用 GitHub Pages 发布，发布的是仓库的 `main` 分支。
+所有仓库都在 GitHub 账号 `kxun505-505` 下，都是公开仓库，都是这个产品专用的：`neon-heist`（正式版）和 `neon-loops-staging`（测试版）。三个网站都用 GitHub Pages 发布，发布的是仓库的 `main` 分支。
 
 | 本地分支 | 远程 | 网站 | 用途 |
 |---|---|---|---|
 | `fx-b`（开发主线）。`staging` 分支指向同一个提交 | `staging` → `main` | https://kxun505-505.github.io/neon-loops-staging/ | **测试版**。每次改动都先推到这里 |
-| `main` | `origin` → `main` | https://kxun505-505.github.io/neon-loops/ | **正式版**。用户明确确认后才更新，目前停在 11-25 的旧版本 |
+| `main` | `origin` → `main`（仓库 `neon-heist`，原名 neon-loops） | https://kxun505-505.github.io/neon-heist/ | **正式版**。用户明确确认后才更新，目前停在 11-25 的旧版本。旧网址 /neon-loops/ 改名后是 404 |
 | `fx-b` 的完整历史 | `origin` → `dev` | 不发布网站 | 在产品主仓库里备份开发历史，推它不影响正式版 |
-| `fx-c` | `cd` → `main` | https://kxun505-505.github.io/neon-loops-cd/ | 特效方案 C+D 的对比版，已经弃用，保留不动 |
+| `fx-c`（只留在本地） | 无 | 无 | 特效方案 C+D 的对比版，已弃用。仓库 neon-loops-cd 用户要求删除（2026-11-27），见 DEVLOG |
 
 **发布测试版**
 
@@ -108,7 +108,7 @@ BUDGET=1700000 tools/verify.sh playtest.html  # 用合成触摸事件把每关�
 - **第 41-100 关**：交给 Codex 跑，见 `docs/codex-handoff.md`。生成好之后，用 `cli.js apply` 或拼装脚本写进 `src/levels.js`，补 6 种语言的提示（`src/i18n.js` 的 `tips`）和奖励素材路径（`src/chapters.js`）。
 - **素材**：第 1 章还缺正式的照片 16 张和视频 4 段；第 2 章的角色设定、立绘、照片和视频都还没做。出图需求的写法参考 `docs/ch1-gpt-asset-pack.md`。
 - **App 图标**：还是旧的，要按 C 样式的 logo 重做。
-- **仓库名**：还叫 neon-loops。改名会改变网址，要先问用户。
+- **测试版仓库名**：还叫 neon-loops-staging，用户没要求改。改名会改变测试版网址，要先问用户。
 - **正式版**：还停在 11-25。用户确认后，把 `fx-b` 合进 `main`，推到 `origin`。
 
 ## 6. 文档索引

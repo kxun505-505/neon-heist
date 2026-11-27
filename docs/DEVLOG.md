@@ -167,6 +167,10 @@
 - 写了 `AGENTS.md`（接手入口）和这份 `DEVLOG.md`。
 - 开发历史推到了产品主仓库 `neon-loops` 的 `dev` 分支。网站只发布 `main` 分支，所以正式版不受影响。
 
+**仓库整理**（11-27，用户要求）
+- 正式版仓库 `neon-loops` 改名为 **`neon-heist`**，网址变成 https://kxun505-505.github.io/neon-heist/ 。旧网址 /neon-loops/ 是 404，因为 GitHub Pages 改名后不做跳转。仓库页面的旧地址 GitHub 会自动跳转。
+- 用户要求删除特效对比仓库 `neon-loops-cd`。本地的令牌只有 `repo` 权限，没有 `delete_repo` 权限，API 返回 403，所以要用户在网页上手动删除，或者给令牌加上删除权限。本地已经去掉了远程 `cd`，`fx-c` 分支只留在本地。
+
 ---
 
 ## 踩过的坑（新接手的模型容易再踩）
