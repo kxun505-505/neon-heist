@@ -1371,6 +1371,9 @@
     S.ring[pi] = false; G.links.forEach((L) => { if (L.owner === pi || L.held === pi) S.link[L.k] = false; });
     if (probe === 'dash') { frame(); flyAway(pi, fxClock - pt * 1000, 2); S.ring[pi] = false; timeScale = 0; frame(); frame(); return; }
   }, 400);
+  // ?logo=a|b|c：切换主页 logo 样式（给美术对比用）
+  const qLogo = (location.search.match(/[?&]logo=([abc])/) || [])[1];
+  if (qLogo) { const h = document.querySelector('.hhead .nlogo'); h.classList.remove('lg-chrome', 'lg-tube', 'lg-outrun'); h.classList.add({ a: 'lg-chrome', b: 'lg-tube', c: 'lg-outrun' }[qLogo]); }
   const qLang = (location.search.match(/[?&]lang=(\w+)/) || [])[1];
   if (qLang) { I18N.set(qLang); refreshTexts(); syncToggles(); }
 
