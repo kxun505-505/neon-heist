@@ -308,6 +308,14 @@
         o.connect(lp); lp.connect(g); g.connect(out); o.start(t + i * 0.03); o.stop(t + 1.35);
       });
     },
+    // 过关时赃款数字往上滚：每跳一下一声很轻的密码盘咔哒，越滚越高（k：0 到 1）
+    count(k) {
+      if (!setup()) return;
+      const now = ac.currentTime;
+      if (now - lastDetent < 0.035) return;
+      lastDetent = now;
+      play('tick', { gain: 0.14 + k * 0.06, rate: 1 + k * 0.6, jit: 0.01 });
+    },
     // 困难关开场：两声低沉的警报
     alarm() {
       if (!setup()) return;
