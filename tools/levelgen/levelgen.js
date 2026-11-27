@@ -473,9 +473,9 @@
     return s.angles.map((a, i) => (!s.ring[i] ? 'x' : G.rings[i].kind === 'bar' ? 'b' + Math.round(a / 3) : Math.round(a / DEG / 2) % 180)).join(',') + '|' + s.link.map(Number).join('');
   }
 
-  // 第一步分析：每一种第一步走完后，还能不能在 par-1 步内解开；解不开的叫“陷阱”，彻底解不开的叫“死局”
-  function firstMoves(G, s0, par, exact, o) {
-    const seen = new Set(), r = { first: 0, bad: 0, dead: 0, unknown: 0 };
+  // 第一步有哪些（不同的结果状态算不同的走法；转动不到 2° 或滑动不到 2px 的不算）
+  function firstStates(G, s0) {
+    const seen = new Map(), out = [];
     for (let i = 0; i < G.rings.length; i++) {
       if (C.blockReason(G, s0, i)) continue;
       for (const d of C.candidateMoves(G, s0, i)) {
@@ -484,19 +484,91 @@
         if (Math.abs(moved) < (G.rings[i].kind === 'bar' ? 2 : 2 * DEG)) continue;
         const key = keyOf(G, n);
         if (seen.has(key)) continue;
-        seen.add(key);
-        r.first++;
-        if (n.ring.every((a) => !a)) continue;
+        seen.set(key, out.length);
+        out.push({ key, s: n });
+      }
+    }
+    return out;
+  }
+
+  /*
+   * 一次广度优先同时算出：最少步数 par、一条最优解、哪些第一步在某条最优解上。
+   * 最优解经过的每个状态都处在它的最短距离上，所以只要把“从哪个第一步来的”沿最短距离传下去，
+   * 走到终点时收集到的就是所有好的第一步。预算用完返回 null。
+   */
+  function optimalBfs(G, s0, maxDepth, maxNodes) {
+    const firsts = firstStates(G, s0), bitOf = new Map(firsts.map((f, k) => [f.key, 1n << BigInt(k)]));
+    const k0 = keyOf(G, s0), depth = new Map([[k0, 0]]), parent = new Map();
+    let frontier = [{ key: k0, s: s0, mask: 0n }], nodes = 0;
+    const done = (s) => s.ring.every((x) => !x);
+    for (let d = 0; d < maxDepth && frontier.length; d++) {
+      const next = new Map();
+      let goal = null;
+      for (const node of frontier) {
+        for (let i = 0; i < G.rings.length; i++) {
+          if (C.blockReason(G, node.s, i)) continue;
+          for (const dd of C.candidateMoves(G, node.s, i)) {
+            const n = C.cloneState(node.s);
+            const moved = C.sweep(G, n, i, dd, null);
+            if (Math.abs(moved) < 0.5 * DEG) continue;
+            const key = keyOf(G, n);
+            const mask = d === 0 ? bitOf.get(key) || 0n : node.mask;
+            const seenAt = depth.get(key);
+            if (seenAt === d + 1) { next.get(key).mask |= mask; continue; }
+            if (seenAt != null) continue;
+            depth.set(key, d + 1);
+            parent.set(key, { from: node.key, ring: i, delta: moved });
+            const item = { key, s: n, mask };
+            next.set(key, item);
+            if (done(n)) goal = item;
+            if (++nodes > maxNodes) return null;
+          }
+        }
+      }
+      if (goal) {
+        const moves = [];
+        for (let k = goal.key; k !== k0;) { const p = parent.get(k); moves.unshift({ ring: p.ring, delta: p.delta }); k = p.from; }
+        const good = firsts.filter((f) => (goal.mask & bitOf.get(f.key)) !== 0n);
+        return { par: d + 1, moves, firsts, good: new Set(good.map((f) => f.key)), nodes };
+      }
+      frontier = [...next.values()];
+    }
+    return null;
+  }
+
+  // 死局：走完这一步以后彻底解不开（快速求解器把状态走完了也没找到解）
+  function isDead(G, s) {
+    const f = C.solveFast(G, C.cloneState(s), { maxNodes: 12000 });
+    return !f.moves && !f.aborted;
+  }
+
+  /*
+   * 第一步分析：每一种第一步走完后，还能不能在 par-1 步内解开；解不开的叫“陷阱”，彻底解不开的叫“死局”。
+   * ob 是 optimalBfs 的结果（精确）；没有时逐个第一步检查：先用快速求解器，找到不超过 par-1 步的解就算好的，
+   * 否则用广度优先确认（预算用完记为 unknown，不计入比例）。
+   */
+  function firstMoves(G, s0, par, exact, o, ob) {
+    const r = { first: 0, bad: 0, dead: 0, unknown: 0 };
+    const firsts = ob ? ob.firsts : firstStates(G, s0);
+    for (const f of firsts) {
+      r.first++;
+      const n = f.s;
+      if (n.ring.every((a) => !a)) continue;
+      let bad;
+      if (ob) bad = !ob.good.has(f.key);
+      else {
+        const fast = C.solveFast(G, C.cloneState(n), { maxNodes: 3000 });
+        if (fast.moves && fast.moves.length <= par - 1) continue;
         if (exact) {
           const r2 = C.solve(G, C.cloneState(n), { maxDepth: par - 1, maxNodes: (o && o.trapNodes) || RULES.TRAP_NODES });
           if (r2.moves) continue;
           if (r2.aborted) { r.unknown++; continue; }
-          r.bad++;
-        }
-        const f = C.solveFast(G, C.cloneState(n), { maxNodes: 40000 });
-        if (!f.moves && !f.aborted) { r.dead++; if (!exact) r.bad++; }
-        else if (!f.moves && !exact) r.unknown++;
+          bad = true;
+        } else bad = false;
       }
+      const dead = isDead(G, n);
+      if (dead) r.dead++;
+      if (bad || (!exact && dead)) r.bad++;
     }
     const known = r.first - r.unknown;
     r.trap = known > 0 ? round(r.bad / known, 2) : 0;
@@ -523,7 +595,9 @@
     m.minRingPx = round(Math.min(...rs) * f.scale, 1); m.tubePx = round(C.TUBE * f.scale, 1);
     if (m.problems.length || o.solve === false) { m.ms = Math.round(now() - t0); return m; }
     const s0 = C.initState(G);
-    let res = C.solve(G, C.cloneState(s0), { maxDepth: RULES.BFS.maxDepth, maxNodes: o.nodes || RULES.BFS.maxNodes });
+    // 先试一次算完最少步数和第一步分析；预算不够时退回普通的广度优先（找到第一个解就停）
+    const ob = o.trap !== false ? optimalBfs(G, s0, RULES.BFS.maxDepth, o.nodes || RULES.BFS.maxNodes) : null;
+    let res = ob ? { moves: ob.moves } : C.solve(G, C.cloneState(s0), { maxDepth: RULES.BFS.maxDepth, maxNodes: o.nodes || RULES.BFS.maxNodes });
     m.exact = !!res.moves;
     if (!res.moves) {
       const f2 = C.solveFast(G, C.cloneState(s0), { maxNodes: RULES.FAST.maxNodes });
@@ -536,7 +610,7 @@
     res.moves.forEach((mv) => { cnt[mv.ring] = (cnt[mv.ring] || 0) + 1; });
     m.revisit = Object.values(cnt).filter((c) => c > 1).length;
     m.hint = !!C.hintMove(G, C.cloneState(s0), C.hintBudget(G));
-    if (o.trap !== false) Object.assign(m, firstMoves(G, s0, m.par, m.exact, o));
+    if (o.trap !== false) Object.assign(m, firstMoves(G, s0, m.par, m.exact, o, ob));
     m.ms = Math.round(now() - t0);
     return m;
   }

@@ -81,6 +81,7 @@
   function showTip(text, ms) {
     const el = $('tip');
     el.textContent = text;
+    if (!text) { el.classList.remove('show'); return; } // 没有提示的关卡不显示空条
     el.classList.add('show');
     clearTimeout(tipTimer);
     tipTimer = setTimeout(() => el.classList.remove('show'), ms || 4200);
