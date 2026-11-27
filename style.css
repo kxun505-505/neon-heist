@@ -276,8 +276,7 @@ body.notrans *, body.notrans *::after { transition: none !important; }
   transform: translateY(10px); transition: transform .3s; }
 .overlay.show .homebox { transform: none; }
 .hhead { flex: none; text-align: center; padding: 0 16px; }
-.hhead .logo { font-size: 30px; }
-.hhead .logo em { font-size: 13px; letter-spacing: 7px; margin-top: 1px; }
+.hhead .nlogo { --u: 0.9px; }
 /* 相册：占屏幕 34%，横向滑动；已解锁照片清晰，下一张模糊预览当钩子 */
 .halbum { flex: 0 0 34%; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
 .hbar { display: flex; justify-content: space-between; align-items: center; padding: 0 16px; }
@@ -333,3 +332,57 @@ body.notrans *, body.notrans *::after { transition: none !important; }
   background: linear-gradient(90deg, #ff3d9a, #ff8a4c); box-shadow: 0 4px 0 #7a1240, 0 0 20px rgba(255,61,154,0.6); }
 .playbtn.locked { background: linear-gradient(90deg, #4a3d66, #2b2140); box-shadow: 0 4px 0 #160d26; color: #9a8fb8; }
 .playbtn:active { transform: translateY(2px); }
+
+/* ---------- Logo：NEON HEIST（3 种样式，class 切换：lg-chrome / lg-tube / lg-outrun） ---------- */
+@font-face { font-family: 'Russo One'; src: url(assets/fonts/russoone.woff2) format('woff2'); font-display: swap; }
+@font-face { font-family: 'Monoton'; src: url(assets/fonts/monoton.woff2) format('woff2'); font-display: swap; }
+@font-face { font-family: 'Audiowide'; src: url(assets/fonts/audiowide.woff2) format('woff2'); font-display: swap; }
+@font-face { font-family: 'Orbitron'; src: url(assets/fonts/orbitron.woff2) format('woff2'); font-weight: 900; font-display: swap; }
+@font-face { font-family: 'Bungee Shade'; src: url(assets/fonts/bungeeshade.woff2) format('woff2'); font-display: swap; }
+.nlogo { position: relative; display: inline-flex; flex-direction: column; align-items: center; margin: 0; line-height: 1; font-style: normal;
+  --u: 1px; user-select: none; }
+.nlogo .w1, .nlogo .w2 { position: relative; display: block; }
+.nlogo .w2wrap { position: relative; display: block; z-index: 0; }
+.nlogo .w2s { position: absolute; inset: 0; z-index: -1; display: block; }
+.nlogo .tag { display: inline-block; margin-top: calc(6 * var(--u)); padding: calc(2 * var(--u)) calc(9 * var(--u)); border-radius: 999px;
+  font: 800 calc(9 * var(--u)) / 1.4 -apple-system, 'Segoe UI', sans-serif; letter-spacing: calc(4 * var(--u)); }
+
+/* A 铬金劫案：粉色霓虹细字 NEON + 斜切铬金属 HEIST（深紫厚描边、粉色外发光、速度线），扫光 */
+.lg-chrome .w1 { font: 400 calc(17 * var(--u)) 'Monoton', sans-serif; letter-spacing: calc(5 * var(--u)); color: #ffd6f6; margin-bottom: calc(-1 * var(--u));
+  text-shadow: 0 0 calc(4 * var(--u)) #ff3df2, 0 0 calc(12 * var(--u)) #ff3df2, 0 0 calc(24 * var(--u)) #b13dff; }
+.lg-chrome .w2 { font: 400 calc(46 * var(--u)) 'Russo One', sans-serif; letter-spacing: calc(1 * var(--u)); transform: skewX(-10deg); padding: 0 calc(6 * var(--u));
+  background: linear-gradient(100deg, transparent 40%, rgba(255,255,255,0.95) 50%, transparent 60%) no-repeat,
+    linear-gradient(180deg, #ffffff 0%, #f2f4ff 30%, #9aa3c7 47%, #2c2350 52%, #ff9ad5 58%, #ffe7f6 78%, #ffffff 100%);
+  background-size: 300% 100%, 100% 100%; background-position: 130% 0, 0 0;
+  -webkit-background-clip: text; background-clip: text; color: transparent; animation: lgShine 4.5s ease-in-out infinite; }
+.lg-chrome .w2s { font: 400 calc(46 * var(--u)) 'Russo One', sans-serif; letter-spacing: calc(1 * var(--u)); transform: skewX(-10deg); color: #2a0750; -webkit-text-stroke: calc(7 * var(--u)) #2a0750; padding: 0 calc(6 * var(--u));
+  text-shadow: 0 calc(4 * var(--u)) 0 #14022e, 0 0 calc(18 * var(--u)) rgba(255,61,242,0.9), 0 0 calc(34 * var(--u)) rgba(177,61,255,0.7); }
+@keyframes lgShine { 0%, 55% { background-position: 130% 0, 0 0; } 85%, 100% { background-position: -30% 0, 0 0; } }
+.lg-chrome .speed { position: absolute; left: calc(-34 * var(--u)); right: calc(-34 * var(--u)); top: 54%; height: calc(14 * var(--u)); z-index: -2;
+  background: repeating-linear-gradient(180deg, rgba(40,231,255,0.85) 0 calc(2 * var(--u)), transparent calc(2 * var(--u)) calc(5 * var(--u)));
+  -webkit-mask: linear-gradient(90deg, #000, transparent 30%, transparent 70%, #000); mask: linear-gradient(90deg, #000, transparent 30%, transparent 70%, #000);
+  filter: drop-shadow(0 0 calc(4 * var(--u)) #28e7ff); }
+.lg-chrome .tag { color: #0d0426; background: linear-gradient(90deg, #28e7ff, #8af3ff); box-shadow: 0 0 calc(10 * var(--u)) rgba(40,231,255,0.7); }
+
+/* B 霓虹灯牌：两行空心灯管字（粉 / 青），白热芯 + 多层光晕，偶尔闪一下 */
+.lg-tube .w1, .lg-tube .w2 { font: 400 calc(40 * var(--u)) 'Audiowide', sans-serif; letter-spacing: calc(3 * var(--u)); color: transparent; }
+.lg-tube .w1 { font-size: calc(26 * var(--u)); letter-spacing: calc(8 * var(--u)); -webkit-text-stroke: calc(1.6 * var(--u)) #ffe0fb;
+  text-shadow: 0 0 calc(3 * var(--u)) #ff3df2, 0 0 calc(10 * var(--u)) #ff3df2, 0 0 calc(22 * var(--u)) #ff3df2, 0 0 calc(40 * var(--u)) #b13dff;
+  animation: lgFlicker 6s infinite; }
+.lg-tube .w2 { font-size: calc(48 * var(--u)); -webkit-text-stroke: calc(2 * var(--u)) #e6fdff;
+  text-shadow: 0 0 calc(3 * var(--u)) #28e7ff, 0 0 calc(10 * var(--u)) #28e7ff, 0 0 calc(24 * var(--u)) #28e7ff, 0 0 calc(44 * var(--u)) #1a6fff; }
+.lg-tube .w2s, .lg-tube .speed, .lg-outrun .speed { display: none; }
+.lg-tube .tag { color: #ffe45c; border: 1px solid rgba(255,228,92,0.7); text-shadow: 0 0 6px #ffad42; box-shadow: 0 0 calc(8 * var(--u)) rgba(255,173,66,0.5) inset; }
+@keyframes lgFlicker { 0%, 91%, 93.5%, 96%, 100% { opacity: 1; } 92%, 95% { opacity: 0.35; } }
+
+/* C 夕阳复古：Orbitron 粗斜体 HEIST，夕阳渐变 + 下半截横条切割（80 年代 outrun），铬边；NEON 用立体阴影字 */
+.lg-outrun .w1 { font: 400 calc(20 * var(--u)) 'Bungee Shade', sans-serif; letter-spacing: calc(4 * var(--u)); color: #ffe45c;
+  text-shadow: 0 0 calc(10 * var(--u)) rgba(255,173,66,0.8); margin-bottom: calc(2 * var(--u)); }
+.lg-outrun .w2 { font: 900 calc(44 * var(--u)) 'Orbitron', sans-serif; font-style: italic; letter-spacing: calc(2 * var(--u)); transform: skewX(-8deg);
+  background: linear-gradient(180deg, #fff3a8 0%, #ffb36b 30%, #ff5ea8 58%, #c13dff 85%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  -webkit-mask: linear-gradient(180deg, #000 52%, transparent 52% 56%, #000 56% 64%, transparent 64% 67%, #000 67% 74%, transparent 74% 76%, #000 76%);
+  mask: linear-gradient(180deg, #000 52%, transparent 52% 56%, #000 56% 64%, transparent 64% 67%, #000 67% 74%, transparent 74% 76%, #000 76%); }
+.lg-outrun .w2s { display: none; }
+.lg-outrun .w2wrap { filter: drop-shadow(0 calc(1.5 * var(--u)) 0 #fff) drop-shadow(0 calc(3 * var(--u)) 0 #2a0750) drop-shadow(0 0 calc(14 * var(--u)) rgba(255,61,154,0.8)); }
+.lg-outrun .tag { color: #fff; background: linear-gradient(90deg, #ff3d9a, #b13dff); box-shadow: 0 0 calc(10 * var(--u)) rgba(255,61,154,0.6); }

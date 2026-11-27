@@ -511,9 +511,9 @@
       });
       box.appendChild(c);
     }
+    // 立刻居中（不等下一帧，免得玩家先点了卡片又被拉回来）
     const f = box.querySelector('[data-n="' + focus + '"]') || box.firstChild;
-    requestAnimationFrame(() => { if (f) centerCard(f, false); });
-    if (f) { homeMid = +f.dataset.n; updatePlay(); }
+    if (f) centerCard(f, false);
   }
 
   // 代码触发的滑动（点卡片、打开主页）：滑完之前选中的关卡固定为目标，不跟着中途经过的卡片变

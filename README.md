@@ -1,4 +1,5 @@
-# 霓虹转环 NEON LOOPS · 试玩版
+# NEON HEIST · Ring Puzzle（试玩版）
+原名 NEON LOOPS，2026-11 改名。
 圆环解扣类解谜的网页试玩，目前 40 关（2 章），日落海岸霓虹画风。玩法对标 Rotate Rings（`com.nebula.rotaterings`），美术、音效、关卡全部原创。
 
 ## 运行

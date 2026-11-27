@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * NEON LOOPS 关卡生成器命令行（Node 16+，不需要装任何依赖）
+ * NEON HEIST 关卡生成器命令行（Node 16+，不需要装任何依赖）
  *
  *   node tools/levelgen/cli.js check [--from N] [--to N] [--file 关卡.json] [--json]
  *       按 docs/level-rules.md 验收关卡（默认 src/levels.js 全部关卡）。全部通过时退出码 0，否则 1。

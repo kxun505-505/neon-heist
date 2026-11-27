@@ -1,0 +1,28 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NEON HEIST · logo 样式</title>
+<link rel="stylesheet" href="../style.css">
+<style>
+  body { margin: 0; background: #0d0426; color: #fff; font-family: -apple-system, sans-serif; overflow-y: auto; }
+  .opt { position: relative; height: 230px; display: grid; place-items: center; overflow: hidden; border-bottom: 1px solid rgba(255,255,255,0.15); }
+  .opt canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .opt .shade { position: absolute; inset: 0; background: rgba(8,2,22,0.55); }
+  .opt .nlogo { --u: 1.25px; }
+  .opt .lab { position: absolute; left: 12px; top: 10px; font-weight: 900; font-size: 14px; letter-spacing: 2px; color: #ffe45c; z-index: 2; }
+  .opt .small { position: absolute; right: 12px; bottom: 10px; z-index: 2; }
+  .opt .small .nlogo { --u: 0.62px; }
+</style></head>
+<body>
+<div class="opt"><canvas></canvas><div class="shade"></div><span class="lab">A · 铬金劫案</span><div class="L"></div></div>
+<div class="opt"><canvas></canvas><div class="shade"></div><span class="lab">B · 霓虹灯牌</span><div class="L"></div></div>
+<div class="opt"><canvas></canvas><div class="shade"></div><span class="lab">C · 夕阳复古</span><div class="L"></div></div>
+<script src="../src/bg.js"></script>
+<script>
+  const mk = (cls) => '<h1 class="nlogo ' + cls + '"><span class="w1">NEON</span><span class="w2wrap"><span class="speed"></span><span class="w2s">HEIST</span><span class="w2">HEIST</span></span><span class="tag">RING PUZZLE</span></h1>';
+  ['lg-chrome', 'lg-tube', 'lg-outrun'].forEach((c, i) => {
+    const o = document.querySelectorAll('.opt')[i];
+    o.querySelector('.L').innerHTML = mk(c);
+    const cv = o.querySelector('canvas'); RRBg.paint(cv, innerWidth, 230, 2, null, [0, 1, 0][i]);
+  });
+</script>
+</body></html>

@@ -1,5 +1,5 @@
 /*
- * NEON LOOPS 关卡生成器 + 验收（Node 和浏览器共用一份代码）
+ * NEON HEIST 关卡生成器 + 验收（Node 和浏览器共用一份代码）
  *
  * 规则只有一份：src/core.js（机制、碰撞、求解器）和 src/layout.js（排版、避让陪玩角色）。
  * 这里只负责：搭结构 → 随机角度 → 合法性 → 求解 → 量难度 → 按 docs/level-rules.md 的验收标准打分。
