@@ -8,7 +8,7 @@
 
   const D = {
     en: {
-      _name: 'English',
+      _name: 'English', play: 'Play', viewAll: 'View all',
       newVideo: 'New video unlocked!', newBg: 'New background unlocked!', videoN: 'Video {n}', bgLocked: 'Clear all {n} levels of {c}', progressN: '{a}/{b} cleared', hardVideo: 'Hard level · Video',
       album: 'Album', newPhoto: 'New photo unlocked!', tapToView: 'Tap to view', comingSoon: 'Coming soon', unlockAt: 'Clear level {n}', videoLocked: 'Collect all 4 photos', photoN: 'Photo {n}', video: 'Video',
       level: 'LEVEL', hard: 'HARD', settings: 'Settings', music: 'Music', sound: 'Sound', vibration: 'Vibration',
@@ -35,7 +35,7 @@
       ],
     },
     ja: {
-      _name: '日本語',
+      _name: '日本語', play: 'プレイ', viewAll: 'すべて見る',
       newVideo: '新しいムービーを解放！', newBg: '新しい背景を解放！', videoN: 'ムービー {n}', bgLocked: '{c} の全{n}レベルをクリア', progressN: '{a}/{b} クリア', hardVideo: 'ハード · ムービー',
       album: 'アルバム', newPhoto: '新しい写真を解放！', tapToView: 'タップで見る', comingSoon: '近日公開', unlockAt: 'レベル{n}をクリア', videoLocked: '写真を4枚集めよう', photoN: '写真 {n}', video: 'ムービー',
       level: 'レベル', hard: 'ハード', settings: '設定', music: '音楽', sound: '効果音', vibration: '振動',
@@ -62,7 +62,7 @@
       ],
     },
     ko: {
-      _name: '한국어',
+      _name: '한국어', play: '플레이', viewAll: '전체 보기',
       newVideo: '새 영상 해금!', newBg: '새 배경 해금!', videoN: '영상 {n}', bgLocked: '{c}의 레벨 {n}개를 모두 클리어', progressN: '{a}/{b} 클리어', hardVideo: '어려움 · 영상',
       album: '앨범', newPhoto: '새 사진 해금!', tapToView: '탭해서 보기', comingSoon: '곧 공개', unlockAt: '레벨 {n} 클리어', videoLocked: '사진 4장을 모으세요', photoN: '사진 {n}', video: '영상',
       level: '레벨', hard: '어려움', settings: '설정', music: '음악', sound: '효과음', vibration: '진동',
@@ -89,7 +89,7 @@
       ],
     },
     pt: {
-      _name: 'Português',
+      _name: 'Português', play: 'Jogar', viewAll: 'Ver tudo',
       newVideo: 'Novo vídeo desbloqueado!', newBg: 'Novo fundo desbloqueado!', videoN: 'Vídeo {n}', bgLocked: 'Vença os {n} níveis de {c}', progressN: '{a}/{b} vencidos', hardVideo: 'Difícil · Vídeo',
       album: 'Álbum', newPhoto: 'Nova foto desbloqueada!', tapToView: 'Toque para ver', comingSoon: 'Em breve', unlockAt: 'Vença o nível {n}', videoLocked: 'Junte as 4 fotos', photoN: 'Foto {n}', video: 'Vídeo',
       level: 'NÍVEL', hard: 'DIFÍCIL', settings: 'Configurações', music: 'Música', sound: 'Som', vibration: 'Vibração',
@@ -116,7 +116,7 @@
       ],
     },
     zh: {
-      _name: '中文',
+      _name: '中文', play: '开始', viewAll: '查看全部',
       newVideo: '解锁了新视频！', newBg: '解锁了新背景！', videoN: '视频 {n}', bgLocked: '通关 {c} 全部 {n} 关解锁', progressN: '已通关 {a}/{b}', hardVideo: '困难关 · 视频',
       album: '相册', newPhoto: '解锁了新照片！', tapToView: '点击查看', comingSoon: '即将上线', unlockAt: '通关第 {n} 关', videoLocked: '集齐 4 张照片解锁', photoN: '照片 {n}', video: '视频',
       level: '关卡', hard: '困难', settings: '设置', music: '音乐', sound: '音效', vibration: '震动',
@@ -143,7 +143,7 @@
       ],
     },
     ru: {
-      _name: 'Русский',
+      _name: 'Русский', play: 'Играть', viewAll: 'Смотреть все',
       newVideo: 'Новое видео открыто!', newBg: 'Новый фон открыт!', videoN: 'Видео {n}', bgLocked: 'Пройдите все {n} уровней {c}', progressN: 'Пройдено {a}/{b}', hardVideo: 'Сложно · Видео',
       album: 'Альбом', newPhoto: 'Новое фото открыто!', tapToView: 'Нажмите, чтобы посмотреть', comingSoon: 'Скоро', unlockAt: 'Пройдите уровень {n}', videoLocked: 'Соберите все 4 фото', photoN: 'Фото {n}', video: 'Видео',
       level: 'УРОВЕНЬ', hard: 'СЛОЖНО', settings: 'Настройки', music: 'Музыка', sound: 'Звук', vibration: 'Вибрация',

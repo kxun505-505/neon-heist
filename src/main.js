@@ -383,32 +383,50 @@
     $('togVibe').classList.toggle('off', !HAP.enabled);
     $('langVal').textContent = I18N.name(I18N.lang);
   }
-  function openSettings() { syncToggles(); $('langList').classList.remove('open'); $('settings').classList.add('show'); }
+  function openSettings() { syncToggles(); $('langList').classList.remove('open', 'closing'); $('btnLang').classList.remove('open'); $('settings').classList.add('show'); }
   function closeSettings() { $('settings').classList.remove('show'); }
   btn('btnSettings', openSettings);
   btn('btnCloseSettings', closeSettings);
   btn('togMusic', () => { SFX.setMusic(!SFX.music); syncToggles(); showTip(t('musicSoon'), 1800); });
   btn('togSound', () => { SFX.toggle(); syncToggles(); });
   btn('togVibe', () => { HAP.set(!HAP.enabled); syncToggles(); });
+  // 语言：半透明下拉弹窗，从语言按钮下方展开；选中后短暂高亮再收回
+  function langOpen(on) {
+    const box = $('langList'), b = $('btnLang');
+    if (on) {
+      box.style.top = (b.offsetTop + b.offsetHeight + 6) + 'px';
+      box.classList.remove('closing'); box.classList.add('open'); b.classList.add('open');
+    } else if (box.classList.contains('open')) {
+      box.classList.remove('open'); box.classList.add('closing'); b.classList.remove('open');
+      setTimeout(() => box.classList.remove('closing'), 260);
+    }
+  }
   btn('btnLang', () => {
     const box = $('langList');
     if (!box.children.length) {
       I18N.ORDER.forEach((code) => {
         const b = document.createElement('button');
-        b.textContent = I18N.name(code);
+        b.innerHTML = '<span>' + I18N.name(code) + '</span><i>✓</i>';
         b.dataset.code = code;
-        b.addEventListener('click', () => { if (!$('settings').classList.contains('show')) return; SFX.button(); HAP.fire('tap'); I18N.set(code); refreshTexts(); syncToggles(); markLang(); });
+        b.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (!$('settings').classList.contains('show')) return;
+          SFX.button(); HAP.fire('tap'); I18N.set(code); refreshTexts(); syncToggles(); markLang();
+          b.classList.add('pick'); setTimeout(() => { b.classList.remove('pick'); langOpen(false); }, 140);
+        });
         box.appendChild(b);
         HAP.attach(b);
       });
     }
     markLang();
-    box.classList.toggle('open');
+    langOpen(!box.classList.contains('open'));
   });
+  // 点弹窗外面收起
+  $('settings').addEventListener('pointerdown', (e) => { if (!e.target.closest('#langList') && !e.target.closest('#btnLang')) langOpen(false); });
   function markLang() { [...$('langList').children].forEach((b) => b.classList.toggle('on', b.dataset.code === I18N.lang)); }
   btn('btnHome', () => { closeSettings(); openMenu(); });
   btn('btnAlbum', openAlbum);
-  btn('btnCloseAlbum', () => { $('album').classList.remove('show'); $('albumNew').classList.toggle('on', hasNew()); });
+  btn('btnCloseAlbum', () => { $('album').classList.remove('show'); $('albumNew').classList.toggle('on', hasNew()); if ($('menu').classList.contains('show')) renderStrip(homeCh); });
   btn('btnCloseViewer', closeViewer);
   $('viewer').addEventListener('click', (e) => { if (e.target.id === 'viewer' || e.target.id === 'viewImg') closeViewer(); });
   btn('btnRestart', () => { closeSettings(); loadLevel(levelIndex); });
@@ -427,39 +445,144 @@
     .forEach((id) => HAP.attach($(id)));
   I18N.apply();
 
+  // ---------- 主页：相册 + 章节 + 关卡转盘 ----------
+  let homeCh = 0, homeMid = 0;
+  const chapterLevels = (ci) => Math.max(0, Math.min(PER, LEVELS.length - ci * PER)); // 这一章已经做好的关卡数
+  const chapterOpen = (ci) => chapterLevels(ci) > 0 && (UNLOCK_ALL || bgUnlocked(ci));
+  // 新章节第一次开放时，章节按钮上显示 NEW，点过以后消失
+  const chSeenKey = (ci) => 'ch:' + ci;
+
   function openMenu() {
-    const box = $('levels');
-    box.innerHTML = '';
-    LEVELS.forEach((lv, n) => {
-      if (n % PER === 0) {
-        const ci = chapterIndex(n), h = document.createElement('div');
-        // 上一章 20 关没全部通关：这一章锁住，写明解锁标准（?unlock 调试时照常显示进度）
-        const shut = !UNLOCK_ALL && ci > 0 && !chapterDone(ci - 1);
-        h.className = 'chapterhead' + (shut ? ' locked' : '');
-        h.innerHTML = shut ? '<b>🔒 ' + chapterOf(n).name + '</b><span>' + t('bgLocked', { n: PER, c: CH.list[ci - 1].name }) + '</span>'
-          : '<b>' + chapterOf(n).name + '</b><span>' + t('progressN', { a: chapterCount(ci), b: PER }) + '</span>';
-        box.appendChild(h);
-      }
-      const b = document.createElement('button');
-      const open = unlocked(n), best = progress[n];
-      b.className = 'card' + (open ? '' : ' locked') + (n === levelIndex ? ' current' : '');
-      b.innerHTML = '<span class="no">' + ((n % PER) + 1) + '</span><span class="nm">' + t('level') + ' ' + (n + 1) +
-        (CH.isHard(n) ? '<b class="hard">' + t('hard') + '</b><b class="cam">▶</b>' : '<b class="cam">✦</b>') +
-        '</span><span class="st">' + (open ? (best != null ? '✓ ' + best : '') : '🔒') + '</span>';
-      if (open) b.addEventListener('click', () => { SFX.ensure(); SFX.button(); $('menu').classList.remove('show'); loadLevel(n); });
-      box.appendChild(b);
-    });
-    // 还没开放的章节：锁住，写明解锁标准
-    for (let ci = Math.ceil(LEVELS.length / PER); ci < CH.list.length; ci++) {
-      const h = document.createElement('div');
-      h.className = 'chapterhead locked';
-      h.innerHTML = '<b>🔒 ' + CH.list[ci].name + '</b><span>' + t('bgLocked', { n: PER, c: CH.list[ci - 1].name }) + '</span>';
-      box.appendChild(h);
-    }
+    // 默认显示“下一关要玩的”那一章：通关第 20 关后，自动切到新开放的章节
+    let target = levelIndex;
+    while (target + 1 < LEVELS.length && cleared(target) && unlocked(target + 1)) target++;
+    homeCh = chapterIndex(target);
+    renderChips();
+    renderChapter(homeCh, target);
     $('albumNew').classList.toggle('on', hasNew());
     $('menu').classList.add('show');
   }
-  $('menu').addEventListener('click', (e) => { if (e.target.id === 'menu') $('menu').classList.remove('show'); });
+
+  function renderChips() {
+    const box = $('chapters');
+    box.innerHTML = '';
+    CH.list.forEach((chap, ci) => {
+      const open = chapterOpen(ci), b = document.createElement('button');
+      if (open && ci > 0 && seen[chSeenKey(ci)] == null) { seen[chSeenKey(ci)] = false; saveSeen(); }
+      b.className = 'chip' + (ci === homeCh ? ' on' : '') + (open ? '' : ' locked') + (open && seen[chSeenKey(ci)] === false ? ' new' : '');
+      b.innerHTML = (open ? '' : '🔒 ') + chap.name + '<small>' + (open ? chapterCount(ci) + '/' + PER : '') + '</small>';
+      b.addEventListener('click', () => {
+        SFX.button();
+        if (!open) {
+          // 锁住的章节：抖一下，写明解锁标准
+          b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake'); HAP.fire('blocked');
+          $('chapterNote').textContent = chapterLevels(ci) ? t('bgLocked', { n: PER, c: CH.list[ci - 1].name }) : t('comingSoon');
+          return;
+        }
+        homeCh = ci;
+        renderChips();
+        renderChapter(ci, levelIndex >= ci * PER && levelIndex < (ci + 1) * PER ? levelIndex : ci * PER);
+      });
+      box.appendChild(b);
+      HAP.attach(b);
+    });
+    const on = box.children[homeCh];
+    if (on) on.scrollIntoView({ block: 'nearest', inline: 'center' });
+  }
+
+  function renderChapter(ci, focus) {
+    if (seen[chSeenKey(ci)] === false) { seen[chSeenKey(ci)] = true; saveSeen(); }
+    $('chapterNote').textContent = '';
+    renderStrip(ci);
+    const box = $('levels');
+    box.innerHTML = '';
+    for (let n = ci * PER; n < ci * PER + chapterLevels(ci); n++) {
+      const open = unlocked(n), best = progress[n], rw = CH.rewardAt(n), c = document.createElement('button');
+      c.className = 'lvcard' + (open ? '' : ' locked') + (n === levelIndex ? ' current' : '');
+      c.dataset.n = n;
+      c.innerHTML = (CH.isHard(n) ? '<b class="hard">' + t('hard') + '</b>' : '') + '<span class="big">' + ((n % PER) + 1) + '</span>' +
+        '<span class="lv">' + t('level') + ' ' + (n + 1) + '</span>' +
+        '<span class="rw">' + (rw.kind === 'video' ? '▶ ' + t('video') : '✦ ' + t('photoN', { n: rw.i + 1 })) + '</span>' +
+        '<span class="best">' + (open ? (best != null ? '✓ ' + best : '') : '🔒') + '</span>';
+      c.addEventListener('click', () => {
+        // 点旁边的卡片先滑到中间；点中间那张直接开始
+        if (+c.dataset.n !== homeMid) { centerCard(c, true); return; }
+        playMid();
+      });
+      box.appendChild(c);
+    }
+    const f = box.querySelector('[data-n="' + focus + '"]') || box.firstChild;
+    requestAnimationFrame(() => { if (f) centerCard(f, false); });
+    if (f) { homeMid = +f.dataset.n; updatePlay(); }
+  }
+
+  // 代码触发的滑动（点卡片、打开主页）：滑完之前选中的关卡固定为目标，不跟着中途经过的卡片变
+  let pinUntil = 0;
+  function centerCard(c, smooth) {
+    const box = $('levels');
+    homeMid = +c.dataset.n; pinUntil = performance.now() + (smooth ? 700 : 150);
+    box.scrollTo({ left: c.offsetLeft + c.offsetWidth / 2 - box.clientWidth / 2, behavior: smooth ? 'smooth' : 'auto' });
+    updatePlay(); scaleCards();
+  }
+  // 按离中心的距离缩放：中间最大，两边渐小渐暗
+  function scaleCards() {
+    const box = $('levels'), mid = box.scrollLeft + box.clientWidth / 2;
+    let best = null, bestD = Infinity;
+    for (const c of box.children) {
+      const d = Math.abs(c.offsetLeft + c.offsetWidth / 2 - mid), k = Math.min(1, d / 150);
+      c.style.setProperty('--s', (1 - 0.3 * k).toFixed(3));
+      c.style.setProperty('--o', (1 - 0.5 * k).toFixed(3));
+      c.style.zIndex = String(100 - Math.round(k * 50));
+      if (d < bestD) { bestD = d; best = c; }
+    }
+    if (performance.now() < pinUntil) { for (const c of box.children) c.classList.toggle('mid', +c.dataset.n === homeMid); return; }
+    for (const c of box.children) c.classList.toggle('mid', c === best);
+    if (best && +best.dataset.n !== homeMid) { homeMid = +best.dataset.n; updatePlay(); HAP.fire('tick'); }
+  }
+  $('levels').addEventListener('scroll', () => requestAnimationFrame(scaleCards), { passive: true });
+  function updatePlay() {
+    const open = unlocked(homeMid), b = $('btnPlay');
+    b.classList.toggle('locked', !open);
+    $('playLabel').textContent = (open ? t('play') + ' · ' : '🔒 ') + t('level') + ' ' + (homeMid + 1);
+  }
+  function playMid() {
+    if (!unlocked(homeMid)) { HAP.fire('blocked'); $('chapterNote').textContent = t('unlockAt', { n: homeMid }); return; }
+    SFX.ensure(); SFX.button(); $('menu').classList.remove('show'); loadLevel(homeMid);
+  }
+  btn('btnPlay', playMid);
+
+  // 主页顶部的相册条：这一章的 16 张照片 + 4 段视频，按关卡顺序；滑到最新解锁的那张，下一张模糊预览
+  function renderStrip(ci) {
+    const box = $('albumStrip'), chap = CH.list[ci];
+    box.innerHTML = '';
+    let got = 0, total = 0, last = null, teased = false;
+    for (let n = ci * PER; n < (ci + 1) * PER; n++) {
+      const rw = CH.rewardAt(n), src = rw.kind === 'video' ? chap.videos[rw.i] : chap.photos[rw.i], have = cleared(n) && src;
+      const isNew = seen[keyOf(ci, rw.kind, rw.i)] === false;
+      total++; if (have) got++;
+      const c = document.createElement('button');
+      c.className = 'ph ' + rw.kind + (have ? ' got' : src ? ' tease' : ' soon') + (have && isNew ? ' new' : '');
+      if (rw.kind === 'photo' && src) c.innerHTML = '<img src="' + src + '" alt="" loading="lazy" decoding="async">';
+      c.innerHTML += (have ? (rw.kind === 'video' ? '<span class="mid">▶</span>' : '') : '<span class="mid">' + (src ? '🔒' : '✦') + '</span>') +
+        '<span class="badge">' + (have ? (rw.kind === 'video' ? t('videoN', { n: rw.i + 1 }) : t('photoN', { n: rw.i + 1 })) : src ? t('unlockAt', { n: n + 1 }) : t('comingSoon')) + '</span>';
+      if (have) c.addEventListener('click', () => openViewer(rw.kind === 'video' ? 'video' : 'img', src, ci, rw.kind, rw.i));
+      else c.addEventListener('click', () => {
+        // 还没解锁：滑到对应关卡
+        const card = $('levels').querySelector('[data-n="' + n + '"]');
+        if (card) centerCard(card, true);
+      });
+      box.appendChild(c);
+      if (have) last = c;
+      else if (src && !teased) { teased = true; if (!last) last = c; }
+    }
+    $('albumCount').textContent = got + '/' + total;
+    // 让最新解锁的那张排在左边第二个位置：左边露出上一张，右边是模糊的下一张
+    requestAnimationFrame(() => {
+      if (!last) return;
+      const prev = last.previousElementSibling || last;
+      box.scrollLeft += prev.getBoundingClientRect().left - box.getBoundingClientRect().left - 16;
+    });
+  }
 
   // ---------- 相册 ----------
   const SEEN_KEY = 'neonloops-seen';
@@ -539,7 +662,7 @@
     $('viewer').classList.add('show');
     $('albumNew').classList.toggle('on', hasNew());
   }
-  function closeViewer() { $('viewVid').pause(); $('viewer').classList.remove('show'); if ($('album').classList.contains('show')) openAlbum(); }
+  function closeViewer() { $('viewVid').pause(); $('viewer').classList.remove('show'); if ($('album').classList.contains('show')) openAlbum(); if ($('menu').classList.contains('show')) renderStrip(homeCh); }
 
   // ---------- 陪玩角色：静态立绘 + 代码微动画（呼吸、摇摆、眨眼、换表情、说话气泡） ----------
   const Girl = (() => {

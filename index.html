@@ -74,17 +74,23 @@
     </div>
   </section>
 
-  <!-- 主页：选关 + 背景 -->
-  <section id="menu" class="overlay">
-    <div class="panel">
-      <h1 class="logo">NEON<em>LOOPS</em></h1>
-      <p class="sub" data-i18n="subtitle">Sunset Coast · Demo</p>
-      <div id="levels"></div>
-      <button id="btnAlbum" class="rowbtn albumbtn"><span class="ico">✦</span><span class="lbl" data-i18n="album">Album</span><span id="albumNew" class="newdot"></span><span class="chev">›</span></button>
-      <p class="how" data-i18n="how"></p>
+  <!-- 主页：顶部相册（女生照片）+ 章节 + 左右滑动选关，一屏放下 -->
+  <section id="menu" class="overlay home">
+    <div class="homebox">
+      <header class="hhead"><h1 class="logo">NEON<em>LOOPS</em></h1></header>
+      <div class="halbum">
+        <div class="hbar">
+          <b><span data-i18n="album">Album</span> <span id="albumCount" class="cnt"></span></b>
+          <button id="btnAlbum" class="viewall"><span data-i18n="viewAll">View all</span> ›<span id="albumNew" class="newdot"></span></button>
+        </div>
+        <div id="albumStrip" class="astrip"></div>
+      </div>
+      <div id="chapters" class="chips"></div>
+      <div id="chapterNote" class="cnote"></div>
+      <div id="levels" class="carousel"></div>
+      <button id="btnPlay" class="playbtn"><span id="playLabel">PLAY</span></button>
     </div>
   </section>
-
   <section id="win" class="overlay">
     <div class="panel">
       <h2 id="winTitle" class="logo small">Nice!</h2>

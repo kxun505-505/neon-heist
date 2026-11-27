@@ -26,10 +26,20 @@
     const st = () => w.__neon.state;
     for (let k = 0; k < 30 && st().frameCount === 0; k++) await sleep(100); // 等第一帧（无头浏览器里第一帧可能晚到，最后再统一检查）
     check('开机停在第 6 关并打开主页', st().levelIndex === 5 && $('menu').classList.contains('show'));
-    check('主页列出全部 ' + w.RRLevels.length + ' 关', d.querySelectorAll('#levels .card').length === w.RRLevels.length);
-    const heads = d.querySelectorAll('#levels .chapterhead');
-    check('主页第 1 章显示进度（' + heads[0].textContent + '）', /SUNSET COAST/.test(heads[0].textContent) && /5\/20/.test(heads[0].textContent));
-    check('后面 3 章锁住并写明解锁标准（' + heads[1].textContent + '）', heads.length === 4 && heads[1].classList.contains('locked') && /20/.test(heads[1].textContent));
+    check('主页转盘列出第 1 章的 20 关', d.querySelectorAll('#levels .lvcard').length === 20);
+    const chips = d.querySelectorAll('#chapters .chip');
+    check('第 1 章按钮显示进度（' + chips[0].textContent + '）', chips[0].classList.contains('on') && /SUNSET COAST/.test(chips[0].textContent) && /5\/20/.test(chips[0].textContent));
+    check('第 2 章没解锁：按钮锁住', chips.length === 4 && chips[1].classList.contains('locked'));
+    chips[1].click(); await sleep(80);
+    check('点锁住的章节写明解锁标准（' + $('chapterNote').textContent + '）', /20/.test($('chapterNote').textContent) && chips[0].classList.contains('on'));
+    check('转盘停在第 6 关，开始按钮写着第 6 关（' + $('playLabel').textContent + '）', /6/.test($('playLabel').textContent) && !$('btnPlay').classList.contains('locked'));
+    const strip = d.querySelectorAll('#albumStrip .ph');
+    check('主页顶部相册条：20 格，前 5 格已解锁（' + $('albumCount').textContent + '）', strip.length === 20 && strip[0].classList.contains('got') && strip[4].classList.contains('got') && /5\/20/.test($('albumCount').textContent));
+    check('下一张照片模糊预览', strip[5].classList.contains('tease'));
+    const hb = $('menu').querySelector('.halbum').getBoundingClientRect();
+    check('相册占主页高度 30-40%（' + Math.round(hb.height / w.innerHeight * 100) + '%）', hb.height / w.innerHeight >= 0.3 && hb.height / w.innerHeight <= 0.4);
+    const mb = $('menu').querySelector('.homebox');
+    check('主页一屏放下，不用上下滚动', mb.scrollHeight <= mb.clientHeight + 1 && $('btnPlay').getBoundingClientRect().bottom <= w.innerHeight);
     check('标题是“章节名 · 章内关卡号”：' + $('lvName').textContent + ' / ' + $('lvNum').textContent, $('lvName').textContent === 'SUNSET COAST · 6' && $('lvNum').textContent === 'LEVEL 6');
     // 相册：存档通关了第 1-5 关 → 照片 1-4、视频 1 解锁；第 6 关起还锁着；第 11 关以后的素材还没做
     $('btnAlbum').click(); await sleep(150);
@@ -56,8 +66,10 @@
     check('右下角陪玩角色已加载（表情 ' + w.__neon.girl() + '）', /idle/.test($('girlA').src) || /idle/.test($('girlB').src));
     check('第 6 关的零件都在（' + st().ring.filter(Boolean).length + ' 个）', st().ring.filter(Boolean).length === w.RRLevels[5].rings.length);
     // 选第 2 关
-    d.querySelectorAll('#levels .card')[1].click(); await sleep(150);
-    check('点关卡卡片进入第 2 关', st().levelIndex === 1 && !$('menu').classList.contains('show'));
+    d.querySelectorAll('#levels .lvcard')[1].click(); await sleep(400);
+    check('点旁边的关卡卡片先滑到中间（' + $('playLabel').textContent + '）', /2$/.test($('playLabel').textContent) && $('menu').classList.contains('show'));
+    d.querySelectorAll('#levels .lvcard')[1].click(); await sleep(150);
+    check('再点中间的卡片进入第 2 关', st().levelIndex === 1 && !$('menu').classList.contains('show'));
     // 设置
     $('btnSettings').click(); await sleep(100);
     check('设置面板打开', $('settings').classList.contains('show'));
@@ -69,14 +81,16 @@
     $('btnLang').click(); await sleep(50);
     check('语言列表展开（' + $('langList').children.length + ' 种）', $('langList').classList.contains('open') && $('langList').children.length === 6);
     for (const b of [...$('langList').children]) {
-      b.click(); await sleep(40);
+      if (!$('langList').classList.contains('open')) { $('btnLang').click(); await sleep(40); }
+      b.click(); await sleep(320);
+      check('选完语言下拉自动收起', !$('langList').classList.contains('open'));
       const code = b.dataset.code;
       check('切换到 ' + code + '：标题 = ' + d.querySelector('.ptitle').textContent + '，关卡 = ' + $('lvNum').textContent, w.RRI18n.lang === code);
     }
-    [...$('langList').children][0].click(); await sleep(40);
+    $('btnLang').click(); await sleep(40); [...$('langList').children][0].click(); await sleep(320);
     $('btnHome').click(); await sleep(100);
     check('设置里点 Home 回到主页', $('menu').classList.contains('show') && !$('settings').classList.contains('show'));
-    d.querySelectorAll('#levels .card')[0].click(); await sleep(150);
+    d.querySelectorAll('#levels .lvcard')[0].click(); await sleep(400); $('btnPlay').click(); await sleep(150);
     $('btnSettings').click(); await sleep(50); $('btnRestart').click(); await sleep(100);
     check('设置里点 Restart 重开当前关', st().levelIndex === 0 && st().moves === 0 && !$('settings').classList.contains('show'));
     // 用提示一步步通关第 1 关，然后点下一关
