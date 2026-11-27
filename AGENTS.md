@@ -66,7 +66,7 @@ docs/                 规格和记录（见第 6 节）
 | `fx-b`（开发主线）。`staging` 分支指向同一个提交 | `staging` → `main` | https://kxun505-505.github.io/neon-loops-staging/ | **测试版**。每次改动都先推到这里 |
 | `main` | `origin` → `main`（仓库 `neon-heist`，原名 neon-loops） | https://kxun505-505.github.io/neon-heist/ | **正式版**。用户明确确认后才更新，目前停在 11-25 的旧版本。旧网址 /neon-loops/ 改名后是 404 |
 | `fx-b` 的完整历史 | `origin` → `dev` | 不发布网站 | 在产品主仓库里备份开发历史，推它不影响正式版 |
-| `fx-c`（只留在本地） | 无 | 无 | 特效方案 C+D 的对比版，已弃用。仓库 neon-loops-cd 用户要求删除（2026-11-27），见 DEVLOG |
+| `fx-heist`（fx-b + 一个打开劫案皮肤、只玩第 28 关的提交） | `cd` → `main`（仓库 `neon-loops-cd`） | https://kxun505-505.github.io/neon-loops-cd/ | **撬锁劫案美术和音效测试关**（11-28 起）。原来的 C+D 特效对比版已弃用，`fx-c` 只留在本地 |
 
 **发布测试版**
 
@@ -105,6 +105,8 @@ BUDGET=1700000 tools/verify.sh playtest.html  # 用合成触摸事件把每关�
 - 40 关全部通过验收（含第 25 关的 F 项）。
 - App 图标按 C 夕阳复古重做：`tools/icon.html` 画，`tools/icon.sh` 出 `icon.png`（180）和 `store-icon-512.png`（Google Play 商店用）。
 
+**进行中**
+- 撬锁劫案皮肤（`?skin=heist`）在第三个网址单关测试，等用户反馈美术、音效和手感。音效在 `src/heist-audio.js`，试听页是 `tools/sounds.html`。用户认可后，再决定是否设为默认，以及台词和视频怎么按「每章一单活」重写。
 **待办**
 - **第 41-100 关**：交给 Codex 跑，见 `docs/codex-handoff.md`。生成好之后，用 `cli.js apply` 或拼装脚本写进 `src/levels.js`，补 6 种语言的提示（`src/i18n.js` 的 `tips`）和奖励素材路径（`src/chapters.js`）。
 - **素材**：第 1 章还缺正式的照片 16 张和视频 4 段；第 2 章的角色设定、立绘、照片和视频都还没做。出图需求的写法参考 `docs/ch1-gpt-asset-pack.md`。

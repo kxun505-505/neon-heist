@@ -68,6 +68,8 @@
 
   root.RRAudio = {
     ensure,
+    // 给换皮音效（src/heist-audio.js）用：拿到同一个 AudioContext 和总音量节点
+    graph() { return ensure() && !muted ? { ac, master } : null; },
     get muted() { return muted; },
     toggle() {
       muted = !muted;

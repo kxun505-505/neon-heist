@@ -386,3 +386,8 @@ body.notrans *, body.notrans *::after { transition: none !important; }
 .lg-outrun .w2s { display: none; }
 .lg-outrun .w2wrap { filter: drop-shadow(0 calc(1.5 * var(--u)) 0 #fff) drop-shadow(0 calc(3 * var(--u)) 0 #2a0750) drop-shadow(0 0 calc(14 * var(--u)) rgba(255,61,154,0.8)); }
 .lg-outrun .tag { color: #fff; background: linear-gradient(90deg, #ff3d9a, #b13dff); box-shadow: 0 0 calc(10 * var(--u)) rgba(255,61,154,0.6); }
+
+/* ---------- 撬锁劫案皮肤（?skin=heist）和单关测试模式（<html data-test-level>） ---------- */
+.test-solo #girl, .test-solo #btnHome { display: none !important; }
+.skin-heist #scoreBox { width: 140px; }
+.skin-heist #score { font-variant-numeric: tabular-nums; letter-spacing: 0.5px; }

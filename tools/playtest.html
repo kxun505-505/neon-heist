@@ -2,7 +2,8 @@
 <meta charset="utf-8">
 <title>playtest</title>
 <!-- 端到端试玩：用合成的触摸事件按求解器的步骤拖动，检查每关都能在最少拖动次数内通关 -->
-<iframe id="f" src="../index.html?unlock&level=1" style="width:390px;height:844px;border:0"></iframe>
+<iframe id="f" style="width:390px;height:844px;border:0"></iframe>
+<script>/* ?skin=heist 用劫案皮肤跑 */ const qsk = new URLSearchParams(location.search).get('skin'); document.getElementById('f').src = '../index.html?unlock&level=1' + (qsk ? '&skin=' + qsk : '');</script>
 <pre id="out"></pre>
 <script>
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

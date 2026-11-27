@@ -7,7 +7,14 @@
   const TUBE = C.TUBE, STEM = C.STEM, CLAMP_LEN = C.CLAMP_LEN, KNOB = C.KNOB, BAR = C.BAR;
   const SILVER = '#cfcbe3';
   const PROGRESS_KEY = 'neonloops-progress-v2';
-  const UNLOCK_ALL = /[?&]unlock/.test(location.search);
+  // 换皮：?skin=heist 或 <html data-skin="heist">（撬锁劫案风格测试）。<html data-test-level="N">：只玩第 N 关，不显示主页和女生
+  const SKIN = (location.search.match(/[?&]skin=(\w+)/) || [])[1] || document.documentElement.dataset.skin || 'classic';
+  const HEIST = SKIN === 'heist' && !!window.RRHeistAudio, HA = window.RRHeistAudio;
+  const TEST_LEVEL = +((location.search.match(/[?&]test=(\d+)/) || [])[1] || document.documentElement.dataset.testLevel || 0);
+  document.documentElement.classList.toggle('skin-heist', HEIST);
+  document.documentElement.classList.toggle('test-solo', !!TEST_LEVEL);
+  const UNLOCK_ALL = !!TEST_LEVEL || /[?&]unlock/.test(location.search);
+  const money = (n) => (HEIST ? '$' + Number(n).toLocaleString('en-US') : String(n));
   // 背景跟着章节走；?bg=N 只用于测试时强制指定
   const qBg = (location.search.match(/[?&]bg=(\d+)/) || [])[1];
   let bgIndex = 0;
@@ -44,6 +51,7 @@
   let lastProgress = performance.now(), lastStuck = 0, blockedTaps = [];
   let drag = null, hint = null, combo = { n: 0, t: 0 };
   let fx = [];            // 各种一次性动画
+  let stampAt = 0;        // 劫案皮肤：过关时盖“VAULT OPEN”章的时刻（真实时间）
   let shakes = {}, lift = {}, flashLinks = {};
   // 特效时钟：结尾慢镜头时只让特效变慢（输入和界面照常）
   let timeScale = 1, fxClock = 0, fxReal = performance.now(), slowmo = null, probeHold = null;
@@ -61,7 +69,7 @@
     bounds = RRLayout.boundsOf(footprint);
     moves = 0; score = 0; shownScore = 0; won = false;
     drag = null; hint = null; combo = { n: 0, t: 0 };
-    fx = []; shakes = {}; lift = {}; flashLinks = {}; slowmo = null; timeScale = 1;
+    fx = []; shakes = {}; lift = {}; flashLinks = {}; slowmo = null; timeScale = 1; stampAt = 0;
     const chap = chapterOf(n);
     $('lvName').textContent = chap.name + ' · ' + ((n % PER) + 1);
     $('lvNum').textContent = t('level') + ' ' + (n + 1);
@@ -69,7 +77,7 @@
     Girl.setChapter(chap);
     lastProgress = performance.now(); blockedTaps = [];
     if (n % PER === 0 && progress[n] == null) setTimeout(() => Girl.react('greet'), 600);
-    $('score').textContent = '0';
+    $('score').textContent = money(0);
     $('win').classList.remove('show');
     layout();
     showTip(t('tips')[n] || '');
@@ -92,7 +100,7 @@
     el.classList.remove('show');
     void el.offsetWidth;
     el.classList.add('show');
-    SFX.banner();
+    if (HEIST) HA.alarm(); else SFX.banner();
   }
 
   // ---------- 坐标 ----------
@@ -106,6 +114,42 @@
     scale = f.scale; ox = f.ox; oy = f.oy;
     const cx = ox + bounds.cx * scale, cy = oy + bounds.cy * scale;
     RRBg.paint(bg, W, H, DPR, { x: cx, y: cy, r: Math.max(bounds.w, bounds.h) * scale * 0.62 }, bgIndex);
+    if (HEIST) paintVault(cx, cy, bounds.w * scale, bounds.h * scale);
+  }
+  // 劫案皮肤：棋盘后面一块半透明的保险柜门板（拉丝钢、铆钉、左侧两个合页），直接画进背景层
+  function paintVault(cx, cy, bw, bh) {
+    const x = bg.getContext('2d');
+    x.save(); x.setTransform(DPR, 0, 0, DPR, 0, 0);
+    const m = 20, w = Math.min(W - 8, bw + m * 2), h = bh + m * 2, x0 = cx - w / 2, y0 = cy - h / 2, rr = 22;
+    // 不用 ctx.roundRect（iOS 15 没有）
+    const rrect = (X, Y, w2, h2, r) => { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + w2, Y, X + w2, Y + h2, r); x.arcTo(X + w2, Y + h2, X, Y + h2, r); x.arcTo(X, Y + h2, X, Y, r); x.arcTo(X, Y, X + w2, Y, r); x.closePath(); };
+    const box = (k) => rrect(x0 + k, y0 + k, w - 2 * k, h - 2 * k, Math.max(4, rr - k));
+    let g = x.createLinearGradient(x0, y0, x0 + w, y0 + h);
+    g.addColorStop(0, 'rgba(58,52,84,0.62)'); g.addColorStop(0.5, 'rgba(30,26,46,0.62)'); g.addColorStop(1, 'rgba(20,16,32,0.66)');
+    x.fillStyle = g; box(0); x.fill();
+    // 拉丝纹理
+    x.save(); box(0); x.clip();
+    for (let yy = y0; yy < y0 + h; yy += 2.2) { x.strokeStyle = 'rgba(255,255,255,' + (0.012 + Math.random() * 0.02) + ')'; x.lineWidth = 0.6; x.beginPath(); x.moveTo(x0, yy); x.lineTo(x0 + w, yy + (Math.random() - 0.5)); x.stroke(); }
+    x.restore();
+    x.lineWidth = 2.5; x.strokeStyle = 'rgba(150,142,190,0.55)'; box(0); x.stroke();
+    x.lineWidth = 1; x.strokeStyle = 'rgba(0,0,0,0.5)'; box(9); x.stroke();
+    x.strokeStyle = 'rgba(255,255,255,0.08)'; box(10); x.stroke();
+    // 铆钉
+    const rivet = (px, py) => {
+      const rg = x.createRadialGradient(px - 0.8, py - 1, 0.2, px, py, 3);
+      rg.addColorStop(0, 'rgba(255,255,255,0.75)'); rg.addColorStop(0.5, 'rgba(150,142,180,0.6)'); rg.addColorStop(1, 'rgba(30,24,48,0.6)');
+      x.fillStyle = rg; x.beginPath(); x.arc(px, py, 2.6, 0, TAU); x.fill();
+    };
+    const nx = Math.max(2, Math.round((w - 30) / 44)), ny = Math.max(2, Math.round((h - 30) / 44));
+    for (let i = 0; i <= nx; i++) { const px = x0 + 15 + (w - 30) * i / nx; rivet(px, y0 + 5); rivet(px, y0 + h - 5); }
+    for (let i = 1; i < ny; i++) { const py = y0 + 15 + (h - 30) * i / ny; rivet(x0 + 5, py); rivet(x0 + w - 5, py); }
+    // 合页
+    for (const py of [y0 + h * 0.2, y0 + h * 0.8]) {
+      g = x.createLinearGradient(x0 - 5, 0, x0 + 4, 0);
+      g.addColorStop(0, 'rgba(40,34,60,0.9)'); g.addColorStop(0.45, 'rgba(210,205,235,0.85)'); g.addColorStop(1, 'rgba(60,54,84,0.9)');
+      x.fillStyle = g; rrect(x0 - 5, py - 22, 9, 44, 3); x.fill();
+    }
+    x.restore();
   }
   function resize() {
     DPR = Math.min(3, window.devicePixelRatio || 1);
@@ -115,6 +159,7 @@
     layout();
   }
   const toLogical = (e) => ({ x: (e.clientX - ox) / scale, y: (e.clientY - oy) / scale });
+  const panOf = (x) => (W ? Math.max(-1, Math.min(1, ((ox + x * scale) / W) * 2 - 1)) : 0); // 声像：零件在屏幕上的左右位置
 
   // 找手指下的环：管子、凸钉、它伸出的杆都算
   function pickRing(p) {
@@ -147,7 +192,7 @@
     const why = C.blockReason(G, S, i);
     if (why) {
       shakes[i] = performance.now();
-      SFX.locked();
+      if (HEIST) HA.locked(panOf(G.rings[i].x)); else SFX.locked();
       HAP.fire('blocked');
       const tnow = performance.now();
       blockedTaps = blockedTaps.filter((x) => tnow - x < 10000).concat([tnow]);
@@ -161,11 +206,12 @@
     }
     try { cv.setPointerCapture(e.pointerId); } catch (err) { /* 合成事件 */ }
     const R = G.rings[i];
-    drag = { i, id: e.pointerId, last: Math.atan2(p.y - R.y, p.x - R.x), lastP: p, bar: R.kind === 'bar', total: 0, tick: 0, lastHit: 0, moved: false };
+    drag = { i, id: e.pointerId, last: Math.atan2(p.y - R.y, p.x - R.x), lastP: p, bar: R.kind === 'bar', total: 0, tick: 0, lastHit: 0, moved: false,
+      det: Math.floor(S.angles[i] / (R.kind === 'bar' ? BAR_STEP : DIAL_STEP)), detN: 0, v: 0, lastT: performance.now(), lastMoveT: 0 };
     lift[i] = { t0: performance.now(), on: true };
     HAP.fire('grab');
     if (hint && !hint.auto) hint = null;
-    SFX.grab();
+    if (HEIST) HA.touch(panOf(R.x)); else SFX.grab();
   });
 
   function onMove(e) {
@@ -200,9 +246,33 @@
       drag.moved = true; moves++; everDragged = true;
       if (hint) hint = null;
     }
-    drag.tick += drag.bar ? Math.abs(moved) / 60 : Math.abs(moved);
-    if (drag.tick > 10 * DEG) { drag.tick = 0; SFX.tick(); HAP.fire('tick'); }
+    if (HEIST) dialSound(i, moved);
+    else {
+      drag.tick += drag.bar ? Math.abs(moved) / 60 : Math.abs(moved);
+      if (drag.tick > 10 * DEG) { drag.tick = 0; SFX.tick(); HAP.fire('tick'); }
+    }
     handleEvents(events);
+  }
+
+  // 保险柜密码盘：卡位跟着环的绝对角度走（每 6° 一格，每 36° 一个大格）；直杆每滑 14 像素一格
+  const DIAL_STEP = 6 * DEG, BAR_STEP = 14;
+  function dialSound(i, moved) {
+    const R = G.rings[i], now = performance.now(), dt = Math.max(4, now - drag.lastT) / 1000;
+    drag.lastT = now;
+    if (!moved) return;
+    drag.lastMoveT = now;
+    const inst = drag.bar ? Math.abs(moved) / dt : Math.abs(moved) / DEG / dt;
+    drag.v = drag.v * 0.7 + Math.min(inst, 3000) * 0.3;
+    HA.friction(drag.v, drag.bar);
+    const idx = Math.floor(S.angles[i] / (drag.bar ? BAR_STEP : DIAL_STEP));
+    if (idx === drag.det) return;
+    const b = idx > drag.det ? idx : drag.det; // 刚越过的那条卡位线
+    drag.det = idx;
+    const pan = panOf(R.kind === 'bar' ? R.x + R.ux * S.angles[i] : R.x);
+    if (drag.bar) { HA.slideStep(pan); HAP.fire('tick'); return; }
+    const major = ((b % 6) + 6) % 6 === 0;
+    // 震动比声音稀一半：每两格一下，大格必震
+    if (HA.detent(major, R.r, pan, drag.v) && (major || drag.detN++ % 2 === 0)) HAP.fire('tick');
   }
 
   function handleEvents(events) {
@@ -212,7 +282,7 @@
       if (ev.type === 'hit') {
         if (now - (drag ? drag.lastHit : 0) > 140) {
           if (drag) drag.lastHit = now;
-          SFX.bump();
+          if (HEIST) { HA.knock(panOf(ev.p.x)); alarmT = now; } else SFX.bump();
           HAP.fire('bump');
           fx.push({ type: 'bump', x: ev.p.x, y: ev.p.y, t0: ft });
           shakes[ev.ring] = now - 200; // 轻微一抖
@@ -220,10 +290,11 @@
       } else if (ev.type === 'open') {
         const L = G.links[ev.k];
         fx.push({ type: 'slip', L, t0: ft, color: G.rings[L.owner].color });
-        SFX.slip();
+        if (HEIST) HA.gate(G.rings[L.held] ? G.rings[L.held].r : 36, panOf(L.cx)); else SFX.slip();
         HAP.fire('open');
       } else if (ev.type === 'close') {
-        SFX.tick();
+        const L = G.links[ev.k];
+        if (HEIST) HA.regate(G.rings[L.held] ? G.rings[L.held].r : 36, panOf(L.cx)); else SFX.tick();
         HAP.fire('close');
       } else if (ev.type === 'fly') {
         // 连击序号从 1 开始（1.4 秒内接着飞走的算连击）
@@ -238,14 +309,14 @@
       combo.t = now;
       const gain = flew * 200 * Math.min(combo.n, 5);
       score += gain;
-      $('score').textContent = String(score);
+      $('score').textContent = money(score);
       bumpScore();
       const R = G.rings[events.find((e) => e.type === 'fly').i];
       const wx = R.kind === 'bar' ? R.x : R.x, wy = R.kind === 'bar' ? R.y - 30 : R.y - R.r - 20;
       if (combo.n >= 2 || flew >= 2) {
-        const words = ['', '', 'Great!', 'Excellent!', 'Amazing!', 'Unreal!'];
+        const words = HEIST ? ['', '', 'Cracked!', 'Jackpot!', 'Big Score!', 'Untouchable!'] : ['', '', 'Great!', 'Excellent!', 'Amazing!', 'Unreal!'];
         fx.push({ type: 'word', text: words[Math.min(combo.n, 5)], x: wx, y: wy, t0: ft });
-      } else fx.push({ type: 'word', text: 'Good!', x: wx, y: wy, t0: ft, small: true });
+      } else fx.push({ type: 'word', text: HEIST ? 'Click!' : 'Good!', x: wx, y: wy, t0: ft, small: true });
       lastProgress = now;
       if ((combo.n >= 2 || flew >= 2) && !S.ring.every((a) => !a)) Girl.react('combo');
       if (S.ring.every((a) => !a)) {
@@ -270,8 +341,12 @@
     const len = Math.hypot(dx, dy); dx /= len; dy /= len;
     const far = Math.hypot(W, H) / scale + 160; // 保证冲出屏幕
     fx.push({ type: 'dash', R, ang, x0, y0, dx, dy, far, t0, combo: comboN });
-    fx.push({ type: 'plus', x: x0, y: y0, t0, text: '+' + 200 * Math.min(comboN, 5) });
-    setTimeout(() => { SFX.dash(comboN - 1); SFX.free(Math.max(0, comboN - 1)); }, Math.max(0, (t0 - fxTime()) / Math.max(timeScale, 0.3)));
+    fx.push({ type: 'plus', x: x0, y: y0, t0, text: '+' + money(200 * Math.min(comboN, 5)) });
+    if (HEIST) cashBurst(x0, y0, t0, comboN);
+    const pan = panOf(x0);
+    setTimeout(() => {
+      if (HEIST) { HA.release(comboN - 1, pan); HA.whoosh(comboN - 1); } else { SFX.dash(comboN - 1); SFX.free(Math.max(0, comboN - 1)); }
+    }, Math.max(0, (t0 - fxTime()) / Math.max(timeScale, 0.3)));
     HAP.fire('fly');
   }
 
@@ -291,7 +366,7 @@
     if (R.kind === 'bar') {
       const ax = R.x + R.ux * (f.ang - R.half), ay = R.y + R.uy * (f.ang - R.half);
       const bx = R.x + R.ux * (f.ang + R.half), by = R.y + R.uy * (f.ang + R.half);
-      lineTube(ax, ay, bx, by, R.color, BAR, glow);
+      if (HEIST) goldBar(ax, ay, bx, by, BAR, glow); else lineTube(ax, ay, bx, by, R.color, BAR, glow);
     } else {
       for (const k of R.knobs) drawKnob(R, R.x, R.y, f.ang, k, glow);
       if (R.gap) { const g = R.gap.at + f.ang; arcTube(R.x, R.y, R.r, g + R.gap.w / 2, g - R.gap.w / 2 + TAU, R.color, TUBE, glow, false, f.ang); }
@@ -305,8 +380,9 @@
     if (!drag) return;
     if (e && e.pointerId !== drag.id) return;
     lift[drag.i] = { t0: performance.now(), on: false };
+    const Rd = G.rings[drag.i];
     drag = null;
-    if (!forced) SFX.drop();
+    if (HEIST) { HA.friction(0); if (!forced) HA.drop(panOf(Rd.x)); } else if (!forced) SFX.drop();
   }
   cv.addEventListener('pointerup', (e) => endDrag(e));
   cv.addEventListener('pointercancel', (e) => endDrag(e));
@@ -332,6 +408,7 @@
     // 这一关打完正好凑齐本章 20 关 → 解锁下一章的背景
     const newBg = firstClear && ci + 1 < CH.list.length && chapterDone(ci);
     setTimeout(() => Girl.react(isNew ? rw.kind : 'clear'), 450);
+    if (HEIST) { setTimeout(() => HA.vault(), 750); stampAt = performance.now() + 700; }
     const wp = $('winPhoto');
     wp.classList.toggle('show', isNew);
     wp.classList.toggle('soon', isNew && !rsrc);
@@ -344,10 +421,10 @@
     $('winBg').classList.toggle('show', newBg);
     if (newBg) $('winBgName').textContent = CH.list[ci + 1].name;
     setTimeout(() => {
-      SFX.win();
+      if (HEIST) HA.win(); else SFX.win();
       const last = levelIndex === LEVELS.length - 1;
       $('winTitle').textContent = last ? t('demoDone') : t('wins')[levelIndex % 4];
-      $('winScore').textContent = String(score);
+      $('winScore').textContent = money(score);
       $('winInfo').textContent = t('moves', { n: moves });
       $('btnNextLabel').textContent = last ? t('toLevels') : t('next');
       HAP.fire('win');
@@ -371,7 +448,7 @@
       // 按钮所在的面板没打开时一律不响应（防止误触到隐藏面板里的按钮）
       const panel = el.closest('.overlay');
       if (panel && !panel.classList.contains('show')) return;
-      SFX.ensure(); SFX.button(); if (!/iP(hone|ad|od)/.test(navigator.userAgent)) HAP.fire('tap'); fn();
+      SFX.ensure(); if (HEIST) HA.button(); else SFX.button(); if (!/iP(hone|ad|od)/.test(navigator.userAgent)) HAP.fire('tap'); fn();
     });
   }
   btn('btnReset', () => loadLevel(levelIndex));
@@ -438,7 +515,7 @@
     if ($('menu').classList.contains('show')) openMenu();
     if ($('album').classList.contains('show')) openAlbum();
   }
-  btn('btnNext', () => { $('win').classList.remove('show'); if (levelIndex < LEVELS.length - 1) loadLevel(levelIndex + 1); else openMenu(); });
+  btn('btnNext', () => { $('win').classList.remove('show'); if (TEST_LEVEL) loadLevel(levelIndex); else if (levelIndex < LEVELS.length - 1) loadLevel(levelIndex + 1); else openMenu(); });
   btn('btnRetry', () => { $('win').classList.remove('show'); loadLevel(levelIndex); });
   // iPhone：按钮上盖透明原生开关，直接点按就有震感
   ['btnSettings', 'btnReset', 'btnHint', 'togMusic', 'togSound', 'togVibe', 'btnLang', 'btnHome', 'btnRestart', 'btnCloseSettings', 'btnNext', 'btnRetry']
@@ -901,6 +978,7 @@
     const a = k.at + ang, c = Math.cos(a), s = Math.sin(a);
     const r0 = R.r + TUBE / 2 - 2, r1 = R.r + k.len - KNOB * 0.6;
     lineTube(cx + c * r0, cy + s * r0, cx + c * r1, cy + s * r1, R.color, STEM, glow);
+    if (HEIST) { drawSensor(R, cx + c * (R.r + k.len), cy + s * (R.r + k.len), a, k); return; }
     // 末端方块
     ctx.save();
     ctx.translate(cx + c * (R.r + k.len), cy + s * (R.r + k.len));
@@ -913,6 +991,28 @@
     roundRect(-KNOB, -KNOB, KNOB * 2, KNOB * 2, 3); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.7)';
     ctx.fillRect(-KNOB + 2, -KNOB * 0.45, KNOB * 2 - 4, 1.4);
+    ctx.restore();
+  }
+
+  // 劫案皮肤：凸钉 = 警报触点。深色钢壳 + 主色边 + 中间一颗慢慢呼吸的红灯；最近被撞过就亮成一片
+  let alarmT = 0;
+  function drawSensor(R, x, y, a, k) {
+    const now = performance.now(), hitK = Math.max(0, 1 - (now - alarmT) / 450);
+    ctx.save(); ctx.translate(x, y); ctx.rotate(a);
+    ctx.fillStyle = 'rgba(8,2,20,0.95)'; roundRect(-KNOB - 1.5, -KNOB - 1.5, KNOB * 2 + 3, KNOB * 2 + 3, 4); ctx.fill();
+    const kg = ctx.createLinearGradient(0, -KNOB, 0, KNOB);
+    kg.addColorStop(0, '#6a6684'); kg.addColorStop(0.3, '#d9d6ee'); kg.addColorStop(0.55, '#4a4660'); kg.addColorStop(1, '#25222f');
+    ctx.fillStyle = kg; roundRect(-KNOB, -KNOB, KNOB * 2, KNOB * 2, 3); ctx.fill();
+    ctx.strokeStyle = R.color; ctx.lineWidth = 1.3; roundRect(-KNOB + 1.2, -KNOB + 1.2, KNOB * 2 - 2.4, KNOB * 2 - 2.4, 2); ctx.stroke();
+    const p = 0.45 + 0.4 * (0.5 + 0.5 * Math.sin(now / 420 + k.at * 7)), on = Math.min(1, p + hitK);
+    ctx.globalCompositeOperation = 'lighter';
+    const lg = ctx.createRadialGradient(0, 0, 0, 0, 0, KNOB * (1.6 + hitK * 1.6));
+    lg.addColorStop(0, 'rgba(255,70,90,' + 0.8 * on + ')'); lg.addColorStop(1, 'rgba(255,40,70,0)');
+    ctx.fillStyle = lg; ctx.fillRect(-KNOB * 3.4, -KNOB * 3.4, KNOB * 6.8, KNOB * 6.8);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = 'rgb(' + Math.round(120 + 135 * on) + ',' + Math.round(20 + 60 * on) + ',' + Math.round(30 + 50 * on) + ')';
+    ctx.beginPath(); ctx.arc(0, 0, 2.6, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.beginPath(); ctx.arc(-0.8, -0.9, 0.8, 0, TAU); ctx.fill();
     ctx.restore();
   }
 
@@ -947,6 +1047,7 @@
     const glow = 1 + lf * 1.2 + (hint && hint.i === i ? 0.8 + 0.6 * Math.sin(now / 160) : 0);
     const ax = R.x + dx + R.ux * (sv - R.half), ay = R.y + dy + R.uy * (sv - R.half) - lf * 2.5;
     const bx = R.x + dx + R.ux * (sv + R.half), by = R.y + dy + R.uy * (sv + R.half) - lf * 2.5;
+    if (HEIST) { goldBar(ax, ay, bx, by, BAR * (1 + lf * 0.08), glow); return; }
     lineTube(ax, ay, bx, by, R.color, BAR * (1 + lf * 0.08), glow);
     // 两端的镀铬端帽
     for (const [x, y] of [[ax, ay], [bx, by]]) {
@@ -955,6 +1056,23 @@
       ctx.fillStyle = 'rgba(8,2,20,0.95)'; ctx.beginPath(); ctx.arc(x, y, BAR * 0.62 + 1.2, 0, TAU); ctx.fill();
       ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, BAR * 0.62, 0, TAU); ctx.fill();
     }
+  }
+
+  // 劫案皮肤：直杆 = 金条。金色烤漆管 + 中间压印的成色章 + 两端斜切面
+  const GOLD = '#f2b630';
+  function goldBar(ax, ay, bx, by, w, glow) {
+    lineTube(ax, ay, bx, by, GOLD, w, glow);
+    const a = Math.atan2(by - ay, bx - ax), len = Math.hypot(bx - ax, by - ay);
+    ctx.save(); ctx.translate((ax + bx) / 2, (ay + by) / 2); ctx.rotate(a);
+    const pw = Math.min(20, len * 0.4);
+    ctx.fillStyle = 'rgba(255,244,200,0.28)'; roundRect(-pw / 2, -w * 0.3, pw, w * 0.6, 1.5); ctx.fill();
+    ctx.strokeStyle = 'rgba(110,60,0,0.75)'; ctx.lineWidth = 0.9; roundRect(-pw / 2, -w * 0.3, pw, w * 0.6, 1.5); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-pw * 0.3, -w * 0.08); ctx.lineTo(pw * 0.3, -w * 0.08); ctx.moveTo(-pw * 0.2, w * 0.12); ctx.lineTo(pw * 0.2, w * 0.12); ctx.stroke();
+    for (const e of [-len / 2, len / 2]) {
+      ctx.fillStyle = 'rgba(120,70,0,0.55)'; ctx.beginPath(); ctx.ellipse(e, 0, 2.2, w * 0.42, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(255,240,190,0.6)'; ctx.beginPath(); ctx.ellipse(e - Math.sign(e) * 0.6, -w * 0.1, 1, w * 0.2, 0, 0, TAU); ctx.fill();
+    }
+    ctx.restore();
   }
 
   function drawRing(i, now) {
@@ -979,11 +1097,39 @@
       const a = L.stubAt + ang, c = Math.cos(a), sn = Math.sin(a), sg = L.stubIn ? -1 : 1;
       const r0 = R.r + sg * (TUBE / 2 - 2), r1 = R.r + sg * (L.stubLen - 4), re = R.r + sg * L.stubLen;
       lineTube(cx + c * r0, cy + sn * r0, cx + c * r1, cy + sn * r1, R.color, STEM, glow);
-      drawClampAt(L.mode === 'bar' ? SILVER : R.color, cx + c * re, cy + sn * re, a, 1, 1, 0, now);
+      drawClampAt(L.mode === 'bar' ? SILVER : R.color, cx + c * re, cy + sn * re, a, 1, 1, 0, now, 'stub', L.mode === 'bar');
     }
     const tw = TUBE * (1 + lf * 0.06);
     if (R.gap) { const g = R.gap.at + ang; arcTube(cx, cy, R.r, g + R.gap.w / 2, g - R.gap.w / 2 + TAU, R.color, tw, glow, false, ang); }
     else arcTube(cx, cy, R.r, 0, TAU, R.color, tw, glow, true, ang);
+    if (HEIST) dialMarks(R, cx, cy, ang, tw);
+  }
+
+  // 劫案皮肤：密码盘刻度（每 12° 一条，每 36° 一条长的），跟着环转；缺口两端是机加工的钢制槽口
+  function dialMarks(R, cx, cy, ang, w) {
+    const N = 30, step = TAU / N, g = R.gap ? R.gap.at + ang : 0;
+    ctx.save(); ctx.lineCap = 'round';
+    for (let k = 0; k < N; k++) {
+      const a = ang + k * step;
+      if (R.gap) { const d = Math.abs(C.angDiff(a, g)); if (d < R.gap.w / 2 + 0.16) continue; }
+      const major = k % 3 === 0, c = Math.cos(a), sn = Math.sin(a);
+      const r0 = R.r + w * (major ? -0.08 : 0.14), r1 = R.r + w * 0.47;
+      ctx.strokeStyle = 'rgba(14,4,30,0.6)'; ctx.lineWidth = major ? 1.5 : 1;
+      ctx.beginPath(); ctx.moveTo(cx + c * r0, cy + sn * r0); ctx.lineTo(cx + c * r1, cy + sn * r1); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.32)'; ctx.lineWidth = 0.6;
+      ctx.beginPath(); ctx.moveTo(cx + c * r0 + 0.6, cy + sn * r0 + 0.8); ctx.lineTo(cx + c * r1 + 0.6, cy + sn * r1 + 0.8); ctx.stroke();
+    }
+    if (R.gap) for (const sg of [1, -1]) {
+      const a = g + sg * (R.gap.w / 2 + 0.02);
+      ctx.save();
+      ctx.translate(cx + Math.cos(a) * R.r, cy + Math.sin(a) * R.r); ctx.rotate(a);
+      const cg = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
+      cg.addColorStop(0, '#4a4760'); cg.addColorStop(0.3, '#ffffff'); cg.addColorStop(0.55, '#8d8aa6'); cg.addColorStop(0.75, '#2a2738'); cg.addColorStop(1, '#cfcbe3');
+      ctx.fillStyle = 'rgba(8,2,20,0.9)'; roundRect(-w / 2 - 1.5, -2.6, w + 3, 5.2, 1.5); ctx.fill();
+      ctx.fillStyle = cg; roundRect(-w / 2 - 0.8, -1.9, w + 1.6, 3.8, 1.2); ctx.fill();
+      ctx.restore();
+    }
+    ctx.restore();
   }
 
   function drawStem(L, now) {
@@ -995,12 +1141,13 @@
 
   function drawClamp(L, now, alpha, sc) {
     let fl = flashLinks[L.k] != null ? Math.max(0, 1 - (now - flashLinks[L.k]) / 700) : 0;
-    if (C.isOpen(G, S, L)) fl = Math.max(fl, 0.55 + 0.25 * Math.sin(now / 120));
-    drawClampAt(L.mode === 'bar' ? SILVER : G.rings[L.owner].color, L.cx, L.cy, L.clampAng + Math.PI, alpha, sc, fl, now);
+    const op = C.isOpen(G, S, L);
+    if (op) fl = Math.max(fl, 0.55 + 0.25 * Math.sin(now / 120));
+    drawClampAt(L.mode === 'bar' ? SILVER : G.rings[L.owner].color, L.cx, L.cy, L.clampAng + Math.PI, alpha, sc, fl, now, op ? 'open' : null, L.mode === 'bar');
   }
 
   // 夹套：方向 dir 为杆的方向（从主环指向夹套）
-  function drawClampAt(color, x, y, dir, alpha, sc, fl, now) {
+  function drawClampAt(color, x, y, dir, alpha, sc, fl, now, st, isBar) {
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.translate(x, y);
@@ -1017,6 +1164,7 @@
     ctx.save(); ctx.rotate(-(dir + Math.PI / 2));
     ctx.fillStyle = 'rgba(5,0,15,0.4)'; ctx.beginPath(); ctx.ellipse(2.5, 5, w * 0.62, h * 0.62, dir + Math.PI / 2, 0, TAU); ctx.fill();
     ctx.restore();
+    if (HEIST) { padlock(color, w, h, st, isBar); ctx.restore(); return; }
     ctx.fillStyle = 'rgba(10,2,25,0.95)';
     roundRect(-w / 2 - 1.5, -h / 2 - 1.5, w + 3, h + 3, 5); ctx.fill();
     // 套筒本体：与主环同色的烤漆，横向是圆柱明暗（光从上方来）
@@ -1034,6 +1182,94 @@
     ctx.fillStyle = cg;
     roundRect(-w / 2 - 0.5, -h / 2 - 0.5, 3.4, h + 1, 1.5); ctx.fill();
     roundRect(w / 2 - 2.9, -h / 2 - 0.5, 3.4, h + 1, 1.5); ctx.fill();
+    ctx.restore();
+  }
+
+  /*
+   * 劫案皮肤：夹套 = 挂锁（主环颜色的锁身 + 钢锁梁 + 钥匙孔）。局部坐标：x 沿被扣环的管子，+y 指向主环。
+   * st：null 锁着；'open' 缺口对上了，锁梁弹起一点；'stub' 被扣环已经走了，留下的空锁，锁梁歪开、锁身有撬痕。
+   * isBar：直杆的卡座，画成带两颗螺丝的钢支架。
+   */
+  function padlock(color, w, h, st, isBar) {
+    const steel = (y0, y1) => {
+      const g = ctx.createLinearGradient(0, y0, 0, y1);
+      g.addColorStop(0, '#5d5a70'); g.addColorStop(0.2, '#ffffff'); g.addColorStop(0.45, '#a7a4bd'); g.addColorStop(0.6, '#2a2738'); g.addColorStop(0.85, '#d9d6ee'); g.addColorStop(1, '#4a4760');
+      return g;
+    };
+    if (isBar) {
+      ctx.fillStyle = 'rgba(10,2,25,0.95)'; roundRect(-w / 2 - 1.5, -h / 2 - 1.5, w + 3, h + 3, 3); ctx.fill();
+      ctx.fillStyle = steel(-h / 2, h / 2); roundRect(-w / 2, -h / 2, w, h, 2.5); ctx.fill();
+      for (const sx of [-w / 2 + 3.6, w / 2 - 3.6]) {
+        ctx.fillStyle = '#1d1a28'; ctx.beginPath(); ctx.arc(sx, 0, 2, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#cfcbe3'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(sx - 1.3, -1.3); ctx.lineTo(sx + 1.3, 1.3); ctx.stroke();
+      }
+      return;
+    }
+    // 锁梁：U 形钢条，在远离主环的一侧
+    const sw = w * 0.3, top = -h / 2 - 4.5, lift = st === 'open' ? 3 : st === 'stub' ? 3.5 : 0;
+    ctx.save();
+    ctx.translate(0, -lift);
+    if (st === 'stub') { ctx.translate(-sw, -h / 2); ctx.rotate(-0.55); ctx.translate(sw, h / 2); }
+    const U = () => { ctx.beginPath(); ctx.moveTo(-sw, -h / 2 + 3); ctx.lineTo(-sw, top); ctx.arc(0, top, sw, Math.PI, 0); ctx.lineTo(sw, -h / 2 + 3); };
+    ctx.lineCap = 'butt';
+    ctx.strokeStyle = 'rgba(8,2,20,0.95)'; ctx.lineWidth = 4.4; U(); ctx.stroke();
+    ctx.strokeStyle = '#b9b6cf'; ctx.lineWidth = 2.8; U(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 0.9; ctx.save(); ctx.translate(-0.5, -0.5); U(); ctx.stroke(); ctx.restore();
+    ctx.restore();
+    // 锁身
+    ctx.fillStyle = 'rgba(10,2,25,0.95)'; roundRect(-w / 2 - 1.5, -h / 2 - 1.5, w + 3, h + 3, 5); ctx.fill();
+    const pg = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
+    const base = st === 'stub' ? darken(color, 0.35) : color;
+    pg.addColorStop(0, darken(base, 0.2)); pg.addColorStop(0.18, lighten(base, 0.6)); pg.addColorStop(0.32, base); pg.addColorStop(0.75, darken(base, 0.35)); pg.addColorStop(1, darken(base, 0.65));
+    ctx.fillStyle = pg; roundRect(-w / 2, -h / 2, w, h, 4); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.85)'; roundRect(-w / 2 + 3, -h / 2 + 2.2, w - 6, 1.4, 0.7); ctx.fill();
+    // 底部钢箍
+    ctx.fillStyle = steel(h / 2 - 3.4, h / 2); roundRect(-w / 2 + 0.5, h / 2 - 3.4, w - 1, 3.2, 1.2); ctx.fill();
+    // 钥匙孔
+    ctx.fillStyle = 'rgba(10,2,25,0.92)';
+    ctx.beginPath(); ctx.arc(0, -1.2, 2.1, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(-1, -0.6); ctx.lineTo(1, -0.6); ctx.lineTo(1.6, 3); ctx.lineTo(-1.6, 3); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.beginPath(); ctx.arc(0.6, -0.4, 0.7, 0, TAU); ctx.fill();
+    if (st === 'stub') {
+      // 撬痕
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 0.7;
+      ctx.beginPath(); ctx.moveTo(-w / 2 + 2, -h / 2 + 5); ctx.lineTo(-w / 2 + 7, -h / 2 + 3.5);
+      ctx.moveTo(w / 2 - 7, h / 2 - 6); ctx.lineTo(w / 2 - 2.5, h / 2 - 8.5);
+      ctx.moveTo(w / 2 - 6, h / 2 - 4.8); ctx.lineTo(w / 2 - 3, h / 2 - 6.4); ctx.stroke();
+    }
+  }
+
+  // 劫案皮肤：零件飞走时撒出一小撮钞票和硬币，0.5 秒左右散完，不挡后面的操作
+  function cashBurst(x, y, t0, c) {
+    const n = 4 + Math.min(c, 4) * 2, t = t0 + RECOIL * 1000;
+    for (let i = 0; i < n; i++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 2.4, sp = 120 + Math.random() * 170;
+      fx.push({ type: 'bill', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 40, vr: (Math.random() - 0.5) * 10, ph: Math.random() * 6, t0: t + Math.random() * 30, life: 0.45 + Math.random() * 0.2 });
+    }
+    for (let i = 0; i < 3 + Math.min(c, 3); i++) {
+      const a = -Math.PI / 2 + (Math.random() - 0.5) * 1.8, sp = 160 + Math.random() * 160;
+      fx.push({ type: 'coin', x, y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, ph: Math.random() * 6, t0: t, life: 0.5 });
+    }
+  }
+
+  // 劫案皮肤：过关时盖一个“VAULT OPEN”章（真实时间，不受慢镜头影响）
+  function drawStamp(now) {
+    if (!stampAt || now < stampAt) return;
+    const t = (now - stampAt) / 1000;
+    if (t > 1.15) return;
+    const s = t < 0.12 ? 1.9 - (t / 0.12) * 0.9 : 1, a = t < 0.12 ? t / 0.12 : t > 0.9 ? 1 - (t - 0.9) / 0.25 : 1;
+    ctx.save();
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.globalAlpha = Math.max(0, a);
+    ctx.translate(W / 2, oy + bounds.cy * scale); ctx.rotate(-0.12); ctx.scale(s, s);
+    ctx.font = '900 italic 40px system-ui, -apple-system, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const tw = ctx.measureText('VAULT OPEN').width;
+    ctx.lineWidth = 4; ctx.strokeStyle = '#ffe45c'; roundRect(-tw / 2 - 16, -32, tw + 32, 64, 10); ctx.stroke();
+    ctx.lineWidth = 1.5; roundRect(-tw / 2 - 10, -26, tw + 20, 52, 7); ctx.stroke();
+    const g = ctx.createLinearGradient(0, -20, 0, 20);
+    g.addColorStop(0, '#fff6c2'); g.addColorStop(0.5, '#ffb36b'); g.addColorStop(1, '#ff3d9a');
+    ctx.lineWidth = 7; ctx.strokeStyle = '#2a0750'; ctx.strokeText('VAULT OPEN', 0, 1);
+    ctx.fillStyle = g; ctx.fillText('VAULT OPEN', 0, 1);
     ctx.restore();
   }
 
@@ -1182,7 +1418,7 @@
           if (t > 0.3) return false;
           ctx.save();
           ctx.globalAlpha = 1 - t / 0.3;
-          ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+          ctx.strokeStyle = HEIST ? '#ff4d6d' : '#fff'; ctx.lineWidth = 2;
           ctx.beginPath(); ctx.arc(f.x, f.y, 6 + t * 40, 0, TAU); ctx.stroke();
           ctx.restore();
           return true;
@@ -1247,6 +1483,31 @@
           ctx.globalCompositeOperation = 'lighter';
           ctx.fillStyle = lighten(f.color, 0.35);
           ctx.beginPath(); ctx.arc(f.x + f.vx * t, f.y + f.vy * t + 260 * t * t, 2.6 * (1 - t / f.life) + 0.8, 0, TAU); ctx.fill();
+          ctx.restore();
+          return true;
+        }
+        case 'bill': {
+          if (t > f.life) return false;
+          const k = t / f.life, x = f.x + f.vx * t * (1 - t * 0.9), y = f.y + f.vy * t * (1 - t * 0.9) + 300 * t * t;
+          ctx.save();
+          ctx.globalAlpha = k < 0.65 ? 1 : 1 - (k - 0.65) / 0.35;
+          ctx.translate(x, y); ctx.rotate(f.vr * t + f.ph); ctx.scale(1, 0.35 + 0.65 * Math.abs(Math.cos(t * 16 + f.ph)));
+          ctx.fillStyle = '#0d3a1f'; ctx.fillRect(-6.5, -3.4, 13, 6.8);
+          ctx.fillStyle = '#46c072'; ctx.fillRect(-5.8, -2.7, 11.6, 5.4);
+          ctx.fillStyle = '#b8f5c8'; ctx.beginPath(); ctx.ellipse(0, 0, 2.2, 1.9, 0, 0, TAU); ctx.fill();
+          ctx.restore();
+          return true;
+        }
+        case 'coin': {
+          if (t > f.life) return false;
+          const k = t / f.life, x = f.x + f.vx * t, y = f.y + f.vy * t + 900 * t * t;
+          ctx.save();
+          ctx.globalAlpha = k < 0.7 ? 1 : 1 - (k - 0.7) / 0.3;
+          ctx.translate(x, y); ctx.scale(0.25 + 0.75 * Math.abs(Math.cos(t * 22 + f.ph)), 1);
+          const cg = ctx.createLinearGradient(-3, -3, 3, 3);
+          cg.addColorStop(0, '#fff3b0'); cg.addColorStop(0.5, '#f2b630'); cg.addColorStop(1, '#8a5a00');
+          ctx.fillStyle = '#3a2200'; ctx.beginPath(); ctx.arc(0, 0, 4.1, 0, TAU); ctx.fill();
+          ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(0, 0, 3.4, 0, TAU); ctx.fill();
           ctx.restore();
           return true;
         }
@@ -1320,6 +1581,7 @@
       if (sm > 1.45) slowmo = null;
     }
     fxClock += (now - fxReal) * timeScale; fxReal = now;
+    if (HEIST && drag && drag.lastMoveT && now - drag.lastMoveT > 60) { drag.v = 0; drag.lastMoveT = 0; HA.friction(0); }
     frameCount++;
     lastT = now;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -1339,6 +1601,7 @@
       for (const L of G.links) if (S.link[L.k]) drawClamp(L, now, 1, 1);
       drawHint(now);
       drawFx(fxClock);
+      if (HEIST) drawStamp(now);
     }
     // 慢镜头期间：宽银幕黑边 + RGB 分离（D）
     if (slowmo && sm >= 0) {
@@ -1359,7 +1622,7 @@
 
   window.addEventListener('resize', resize);
   resize();
-  const qLevel = parseInt((location.search.match(/[?&]level=(\d+)/) || [])[1], 10) - 1;
+  const qLevel = parseInt((location.search.match(/[?&]level=(\d+)/) || [])[1] || TEST_LEVEL, 10) - 1;
   if (qLevel >= 0 && qLevel < LEVELS.length && unlocked(qLevel)) loadLevel(qLevel);
   else loadLevel(Math.max(0, Math.min(LEVELS.length - 1, Object.keys(progress).length)));
   requestAnimationFrame(frame);

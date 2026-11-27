@@ -1,0 +1,71 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NEON HEIST · 撬锁音效试听</title>
+<!-- 劫案皮肤音效试听：点按钮逐个听；下面的转盘可以拖着转，听卡位、大格、摩擦底噪和落槽。
+     无头 Chrome 打开时（tools/verify.sh sounds.html）输出每个声音的时长、峰值、响度和频谱重心，用来自检。 -->
+<style>
+  body { margin: 0; padding: 16px; background: #0d0426; color: #eee; font: 15px -apple-system, system-ui, sans-serif; }
+  button { margin: 4px; padding: 10px 14px; border-radius: 10px; border: 1px solid #ff3df2; background: #1d0b45; color: #fff; font-size: 15px; }
+  #dial { display: block; margin: 16px auto; touch-action: none; }
+  small { color: #aaa; }
+</style>
+<h3>撬锁音效试听</h3>
+<div id="btns"></div>
+<p><small>拖着下面的转盘转：每 6° 一个卡位，每 36° 一个大格，转到顶上的红色槽口会“落槽”。</small></p>
+<canvas id="dial" width="300" height="300"></canvas>
+<pre id="out"></pre>
+<script src="../src/audio.js"></script>
+<script src="../src/heist-audio.js"></script>
+<script>
+  const HA = RRHeistAudio, $ = (id) => document.getElementById(id);
+  const list = [
+    ['卡位', () => HA.detent(false, 36, 0, 100)], ['大格', () => HA.detent(true, 36, 0, 100)],
+    ['大环卡位', () => HA.detent(false, 70, 0, 100)], ['落槽（松开夹套）', () => HA.gate(36, 0)], ['出槽（重新扣上）', () => HA.regate(36, 0)],
+    ['开锁弹出', () => HA.release(0, 0)], ['连击 ×3', () => [0, 1, 2].forEach((c) => setTimeout(() => HA.release(c, c - 1), c * 160))],
+    ['撞警报触点', () => HA.knock(0)], ['拧不动', () => HA.locked(0)], ['按上转盘', () => HA.touch(0)], ['松手', () => HA.drop(0)],
+    ['金条滑一格', () => HA.slideStep(0)], ['金库门闩', () => HA.vault()], ['过关', () => HA.win()], ['困难关警报', () => HA.alarm()], ['按钮', () => HA.button()],
+  ];
+  for (const [name, fn] of list) { const b = document.createElement('button'); b.textContent = name; b.onclick = () => { RRAudio.ensure(); fn(); }; $('btns').appendChild(b); }
+  // 拖动转盘
+  const cv = $('dial'), x = cv.getContext('2d'), R = 110, STEP = 6 * Math.PI / 180, GATE = -Math.PI / 2;
+  let ang = 0, drag = null, open = false;
+  function draw() {
+    x.clearRect(0, 0, 300, 300); x.save(); x.translate(150, 150);
+    x.lineWidth = 26; x.strokeStyle = '#ffb36b'; x.beginPath(); x.arc(0, 0, R, ang + 0.35, ang - 0.35 + Math.PI * 2); x.stroke();
+    for (let k = 0; k < 60; k++) { const a = ang + k * STEP, l = k % 6 ? 6 : 14; x.strokeStyle = '#2a0750'; x.lineWidth = k % 6 ? 1 : 2; x.beginPath(); x.moveTo(Math.cos(a) * (R + 13 - l), Math.sin(a) * (R + 13 - l)); x.lineTo(Math.cos(a) * (R + 13), Math.sin(a) * (R + 13)); x.stroke(); }
+    x.fillStyle = open ? '#3dffb0' : '#ff4d6d'; x.fillRect(-6, -R - 24, 12, 18);
+    x.restore();
+  }
+  const angAt = (e) => { const r = cv.getBoundingClientRect(); return Math.atan2(e.clientY - r.top - 150, e.clientX - r.left - 150); };
+  cv.onpointerdown = (e) => { RRAudio.ensure(); cv.setPointerCapture(e.pointerId); drag = { last: angAt(e), t: performance.now(), v: 0, det: Math.floor(ang / STEP) }; HA.touch(0); };
+  cv.onpointermove = (e) => {
+    if (!drag) return;
+    const a = angAt(e); let d = a - drag.last; if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI;
+    drag.last = a; ang += d;
+    const now = performance.now(), dt = Math.max(4, now - drag.t) / 1000; drag.t = now;
+    drag.v = drag.v * 0.7 + Math.abs(d) * 180 / Math.PI / dt * 0.3; HA.friction(drag.v);
+    const idx = Math.floor(ang / STEP);
+    if (idx !== drag.det) { const b = Math.max(idx, drag.det); drag.det = idx; HA.detent(((b % 6) + 6) % 6 === 0, R / 3, 0, drag.v); }
+    const g = Math.abs(Math.atan2(Math.sin(ang - GATE), Math.cos(ang - GATE))) < 0.25;
+    if (g && !open) HA.gate(36, 0); else if (!g && open) HA.regate(36, 0);
+    open = g; draw();
+  };
+  cv.onpointerup = () => { drag = null; HA.friction(0); HA.drop(0); };
+  draw();
+  // 自检：每个声音的时长、峰值、响度、频谱重心（过零率估计）、能量集中在前多少毫秒
+  if (/HeadlessChrome/.test(navigator.userAgent)) {
+    const t0 = performance.now(); RRAudio.ensure(); const bank = HA._bank(), ms = performance.now() - t0;
+    const rows = ['合成耗时 ' + ms.toFixed(0) + 'ms，采样率 ' + bank.tick[0].sampleRate];
+    for (const k in bank) {
+      const b = bank[k][0], d = b.getChannelData(0); let pk = 0, e = 0, zc = 0, e90 = 0, acc = 0, nan = 0;
+      for (let i = 0; i < d.length; i++) { if (!isFinite(d[i])) nan++; pk = Math.max(pk, Math.abs(d[i])); e += d[i] * d[i]; if (i && (d[i] > 0) !== (d[i - 1] > 0)) zc++; }
+      for (let i = 0; i < d.length; i++) { acc += d[i] * d[i]; if (acc >= e * 0.9) { e90 = i; break; } }
+      rows.push(k.padEnd(8) + ' 时长 ' + (b.duration * 1000).toFixed(0).padStart(4) + 'ms  峰值 ' + pk.toFixed(2) + '  RMS ' + Math.sqrt(e / d.length).toFixed(3) +
+        '  频谱重心≈' + Math.round(zc / 2 / b.duration).toString().padStart(5) + 'Hz  90%能量在前 ' + (e90 / b.sampleRate * 1000).toFixed(1) + 'ms' + (nan ? '  NaN×' + nan : ''));
+    }
+    let err = null; try { list.forEach(([, fn]) => fn()); HA.friction(300); HA.friction(0); } catch (e2) { err = e2.message; }
+    rows.push(err ? 'FAIL 播放出错：' + err : 'PASS 全部声音能合成、能播放');
+    $('out').textContent = rows.join('\n');
+  }
+</script>
