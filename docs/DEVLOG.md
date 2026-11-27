@@ -194,3 +194,13 @@
 - `assets-src/`（52MB）：Kira 的 4K 母版 PNG 和角色设定图。体积大，按设计不进仓库。
 - `.tools/`（388MB）：Node、ffmpeg、yt-dlp、原作视频和截图。
 - `~/.kiro/steering/rotate-rings-demo.md`：Kiro 的长期规则文件。内容已经整理进 `AGENTS.md`。
+
+## 11-27：iPhone Safari 上女生不显示
+
+- 用户反馈：iPhone Safari 打开第 1 关，右下角的女生不见了。
+- 排查：用 Playwright 的 WebKit 18（Safari 的内核，装在 `.tools/pw`）模拟 iPhone 13，打开测试版，女生能正常显示，换表情也正常。正式版 neon-heist 还是 11-25 的旧版本，那时候还没有女生。
+- 推断原因有两个：
+  - 打开的是正式版网址。
+  - iPhone 开了锁定模式（Lockdown Mode）。锁定模式会禁用 WebP 等图片格式，立绘是 WebP，所以加载失败。
+- 修复：给立绘加了 PNG 备份（540 像素高，7 张共约 2.6MB，放在 `assets/ch1/girl/*.png`）。只要有一张 WebP 加载失败，就整体换成 PNG。用 WebKit 拦截全部 WebP 请求验证过，女生能正常显示。
+- 以后换立绘时，PNG 备份也要重新生成。命令：`ffmpeg -i assets-src/chN/girl/X.png -vf scale=-2:540 assets/chN/girl/X.png`。

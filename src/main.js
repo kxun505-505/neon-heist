@@ -668,7 +668,16 @@
   const Girl = (() => {
     const el = $('girl'), A = $('girlA'), B = $('girlB'), BL = $('girlBlink'), bubble = $('bubble');
     let chap = null, front = A, cur = 'idle', backTimer = 0, bubbleTimer = 0, blinkTimer = 0, lastLine = {}, swapToken = 0, fadeTimer = 0;
-    function src(expr) { return (chap && (chap.girl.expr[expr] || chap.girl.expr.idle)) || ''; }
+    // 有的 iPhone 不加载 WebP（比如开了锁定模式）：只要有一张 WebP 加载失败，就整体换成同名 PNG（540 像素高）
+    let noWebp = false;
+    const fix = (u) => (noWebp && u ? u.replace(/\.webp$/, '.png') : u);
+    function src(expr) { return fix((chap && (chap.girl.expr[expr] || chap.girl.expr.idle)) || ''); }
+    [A, B, BL].forEach((img) => img.addEventListener('error', () => {
+      const u = img.getAttribute('src') || '';
+      if (!/\.webp$/.test(u)) return;
+      noWebp = true;
+      [A, B, BL].forEach((o) => { const v = o.getAttribute('src') || ''; if (/\.webp$/.test(v)) o.src = fix(v); });
+    }));
     function hideNow(img) { img.style.transition = 'none'; img.classList.remove('on'); void img.offsetWidth; img.style.transition = ''; }
     function show(expr) {
       if (!chap || expr === cur) return;
@@ -726,10 +735,10 @@
       chap = c;
       el.classList.toggle('left', c.girl.side === 'left');
       // 先把这一章的表情图都预加载，换表情时不闪
-      Object.values(c.girl.expr).forEach((u) => { const im = new Image(); im.decoding = 'async'; im.src = u; });
+      Object.values(c.girl.expr).forEach((u) => { const im = new Image(); im.decoding = 'async'; im.src = fix(u); });
       swapToken++; clearTimeout(fadeTimer); cur = 'idle'; A.onload = B.onload = null;
       A.src = src('idle'); A.style.zIndex = 2; B.style.zIndex = 1; A.classList.add('on'); hideNow(B); front = A;
-      BL.src = c.girl.expr.blink || '';
+      BL.src = fix(c.girl.expr.blink || '');
       blinkLoop();
     }
     // 立绘在屏幕上的实际轮廓（没有角色或被隐藏时为空）
