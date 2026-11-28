@@ -80,9 +80,6 @@
     G = C.build(lv);
     S = C.initState(G);
     footprint = RRLayout.footprint(lv);
-    // 里面套着别的零件的环：旋钮画淡
-    knobFaint = {};
-    G.rings.forEach((R, i) => { if (R.kind !== 'bar') knobFaint[i] = G.rings.some((Q, j) => j !== i && Math.hypot(Q.x - R.x, Q.y - R.y) < R.r - TUBE); });
     bounds = RRLayout.boundsOf(footprint);
     moves = 0; score = 0; shownScore = 0; won = false;
     drag = null; hint = null; combo = { n: 0, t: 0 };
@@ -332,7 +329,7 @@
       combo.t = now;
       const gain = flew * 200 * Math.min(combo.n, 5);
       score += gain;
-      $('score').textContent = money(score);
+      if (!HEIST) $('score').textContent = money(score); // 劫案皮肤：在 frame() 里滚动上涨
       bumpScore();
       const R = G.rings[events.find((e) => e.type === 'fly').i];
       const wx = R.kind === 'bar' ? R.x : R.x, wy = R.kind === 'bar' ? R.y - 30 : R.y - R.r - 20;
@@ -366,7 +363,8 @@
     const far = Math.hypot(W, H) / scale + 160; // 保证冲出屏幕
     // 劫案皮肤：不要尾灯拖影，零件原地轻轻浮起、淡掉，化成一把钞票
     fx.push(HEIST ? { type: 'vanish', R, ang, x0, y0, t0 } : { type: 'dash', R, ang, x0, y0, dx, dy, far, t0, combo: comboN });
-    fx.push({ type: 'plus', x: x0, y: y0, t0, text: '+' + money(200 * Math.min(comboN, 5)) });
+    // 劫案皮肤不弹“+$200”：和右上角赃款数字的跳动重复（用户 11-28）
+    if (!HEIST) fx.push({ type: 'plus', x: x0, y: y0, t0, text: '+' + money(200 * Math.min(comboN, 5)) });
     if (HEIST) cashBurst(x0, y0, t0, comboN);
     const pan = panOf(x0);
     setTimeout(() => {
@@ -419,6 +417,7 @@
     const el = $('score');
     el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
     clearTimeout(scoreTimer);
+    if (HEIST) { const b = $('scoreBox'); b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash'); }
   }
 
   function win() {
@@ -1167,63 +1166,9 @@
       drawClampAt(L.mode === 'bar' ? SILVER : R.color, cx + c * re, cy + sn * re, a, 1, 1, 0, now, 'stub', L.mode === 'bar');
     }
     const tw = TUBE * (1 + lf * 0.06);
-    if (HEIST) dialKnob(i, R, cx, cy, ang, lf);
     if (R.gap) { const g = R.gap.at + ang; arcTube(cx, cy, R.r, g + R.gap.w / 2, g - R.gap.w / 2 + TAU, R.color, tw, glow, false, ang); }
     else arcTube(cx, cy, R.r, 0, TAU, R.color, tw, glow, true, ang);
     if (HEIST) dialMarks(R, cx, cy, ang, tw);
-  }
-
-  /*
-   * 劫案皮肤：每个环中间一个半透明的保险柜转盘旋钮，跟着环转。
-   * 外圈是防滑齿，盘面有刻度和主色的指针，中间是镀铬盖。里面套着别的零件的大环，旋钮画得更淡，不挡里面的东西。
-   */
-  let knobFaint = {};
-  function dialKnob(i, R, cx, cy, ang, lf) {
-    const hole = R.r - TUBE / 2 - 1.5, kr = hole * 0.74;
-    if (kr < 8) return;
-    ctx.save();
-    ctx.globalAlpha = (knobFaint[i] ? 0.25 : 0.52) * (1 + lf * 0.3);
-    ctx.translate(cx, cy);
-    // 投影
-    ctx.fillStyle = 'rgba(4,0,12,0.45)'; ctx.beginPath(); ctx.arc(1.5, 3.5, kr + 1, 0, TAU); ctx.fill();
-    // 防滑齿外圈（跟着转）
-    const teeth = Math.max(24, Math.round(kr * 2.2));
-    ctx.save(); ctx.rotate(ang);
-    const fr0 = kr * 0.8;
-    ctx.fillStyle = '#1a1626'; ctx.beginPath(); ctx.arc(0, 0, kr, 0, TAU); ctx.arc(0, 0, fr0, 0, TAU, true); ctx.fill();
-    ctx.fillStyle = CINE ? '#8a8796' : '#6d6888';
-    ctx.beginPath();
-    for (let k = 0; k < teeth; k++) { const a0 = (k / teeth) * TAU, a1 = a0 + (TAU / teeth) * 0.5; ctx.moveTo(Math.cos(a0) * fr0, Math.sin(a0) * fr0); ctx.arc(0, 0, kr, a0, a1); ctx.arc(0, 0, fr0, a1, a0, true); ctx.closePath(); }
-    ctx.fill();
-    ctx.restore();
-    // 盘面：金属渐变（高光固定在左上，转动时盘面从光下滑过）
-    const fr = kr * 0.8;
-    let g;
-    if (ctx.createConicGradient) {
-      g = ctx.createConicGradient(LANG, 0, 0);
-      g.addColorStop(0, '#f4f2ff'); g.addColorStop(0.12, '#8d89a3'); g.addColorStop(0.3, '#3a3648'); g.addColorStop(0.5, '#cfcbe3');
-      g.addColorStop(0.62, '#4a4660'); g.addColorStop(0.85, '#9894ad'); g.addColorStop(1, '#f4f2ff');
-    } else {
-      g = ctx.createLinearGradient(-fr, -fr, fr, fr); g.addColorStop(0, '#e9e6f8'); g.addColorStop(0.5, '#5a5670'); g.addColorStop(1, '#a9a5c0');
-    }
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, fr, 0, TAU); ctx.fill();
-    ctx.strokeStyle = 'rgba(8,2,20,0.7)'; ctx.lineWidth = 1; ctx.stroke();
-    // 刻度和指针（跟着转）
-    ctx.rotate(ang);
-    ctx.strokeStyle = 'rgba(12,6,26,0.75)';
-    for (let k = 0; k < 20; k++) {
-      const a = (k / 20) * TAU, l = k % 5 ? fr * 0.12 : fr * 0.24;
-      ctx.lineWidth = k % 5 ? 0.7 : 1.2;
-      ctx.beginPath(); ctx.moveTo(Math.cos(a) * (fr - 1), Math.sin(a) * (fr - 1)); ctx.lineTo(Math.cos(a) * (fr - 1 - l), Math.sin(a) * (fr - 1 - l)); ctx.stroke();
-    }
-    ctx.strokeStyle = R.color; ctx.lineWidth = 2.2; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(fr * 0.86, 0); ctx.stroke();
-    // 中间的镀铬盖
-    const cr = Math.max(3, fr * 0.3);
-    const cg = ctx.createRadialGradient(-cr * 0.35, -cr * 0.4, cr * 0.1, 0, 0, cr);
-    cg.addColorStop(0, '#ffffff'); cg.addColorStop(0.5, '#a7a4bd'); cg.addColorStop(1, '#2a2738');
-    ctx.fillStyle = cg; ctx.beginPath(); ctx.arc(0, 0, cr, 0, TAU); ctx.fill();
-    ctx.restore();
   }
 
   // 劫案皮肤：密码盘刻度（每 12° 一条，每 36° 一条长的），跟着环转；缺口两端是机加工的钢制槽口
@@ -1810,6 +1755,12 @@
       if (sm > 1.45) slowmo = null;
     }
     fxClock += (now - fxReal) * timeScale; fxReal = now;
+    // 劫案皮肤：右上角赃款数字 0.45 秒内滚到新值
+    if (HEIST && shownScore !== score) {
+      const step = Math.max(100, Math.ceil(Math.abs(score - shownScore) * Math.min(1, (now - lastT) / 150) / 100) * 100);
+      shownScore = score > shownScore ? Math.min(score, shownScore + step) : score;
+      $('score').textContent = money(shownScore);
+    }
     if (HEIST && drag && drag.lastMoveT && now - drag.lastMoveT > 60) { drag.v = 0; drag.lastMoveT = 0; HA.friction(0); }
     frameCount++;
     lastT = now;

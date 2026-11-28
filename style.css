@@ -395,3 +395,8 @@ body.notrans *, body.notrans *::after { transition: none !important; }
   border-radius: 999px; overflow: hidden; border: 1px solid rgba(255,228,92,0.6); background: rgba(13,4,38,0.7); }
 #lookSwitch button { border: 0; background: transparent; color: #ddd; font: 700 12px -apple-system, system-ui, sans-serif; padding: 6px 12px; }
 #lookSwitch button.on { background: linear-gradient(90deg, #ff3d9a, #b13dff); color: #fff; }
+/* 劫案皮肤：赃款数字跳得更大，带一下金光（代替棋盘上的“+$200”） */
+.skin-heist #score.bump { animation: bumpCash .55s cubic-bezier(.2,1.6,.4,1); }
+@keyframes bumpCash { 0% { transform: scale(1); } 25% { transform: scale(1.55); color: #fff6c2; text-shadow: 0 0 18px #ffd25c, 0 0 34px rgba(255,173,66,0.9); } 100% { transform: scale(1); } }
+.skin-heist #scoreBox.flash { animation: boxFlash .55s; }
+@keyframes boxFlash { 25% { box-shadow: 0 0 22px rgba(255,210,92,0.85), inset 0 0 12px rgba(255,210,92,0.5); border-color: #ffe45c; } }
