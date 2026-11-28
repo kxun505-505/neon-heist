@@ -5,3 +5,4 @@ assets-src/*
 levels-pool/*.tmp
 levels-pool/progress.log
 levels-pool/attempts.json
+handoff/
