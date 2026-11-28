@@ -15,16 +15,18 @@
   document.documentElement.classList.toggle('test-solo', !!TEST_LEVEL);
   const UNLOCK_ALL = !!TEST_LEVEL || /[?&]unlock/.test(location.search);
   // 劫案皮肤的两种画法：A 'paint' 烤漆管（默认）；B 'cine' 电影感（高清金属 + 夕阳调色 + 胶片颗粒），?look=cine 或测试页上的切换按钮
-  let LOOK = (location.search.match(/[?&]look=(\w+)/) || [])[1] || (() => { try { return localStorage.getItem('neonheist-look'); } catch (e) { return null; } })() || 'paint';
-  const CINE = HEIST && LOOK === 'cine';
+  let LOOK = (location.search.match(/[?&]look=([\w-]+)/) || [])[1] || (() => { try { return localStorage.getItem('neonheist-look'); } catch (e) { return null; } })() || 'paint';
+  // C 'cine-clean'：电影感，但消除零件时不撒钞票（用户 11-28：消除时画面太乱）
+  const CINE = HEIST && (LOOK === 'cine' || LOOK === 'cine-clean');
+  const NOBILLS = HEIST && LOOK === 'cine-clean';
   document.documentElement.classList.toggle('look-cine', CINE);
   // 测试页上的 A/B 切换按钮
   if (HEIST && (TEST_LEVEL || /[?&]looks/.test(location.search))) window.addEventListener('DOMContentLoaded', () => {
     const box = document.createElement('div'); box.id = 'lookSwitch';
-    box.innerHTML = '<button data-l="paint">A 烤漆</button><button data-l="cine">B 电影感</button>';
+    box.innerHTML = '<button data-l="paint">A 烤漆</button><button data-l="cine">B 电影感</button><button data-l="cine-clean">C 无钞票</button>';
     box.querySelectorAll('button').forEach((b) => {
-      b.classList.toggle('on', b.dataset.l === (CINE ? 'cine' : 'paint'));
-      b.addEventListener('click', () => { try { localStorage.setItem('neonheist-look', b.dataset.l); } catch (e) { /* 隐私模式 */ } location.href = location.pathname + location.search.replace(/[?&]look=\w+/, ''); });
+      b.classList.toggle('on', b.dataset.l === (NOBILLS ? 'cine-clean' : CINE ? 'cine' : 'paint'));
+      b.addEventListener('click', () => { try { localStorage.setItem('neonheist-look', b.dataset.l); } catch (e) { /* 隐私模式 */ } location.href = location.pathname + location.search.replace(/[?&]look=[\w-]+/, ''); });
     });
     document.body.appendChild(box);
   });
@@ -365,7 +367,7 @@
     fx.push(HEIST ? { type: 'vanish', R, ang, x0, y0, t0 } : { type: 'dash', R, ang, x0, y0, dx, dy, far, t0, combo: comboN });
     // 劫案皮肤不弹“+$200”：和右上角赃款数字的跳动重复（用户 11-28）
     if (!HEIST) fx.push({ type: 'plus', x: x0, y: y0, t0, text: '+' + money(200 * Math.min(comboN, 5)) });
-    if (HEIST) cashBurst(x0, y0, t0, comboN);
+    if (HEIST && !NOBILLS) cashBurst(x0, y0, t0, comboN);
     const pan = panOf(x0);
     setTimeout(() => {
       if (HEIST) { HA.release(comboN - 1, pan); HA.whoosh(comboN - 1); } else { SFX.dash(comboN - 1); SFX.free(Math.max(0, comboN - 1)); }
