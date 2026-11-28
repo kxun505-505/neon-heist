@@ -400,3 +400,21 @@ body.notrans *, body.notrans *::after { transition: none !important; }
 @keyframes bumpCash { 0% { transform: scale(1); } 25% { transform: scale(1.55); color: #fff6c2; text-shadow: 0 0 18px #ffd25c, 0 0 34px rgba(255,173,66,0.9); } 100% { transform: scale(1); } }
 .skin-heist #scoreBox.flash { animation: boxFlash .55s; }
 @keyframes boxFlash { 25% { box-shadow: 0 0 22px rgba(255,210,92,0.85), inset 0 0 12px rgba(255,210,92,0.5); border-color: #ffe45c; } }
+/* ---------- D 写实：正式按钮（Restart 次要：深色玻璃 + 铬边；Hint 主要：夕阳金橙）---------- */
+.look-real #tools button:not(.icon) { position: relative; min-width: 124px; height: 52px; border-radius: 16px; gap: 8px; overflow: hidden;
+  font: 800 15px/1 -apple-system, 'SF Pro Display', system-ui, sans-serif; letter-spacing: 0.6px; text-transform: uppercase; color: #fff;
+  border: 0; box-shadow: 0 6px 14px rgba(0,0,0,0.45), 0 2px 0 rgba(0,0,0,0.35); transition: transform .08s, filter .08s, box-shadow .08s; }
+.look-real #tools button:not(.icon)::before { content: ''; position: absolute; inset: 0; border-radius: inherit; padding: 1.5px; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255,255,255,0.9), rgba(255,255,255,0.15) 45%, rgba(0,0,0,0.4) 55%, rgba(255,255,255,0.5));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.look-real #tools button:not(.icon)::after { content: ''; position: absolute; left: 6px; right: 6px; top: 3px; height: 42%; border-radius: 12px 12px 30px 30px / 12px 12px 14px 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.32), rgba(255,255,255,0)); pointer-events: none; }
+.look-real #tools button#btnReset { background: linear-gradient(180deg, #3a3346 0%, #1d1826 55%, #120e18 100%); }
+.look-real #tools button#btnHint { background: linear-gradient(180deg, #ffd36a 0%, #ff9a3c 48%, #e8562a 100%); color: #2a0e00; text-shadow: 0 1px 0 rgba(255,240,200,0.6); }
+.look-real #btnReset span { text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
+.look-real #tools button span { font-size: 15px; }
+.look-real #tools .bi { display: inline-flex; width: 26px; height: 26px; border-radius: 50%; align-items: center; justify-content: center; flex: none; }
+.look-real #tools .bi svg { width: 16px; height: 16px; }
+.look-real #btnReset .bi { background: rgba(255,255,255,0.12); box-shadow: inset 0 1px 0 rgba(255,255,255,0.25); }
+.look-real #btnHint .bi { background: rgba(60,20,0,0.18); box-shadow: inset 0 1px 0 rgba(255,255,255,0.4); }
+.look-real #tools button:not(.icon):active { transform: translateY(2px) scale(0.98); filter: brightness(0.92); box-shadow: 0 3px 8px rgba(0,0,0,0.45), 0 1px 0 rgba(0,0,0,0.35); }

@@ -17,18 +17,29 @@
   // 劫案皮肤的两种画法：A 'paint' 烤漆管（默认）；B 'cine' 电影感（高清金属 + 夕阳调色 + 胶片颗粒），?look=cine 或测试页上的切换按钮
   let LOOK = (location.search.match(/[?&]look=([\w-]+)/) || [])[1] || (() => { try { return localStorage.getItem('neonheist-look'); } catch (e) { return null; } })() || 'paint';
   // C 'cine-clean'：电影感，但消除零件时不撒钞票（用户 11-28：消除时画面太乱）
-  const CINE = HEIST && (LOOK === 'cine' || LOOK === 'cine-clean');
-  const NOBILLS = HEIST && LOOK === 'cine-clean';
+  // D 'real'：写实高清（用户 11-28：在 C 的基础上，更接近写实大作的美术、更清晰、锁扣小 15%、正式的按钮）
+  const REAL = HEIST && LOOK === 'real';
+  const CINE = HEIST && (LOOK === 'cine' || LOOK === 'cine-clean' || REAL);
+  const NOBILLS = HEIST && (LOOK === 'cine-clean' || REAL);
   document.documentElement.classList.toggle('look-cine', CINE);
+  document.documentElement.classList.toggle('look-real', REAL);
   // 测试页上的 A/B 切换按钮
   if (HEIST && (TEST_LEVEL || /[?&]looks/.test(location.search))) window.addEventListener('DOMContentLoaded', () => {
     const box = document.createElement('div'); box.id = 'lookSwitch';
-    box.innerHTML = '<button data-l="paint">A 烤漆</button><button data-l="cine">B 电影感</button><button data-l="cine-clean">C 无钞票</button>';
+    box.innerHTML = '<button data-l="paint">A</button><button data-l="cine">B</button><button data-l="cine-clean">C</button><button data-l="real">D 写实</button>';
     box.querySelectorAll('button').forEach((b) => {
-      b.classList.toggle('on', b.dataset.l === (NOBILLS ? 'cine-clean' : CINE ? 'cine' : 'paint'));
+      b.classList.toggle('on', b.dataset.l === (REAL ? 'real' : NOBILLS ? 'cine-clean' : CINE ? 'cine' : 'paint'));
       b.addEventListener('click', () => { try { localStorage.setItem('neonheist-look', b.dataset.l); } catch (e) { /* 隐私模式 */ } location.href = location.pathname + location.search.replace(/[?&]look=[\w-]+/, ''); });
     });
     document.body.appendChild(box);
+    if (REAL) {
+      // 正式按钮：图标换成 SVG
+      const ico = {
+        btnReset: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M4.5 12a7.5 7.5 0 1 0 2.3-5.4"/><path fill="currentColor" d="M3.2 3.6v6h6z"/></svg>',
+        btnHint: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 21h6v-1.6H9zm3-19a7 7 0 0 0-4 12.7V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.3A7 7 0 0 0 12 2z"/></svg>',
+      };
+      for (const id in ico) { const b = document.querySelector('#' + id + ' b'); if (b) b.outerHTML = '<i class="bi">' + ico[id] + '</i>'; }
+    }
   });
   const money = (n) => (HEIST ? '$' + Number(n).toLocaleString('en-US') : String(n));
   // 背景跟着章节走；?bg=N 只用于测试时强制指定
@@ -131,6 +142,21 @@
     const cx = ox + bounds.cx * scale, cy = oy + bounds.cy * scale;
     RRBg.paint(bg, W, H, DPR, { x: cx, y: cy, r: Math.max(bounds.w, bounds.h) * scale * 0.62 }, bgIndex);
     if (HEIST) paintVault(cx, cy, bounds.w * scale, bounds.h * scale);
+    if (REAL) bakeGrade();
+  }
+  // D 写实：调色和暗角只烤进背景层，零件画在上面保持清晰
+  function bakeGrade() {
+    const x = bg.getContext('2d'), w = bg.width, h = bg.height;
+    x.save(); x.setTransform(1, 0, 0, 1, 0, 0);
+    x.globalCompositeOperation = 'soft-light';
+    let g = x.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, 'rgba(0,170,210,0.4)'); g.addColorStop(0.55, 'rgba(255,170,90,0.15)'); g.addColorStop(1, 'rgba(255,110,20,0.45)');
+    x.fillStyle = g; x.fillRect(0, 0, w, h);
+    x.globalCompositeOperation = 'source-over';
+    g = x.createRadialGradient(w / 2, h * 0.48, Math.min(w, h) * 0.45, w / 2, h * 0.48, Math.max(w, h) * 0.8);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(10,0,6,0.5)');
+    x.fillStyle = g; x.fillRect(0, 0, w, h);
+    x.restore();
   }
   const vaultCv = document.createElement('canvas');
   let vaultRect = null;
@@ -953,6 +979,7 @@
    * 和整体的青橙调色一致；环上再叠一层围着圆心的放射状拉丝反光（机加工转盘的质感），高光固定在光源方向。
    */
   function cineTube(center, outline, color, w, glow, glints, spin) {
+    if (REAL) { realTube(center, outline, color, w, glow, glints, spin); return; }
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     if (glow > 1.01) {
       ctx.globalCompositeOperation = 'lighter';
@@ -982,6 +1009,45 @@
       cg.addColorStop(0.5, 'rgba(255,255,255,0)'); cg.addColorStop(0.57, 'rgba(255,200,150,0.35)'); cg.addColorStop(0.64, 'rgba(255,255,255,0)'); cg.addColorStop(1, 'rgba(255,255,255,0)');
       ctx.globalCompositeOperation = 'lighter';
       ctx.strokeStyle = cg; ctx.lineWidth = w; center(0, 0); ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    if (glints) glints();
+    ctx.restore();
+  }
+
+  /*
+   * D 写实：去掉卡通黑描边，边缘只用本色的暗部；接触阴影柔和；车漆清漆层的天空反光边缘锐利；
+   * 背光一侧有一道夕阳的橙色轮廓光。所有层都画在调色之上，不再被颗粒和整屏调色糊掉。
+   */
+  function realTube(center, outline, color, w, glow, glints, spin) {
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    if (glow > 1.01) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = rgba(color, 0.12 * (glow - 1)); ctx.lineWidth = w + 12; center(0, 0); ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    // 接触阴影：三层由宽到窄、由淡到深
+    ctx.strokeStyle = 'rgba(10,2,10,0.10)'; ctx.lineWidth = w + 12; center(4, 11); ctx.stroke();
+    ctx.strokeStyle = 'rgba(10,2,10,0.18)'; ctx.lineWidth = w + 5; center(3, 7); ctx.stroke();
+    ctx.strokeStyle = 'rgba(10,2,10,0.32)'; ctx.lineWidth = w + 1; center(1.5, 3.5); ctx.stroke();
+    ctx.strokeStyle = darken(color, 0.72); ctx.lineWidth = w + 1; center(0, 0); ctx.stroke();
+    ctx.save();
+    outline(); ctx.clip('evenodd');
+    const o = (k) => [LX * w * k, LY * w * k];
+    ctx.strokeStyle = darken(color, 0.58); ctx.lineWidth = w + 2; center(0, 0); ctx.stroke();
+    ctx.strokeStyle = darken(color, 0.22); ctx.lineWidth = w * 0.86; center(...o(0.05)); ctx.stroke();
+    ctx.strokeStyle = color; ctx.lineWidth = w * 0.6; center(...o(0.12)); ctx.stroke();
+    ctx.strokeStyle = lighten(color, 0.3); ctx.lineWidth = w * 0.3; center(...o(0.2)); ctx.stroke();
+    // 清漆层的天空反光：一宽一窄，边缘锐利
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = w * 0.22; center(...o(0.3)); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.96)'; ctx.lineWidth = Math.max(1, w * 0.085); center(...o(0.34)); ctx.stroke();
+    // 背光侧：夕阳的橙色轮廓光 + 地面反射
+    ctx.strokeStyle = 'rgba(255,120,50,0.45)'; ctx.lineWidth = w * 0.2; center(...o(-0.3)); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,196,120,0.95)'; ctx.lineWidth = Math.max(0.8, w * 0.06); center(...o(-0.43)); ctx.stroke();
+    if (spin && ctx.createConicGradient) {
+      const cg = ctx.createConicGradient(LANG - 0.45, spin.x, spin.y);
+      cg.addColorStop(0, 'rgba(255,255,255,0)'); cg.addColorStop(0.06, 'rgba(255,255,255,0.3)'); cg.addColorStop(0.12, 'rgba(255,255,255,0)'); cg.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = cg; ctx.lineWidth = w; center(0, 0); ctx.stroke();
       ctx.globalCompositeOperation = 'source-over';
     }
     if (glints) glints();
@@ -1182,9 +1248,9 @@
       if (R.gap) { const d = Math.abs(C.angDiff(a, g)); if (d < R.gap.w / 2 + 0.16) continue; }
       const major = k % 3 === 0, c = Math.cos(a), sn = Math.sin(a);
       const r0 = R.r + w * (major ? -0.08 : 0.14), r1 = R.r + w * 0.47;
-      ctx.strokeStyle = 'rgba(14,4,30,0.6)'; ctx.lineWidth = major ? 1.5 : 1;
+      ctx.strokeStyle = REAL ? 'rgba(20,6,20,0.42)' : 'rgba(14,4,30,0.6)'; ctx.lineWidth = REAL ? (major ? 1.1 : 0.7) : major ? 1.5 : 1;
       ctx.beginPath(); ctx.moveTo(cx + c * r0, cy + sn * r0); ctx.lineTo(cx + c * r1, cy + sn * r1); ctx.stroke();
-      ctx.strokeStyle = 'rgba(255,255,255,0.32)'; ctx.lineWidth = 0.6;
+      ctx.strokeStyle = REAL ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.32)'; ctx.lineWidth = REAL ? 0.45 : 0.6;
       ctx.beginPath(); ctx.moveTo(cx + c * r0 + 0.6, cy + sn * r0 + 0.8); ctx.lineTo(cx + c * r1 + 0.6, cy + sn * r1 + 0.8); ctx.stroke();
     }
     if (R.gap) for (const sg of [1, -1]) {
@@ -1232,7 +1298,7 @@
     ctx.save(); ctx.rotate(-(dir + Math.PI / 2));
     ctx.fillStyle = 'rgba(5,0,15,0.4)'; ctx.beginPath(); ctx.ellipse(2.5, 5, w * 0.62, h * 0.62, dir + Math.PI / 2, 0, TAU); ctx.fill();
     ctx.restore();
-    if (HEIST) { padlock(color, w, h, st, isBar); ctx.restore(); return; }
+    if (HEIST) { if (REAL && !isBar) ctx.scale(0.85, 0.85); padlock(color, w, h, st, isBar); ctx.restore(); return; } // D：锁扣小 15%（只改画面，碰撞不变）
     ctx.fillStyle = 'rgba(10,2,25,0.95)';
     roundRect(-w / 2 - 1.5, -h / 2 - 1.5, w + 3, h + 3, 5); ctx.fill();
     // 套筒本体：与主环同色的烤漆，横向是圆柱明暗（光从上方来）
@@ -1797,7 +1863,17 @@
       const ab = sm < 0.12 ? sm / 0.12 : Math.max(0, 1 - (sm - 0.12) / 0.9);
       if (ab > 0.02) rgbSplit(Math.round(4 * DPR * ab));
     }
-    if (CINE) cineGrade(now);
+    if (REAL) realLight(now); else if (CINE) cineGrade(now);
+  }
+  // D 写实的每帧后期：只有顶部一道很淡的横向镜头光条，不加颗粒、不叠整屏调色
+  function realLight(now) {
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const w = cv.width, ly = cv.height * 0.155, br = 0.75 + 0.25 * Math.sin(now / 1700);
+    ctx.globalCompositeOperation = 'lighter';
+    const g = ctx.createLinearGradient(0, 0, w, 0);
+    g.addColorStop(0, 'rgba(60,180,255,0)'); g.addColorStop(0.5, 'rgba(160,225,255,' + 0.18 * br + ')'); g.addColorStop(1, 'rgba(60,180,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, ly - 1 * DPR, w, 2 * DPR);
+    ctx.restore();
   }
 
   /*
