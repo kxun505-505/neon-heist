@@ -20,7 +20,9 @@
   // D 'real'：写实高清（用户 11-28：在 C 的基础上，更接近写实大作的美术、更清晰、锁扣小 15%、正式的按钮）
   // E 'e'：按 docs/art-bible.md 统一（场景层写实 + 界面层海报风，7 色色板，一个光源，背景虚化，没有保险柜门板）
   // F 'f'：界面同 E；圆环回到第一版的霓虹灯管，按“真实霓虹玻璃管”精修到极致，是全屏饱和度最高的东西；背景去饱和、虚化；黄昏 / 白天可切换
-  const FLOOK = HEIST && LOOK === 'f';
+  // G 'g'：F 的精细度 + GTA 海报漫画风（墨线、硬边赛璐珞两三阶、硬投影、阴影侧网点），亮度和饱和度跟界面层一致（用户 11-28）
+  const GLOOK = HEIST && LOOK === 'g';
+  const FLOOK = HEIST && (LOOK === 'f' || GLOOK);
   const ELOOK = HEIST && (LOOK === 'e' || FLOOK);
   const DAY = FLOOK && (() => { try { return localStorage.getItem('neonheist-time') === 'day'; } catch (e) { return false; } })();
   const REAL = HEIST && (LOOK === 'real' || ELOOK);
@@ -33,9 +35,9 @@
   // 测试页上的 A/B 切换按钮
   if (HEIST && (TEST_LEVEL || /[?&]looks/.test(location.search))) window.addEventListener('DOMContentLoaded', () => {
     const box = document.createElement('div'); box.id = 'lookSwitch';
-    box.innerHTML = '<button data-l="paint">A</button><button data-l="cine">B</button><button data-l="cine-clean">C</button><button data-l="real">D</button><button data-l="e">E</button><button data-l="f">F 霓虹</button>';
+    box.innerHTML = '<button data-l="paint">A</button><button data-l="cine">B</button><button data-l="cine-clean">C</button><button data-l="real">D</button><button data-l="e">E</button><button data-l="f">F</button><button data-l="g">G 漫画</button>';
     box.querySelectorAll('button').forEach((b) => {
-      b.classList.toggle('on', b.dataset.l === (FLOOK ? 'f' : ELOOK ? 'e' : REAL ? 'real' : NOBILLS ? 'cine-clean' : CINE ? 'cine' : 'paint'));
+      b.classList.toggle('on', b.dataset.l === (GLOOK ? 'g' : FLOOK ? 'f' : ELOOK ? 'e' : REAL ? 'real' : NOBILLS ? 'cine-clean' : CINE ? 'cine' : 'paint'));
       b.addEventListener('click', () => { try { localStorage.setItem('neonheist-look', b.dataset.l); } catch (e) { /* 隐私模式 */ } location.href = location.pathname + location.search.replace(/[?&]look=[\w-]+/, ''); });
     });
     document.body.appendChild(box);
@@ -110,7 +112,7 @@
     const lv = LEVELS[n];
     G = C.build(lv);
     S = C.initState(G);
-    if (ELOOK) G.rings.forEach((R) => { R.color = (FLOOK ? PALN : PAL7)[R.color.toLowerCase()] || R.color; }); // 只改画面用的颜色
+    if (ELOOK) G.rings.forEach((R) => { R.color = (GLOOK ? PALC : FLOOK ? PALN : PAL7)[R.color.toLowerCase()] || R.color; }); // 只改画面用的颜色
     footprint = RRLayout.footprint(lv);
     bounds = RRLayout.boundsOf(footprint);
     moves = 0; score = 0; shownScore = 0; won = false;
@@ -161,13 +163,22 @@
     const f = RRLayout.fit(footprint, area, Girl.rects());
     scale = f.scale; ox = f.ox; oy = f.oy;
     const cx = ox + bounds.cx * scale, cy = oy + bounds.cy * scale;
-    RRBg.paint(bg, W, H, DPR, { x: cx, y: cy, r: Math.max(bounds.w, bounds.h) * scale * 0.62 }, bgIndex);
+    RRBg.paint(bg, W, H, DPR, GLOOK ? null : { x: cx, y: cy, r: Math.max(bounds.w, bounds.h) * scale * 0.62 }, bgIndex); // G：海报要亮，棋盘后面不压暗
     if (REAL) bakeGrade();
   }
   // D 写实：调色和暗角只烤进背景层，零件画在上面保持清晰
   function bakeGrade() {
     const x = bg.getContext('2d'), w = bg.width, h = bg.height;
     x.save(); x.setTransform(1, 0, 0, 1, 0, 0);
+    if (GLOOK) {
+      // G：海报漫画的背景是亮的。轻微虚化（远景），稍降一点饱和度让圆环最突出，再整体提亮、加暖
+      const tmp = document.createElement('canvas'); tmp.width = Math.round(w / 2.5); tmp.height = Math.round(h / 2.5);
+      tmp.getContext('2d').drawImage(bg, 0, 0, tmp.width, tmp.height); x.imageSmoothingQuality = 'high'; x.clearRect(0, 0, w, h); x.drawImage(tmp, 0, 0, w, h);
+      x.globalCompositeOperation = 'saturation'; x.fillStyle = 'rgba(128,128,128,0.18)'; x.fillRect(0, 0, w, h);
+      x.globalCompositeOperation = 'screen'; x.fillStyle = DAY ? 'rgba(255,240,220,0.12)' : 'rgba(255,170,140,0.22)'; x.fillRect(0, 0, w, h);
+      x.restore();
+      return;
+    }
     if (FLOOK) {
       // F：背景只当布景。虚化 → 去掉一半饱和度（圆环才是全屏最饱和的）→ 黄昏压暗中间调让灯管更亮 / 白天加一层薄雾
       for (const k of [6, 3]) {
@@ -949,6 +960,7 @@
    * center(dx, dy) 画中心线；outline() 画管子轮廓，用来裁剪；glints() 画固定在世界坐标里的高光点
    */
   function paintTube(center, outline, color, w, glow, glints, spin) {
+    if (GLOOK) { comicTube(center, outline, color, w, glow); return; }
     if (FLOOK && color !== GOLD) { neonGlass(center, outline, color, w, glow); return; }
     if (CINE) { cineTube(center, outline, color, w, glow, glints, spin); return; }
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -1072,6 +1084,35 @@
    * 白热的芯 → 玻璃表面左上方一道很细的镜面反光、右下方一道更淡的反光。
    * 黄昏：光晕强，往背景上投一层本色的光。白天：霓虹在阳光下光晕弱，改成彩色玻璃的质感，地上有一道彩色的透光阴影。
    */
+  /*
+   * G：海报漫画风的管子。全是硬边：往右下的硬投影 → 3 像素墨线 → 暗面（偏紫）→ 本色（往光源方向偏）→ 亮面（偏奶白）→
+   * 一道断续的奶白高光（跟着环转）→ 暗面上一层网点（印刷感）。不画光晕、不用渐变。
+   */
+  let dotPat = null;
+  function comicTube(center, outline, color, w, glow) {
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const o = (k) => [LX * w * k, LY * w * k];
+    ctx.strokeStyle = DAY ? 'rgba(26,11,46,0.28)' : 'rgba(26,11,46,0.5)'; ctx.lineWidth = w + 3; center(3, 6); ctx.stroke();
+    ctx.strokeStyle = INK; ctx.lineWidth = w + 3.2; center(0, 0); ctx.stroke();
+    ctx.save();
+    outline(); ctx.clip('evenodd');
+    ctx.strokeStyle = celDark(color); ctx.lineWidth = w + 2; center(0, 0); ctx.stroke();
+    if (!dotPat) {
+      // 网点：3 像素一格的错位点阵，在暗面上铺满几排
+      const d = document.createElement('canvas'); d.width = d.height = 6; const x = d.getContext('2d');
+      x.fillStyle = 'rgba(26,11,46,0.4)'; for (const [px, py] of [[1.5, 1.5], [4.5, 4.5]]) { x.beginPath(); x.arc(px, py, 0.75, 0, TAU); x.fill(); }
+      dotPat = ctx.createPattern(d, 'repeat');
+    }
+    ctx.strokeStyle = dotPat; ctx.lineWidth = w * 0.42; center(...o(-0.34)); ctx.stroke();
+    ctx.strokeStyle = color; ctx.lineWidth = w * 0.7; center(...o(0.16)); ctx.stroke();
+    ctx.strokeStyle = celLight(color); ctx.lineWidth = w * 0.26; center(...o(0.31)); ctx.stroke();
+    ctx.setLineDash([w * 2.2, w * 1.1, w * 0.5, w * 4]);
+    ctx.strokeStyle = CREAM; ctx.lineWidth = Math.max(1, w * 0.11); center(...o(0.34)); ctx.stroke();
+    ctx.setLineDash([]);
+    if (glow > 1.3) { ctx.strokeStyle = 'rgba(255,244,224,0.25)'; ctx.lineWidth = w + 2; center(0, 0); ctx.stroke(); } // 拿起时整根提亮一点（不是光晕）
+    ctx.restore();
+  }
+
   function neonGlass(center, outline, color, w, glow) {
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     const o = (k) => [LX * w * k, LY * w * k];
@@ -1177,7 +1218,8 @@
     ctx.save(); ctx.translate(x, y); ctx.rotate(a);
     ctx.fillStyle = 'rgba(8,2,20,0.95)'; roundRect(-KNOB - 1.5, -KNOB - 1.5, KNOB * 2 + 3, KNOB * 2 + 3, 4); ctx.fill();
     let kg;
-    if (ELOOK) kg = litGrad(a, KNOB * 1.2, STEEL);
+    if (GLOOK) kg = litGrad(a, KNOB * 1.2, [[0, '#eeeaf8'], [0.45, '#eeeaf8'], [0.45, '#a9a5c0'], [1, '#a9a5c0']]);
+    else if (ELOOK) kg = litGrad(a, KNOB * 1.2, STEEL);
     else { kg = ctx.createLinearGradient(0, -KNOB, 0, KNOB); kg.addColorStop(0, '#6a6684'); kg.addColorStop(0.3, '#d9d6ee'); kg.addColorStop(0.55, '#4a4660'); kg.addColorStop(1, '#25222f'); }
     ctx.fillStyle = kg; roundRect(-KNOB, -KNOB, KNOB * 2, KNOB * 2, 3); ctx.fill();
     ctx.strokeStyle = R.color; ctx.lineWidth = 1.3; roundRect(-KNOB + 1.2, -KNOB + 1.2, KNOB * 2 - 2.4, KNOB * 2 - 2.4, 2); ctx.stroke();
@@ -1243,6 +1285,12 @@
   // F：霓虹灯管的 7 种颜色，饱和度拉满（全屏饱和度最高的东西）
   const PALN = { '#ff3df2': '#ff2d8f', '#ff4d6d': '#ff2d8f', '#ffad42': '#ff7a1a', '#ffe45c': '#ffd21f', '#b6ff4a': '#8cff2e',
     '#28e7ff': '#00f0d4', '#3dffb0': '#00f0d4', '#4d8bff': '#2f8cff', '#a47bff': '#a050ff' };
+  // G：海报漫画色（比霓虹色略收一点饱和、更亮更暖，和界面层的色板同一套）
+  const PALC = { '#ff3df2': '#ff5fa2', '#ff4d6d': '#ff5fa2', '#ffad42': '#ff8f3f', '#ffe45c': '#ffd23f', '#b6ff4a': '#a5e34b',
+    '#28e7ff': '#2ec4b6', '#3dffb0': '#2ec4b6', '#4d8bff': '#3a86ff', '#a47bff': '#9b5de5' };
+  const mixHex = (a, b, k) => { const x = parseInt(a.slice(1), 16), y = parseInt(b.slice(1), 16), m = (s2) => Math.round(((x >> s2) & 255) * (1 - k) + ((y >> s2) & 255) * k); return 'rgb(' + m(16) + ',' + m(8) + ',' + m(0) + ')'; };
+  // 漫画的暗面往紫色偏、亮面往奶白偏（不是简单的加黑加白）
+  const celDark = (c) => mixHex(c, '#4a1f78', 0.42), celLight = (c) => mixHex(c, '#fff4e0', 0.5);
   // 一个光源：在旋转过的局部坐标里，按屏幕方向（主光左上）做明暗。rot：局部坐标相对屏幕转了多少；s：半径
   function litGrad(rot, s, stops) {
     const lx = LX * Math.cos(rot) + LY * Math.sin(rot), ly = -LX * Math.sin(rot) + LY * Math.cos(rot);
@@ -1390,7 +1438,8 @@
     };
     if (isBar) {
       ctx.fillStyle = 'rgba(10,2,25,0.95)'; roundRect(-w / 2 - 1.5, -h / 2 - 1.5, w + 3, h + 3, 3); ctx.fill();
-      ctx.fillStyle = ELOOK ? litGrad(rot, h * 0.6, STEEL) : steel(-h / 2, h / 2); roundRect(-w / 2, -h / 2, w, h, 2.5); ctx.fill();
+      ctx.fillStyle = GLOOK ? litGrad(rot, h * 0.6, [[0, '#eeeaf8'], [0.45, '#eeeaf8'], [0.45, '#a9a5c0'], [1, '#a9a5c0']]) : ELOOK ? litGrad(rot, h * 0.6, STEEL) : steel(-h / 2, h / 2); roundRect(-w / 2, -h / 2, w, h, 2.5); ctx.fill();
+      if (GLOOK) { ctx.strokeStyle = INK; ctx.lineWidth = 1.8; roundRect(-w / 2, -h / 2, w, h, 2.5); ctx.stroke(); }
       for (const sx of [-w / 2 + 3.6, w / 2 - 3.6]) {
         ctx.fillStyle = '#1d1a28'; ctx.beginPath(); ctx.arc(sx, 0, 2, 0, TAU); ctx.fill();
         ctx.strokeStyle = '#cfcbe3'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(sx - 1.3, -1.3); ctx.lineTo(sx + 1.3, 1.3); ctx.stroke();
@@ -1405,7 +1454,10 @@
     const U = () => { ctx.beginPath(); ctx.moveTo(-sw, -h / 2 + 3); ctx.lineTo(-sw, top); ctx.arc(0, top, sw, Math.PI, 0); ctx.lineTo(sw, -h / 2 + 3); };
     ctx.lineCap = 'butt';
     ctx.strokeStyle = 'rgba(8,2,20,0.95)'; ctx.lineWidth = 4.4; U(); ctx.stroke();
-    if (ELOOK) {
+    if (GLOOK) {
+      ctx.strokeStyle = INK; ctx.lineWidth = 4.6; U(); ctx.stroke();
+      ctx.strokeStyle = '#d9d6ee'; ctx.lineWidth = 2.4; U(); ctx.stroke();
+    } else if (ELOOK) {
       // 锁梁的明暗按屏幕方向（主光左上）
       const sr = rot + (st === 'stub' ? -0.55 : 0);
       ctx.strokeStyle = litGrad(sr, h * 0.7, STEEL); ctx.lineWidth = 2.8; U(); ctx.stroke();
@@ -1419,7 +1471,14 @@
     const pg = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
     const base = FLOOK ? (st === 'stub' ? '#5a5866' : '#8e8b9c') : st === 'stub' ? darken(color, 0.35) : color; // F：锁身是中性钢色，颜色只留在指示灯上
     pg.addColorStop(0, darken(base, 0.2)); pg.addColorStop(0.18, lighten(base, 0.6)); pg.addColorStop(0.32, base); pg.addColorStop(0.75, darken(base, 0.35)); pg.addColorStop(1, darken(base, 0.65));
-    if (ELOOK) {
+    if (GLOOK) {
+      // 漫画锁：硬边两三阶 + 墨线 + 主色指示条
+      const steelC = st === 'stub' ? '#8a86a0' : '#c9c5dc';
+      ctx.fillStyle = litGrad(rot, h * 0.62, [[0, celLight('#c9c5dc')], [0.4, celLight('#c9c5dc')], [0.4, steelC], [0.78, steelC], [0.78, celDark('#9a96b0')], [1, celDark('#9a96b0')]]);
+      roundRect(-w / 2, -h / 2, w, h, 4); ctx.fill();
+      ctx.fillStyle = st === 'stub' ? '#4a4660' : color; roundRect(-w / 2 + 1.5, h / 2 - 4.2, w - 3, 3.4, 1.2); ctx.fill();
+      ctx.strokeStyle = INK; ctx.lineWidth = 1.8; roundRect(-w / 2, -h / 2, w, h, 4); ctx.stroke();
+    } else if (ELOOK) {
       ctx.fillStyle = litGrad(rot, h * 0.62, [[0, lighten(base, 0.55)], [0.28, base], [0.7, darken(base, 0.3)], [1, darken(base, 0.6)]]);
       roundRect(-w / 2, -h / 2, w, h, 4); ctx.fill();
       // 镜面高光：落在朝主光的那个角
