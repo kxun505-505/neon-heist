@@ -106,9 +106,11 @@
     $('lvName').textContent = chap.name + ' · ' + ((n % PER) + 1);
     $('lvNum').textContent = t('level') + ' ' + (n + 1);
     bgIndex = qBg != null ? +qBg - 1 : CINE ? 0 : chap.bg; // 电影感用日落海岸（迈阿密黄金时刻）
-    Girl.setChapter(chap);
+    // E 测试页：把第 1 章的 Kira 放进画面看效果（第 28 关属于第 2 章，第 2 章的角色还是占位图）
+    Girl.setChapter(ELOOK && TEST_LEVEL ? (Girl.testChap = Girl.testChap || Object.assign({}, chap, { girl: CH.list[0].girl })) : chap);
     lastProgress = performance.now(); blockedTaps = [];
     if (n % PER === 0 && progress[n] == null) setTimeout(() => Girl.react('greet'), 600);
+    else if (ELOOK && TEST_LEVEL && !Girl.testGreeted) { Girl.testGreeted = true; setTimeout(() => Girl.react('greet'), 600); }
     $('score').textContent = money(0);
     $('win').classList.remove('show');
     layout();
