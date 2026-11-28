@@ -488,3 +488,5 @@ body.notrans *, body.notrans *::after { transition: none !important; }
   border: 2px solid #1a0b2e; background: #fff4e0; box-shadow: 0 3px 0 #1a0b2e; }
 #timeSwitch button { border: 0; background: transparent; color: #1a0b2e; font: 700 12px -apple-system, system-ui, sans-serif; padding: 5px 10px; }
 #timeSwitch button.on { background: #2f8cff; color: #fff; }
+/* E / F / G（用户 11-28）：标题只留「章节名 · 章内关卡号」，去掉下面的 LEVEL 标签 */
+.look-e #lvNum { display: none; }
