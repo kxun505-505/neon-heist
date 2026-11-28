@@ -18,17 +18,21 @@
   let LOOK = (location.search.match(/[?&]look=([\w-]+)/) || [])[1] || (() => { try { return localStorage.getItem('neonheist-look'); } catch (e) { return null; } })() || 'paint';
   // C 'cine-clean'：电影感，但消除零件时不撒钞票（用户 11-28：消除时画面太乱）
   // D 'real'：写实高清（用户 11-28：在 C 的基础上，更接近写实大作的美术、更清晰、锁扣小 15%、正式的按钮）
-  const REAL = HEIST && LOOK === 'real';
+  // E 'e'：按 docs/art-bible.md 统一（场景层写实 + 界面层海报风，7 色色板，一个光源，背景虚化，没有保险柜门板）
+  const ELOOK = HEIST && LOOK === 'e';
+  const REAL = HEIST && (LOOK === 'real' || ELOOK);
   const CINE = HEIST && (LOOK === 'cine' || LOOK === 'cine-clean' || REAL);
   const NOBILLS = HEIST && (LOOK === 'cine-clean' || REAL);
+  document.documentElement.classList.toggle('look-e', ELOOK);
+  if (ELOOK && document.fonts && document.fonts.load) document.fonts.load('40px Anton');
   document.documentElement.classList.toggle('look-cine', CINE);
   document.documentElement.classList.toggle('look-real', REAL);
   // 测试页上的 A/B 切换按钮
   if (HEIST && (TEST_LEVEL || /[?&]looks/.test(location.search))) window.addEventListener('DOMContentLoaded', () => {
     const box = document.createElement('div'); box.id = 'lookSwitch';
-    box.innerHTML = '<button data-l="paint">A</button><button data-l="cine">B</button><button data-l="cine-clean">C</button><button data-l="real">D 写实</button>';
+    box.innerHTML = '<button data-l="paint">A</button><button data-l="cine">B</button><button data-l="cine-clean">C</button><button data-l="real">D</button><button data-l="e">E 统一</button>';
     box.querySelectorAll('button').forEach((b) => {
-      b.classList.toggle('on', b.dataset.l === (REAL ? 'real' : NOBILLS ? 'cine-clean' : CINE ? 'cine' : 'paint'));
+      b.classList.toggle('on', b.dataset.l === (ELOOK ? 'e' : REAL ? 'real' : NOBILLS ? 'cine-clean' : CINE ? 'cine' : 'paint'));
       b.addEventListener('click', () => { try { localStorage.setItem('neonheist-look', b.dataset.l); } catch (e) { /* 隐私模式 */ } location.href = location.pathname + location.search.replace(/[?&]look=[\w-]+/, ''); });
     });
     document.body.appendChild(box);
@@ -92,6 +96,7 @@
     const lv = LEVELS[n];
     G = C.build(lv);
     S = C.initState(G);
+    if (ELOOK) G.rings.forEach((R) => { R.color = PAL7[R.color.toLowerCase()] || R.color; }); // 只改画面用的颜色
     footprint = RRLayout.footprint(lv);
     bounds = RRLayout.boundsOf(footprint);
     moves = 0; score = 0; shownScore = 0; won = false;
@@ -141,62 +146,31 @@
     scale = f.scale; ox = f.ox; oy = f.oy;
     const cx = ox + bounds.cx * scale, cy = oy + bounds.cy * scale;
     RRBg.paint(bg, W, H, DPR, { x: cx, y: cy, r: Math.max(bounds.w, bounds.h) * scale * 0.62 }, bgIndex);
-    if (HEIST) paintVault(cx, cy, bounds.w * scale, bounds.h * scale);
     if (REAL) bakeGrade();
   }
   // D 写实：调色和暗角只烤进背景层，零件画在上面保持清晰
   function bakeGrade() {
     const x = bg.getContext('2d'), w = bg.width, h = bg.height;
     x.save(); x.setTransform(1, 0, 0, 1, 0, 0);
+    if (ELOOK) {
+      // 景深：缩小再放大两次做模糊（不用 ctx.filter，老 Safari 不支持），像相机对焦在棋盘上
+      for (const k of [5, 3]) {
+        const tmp = document.createElement('canvas'); tmp.width = Math.max(1, Math.round(w / k)); tmp.height = Math.max(1, Math.round(h / k));
+        const tx = tmp.getContext('2d'); tx.imageSmoothingQuality = 'high'; tx.drawImage(bg, 0, 0, tmp.width, tmp.height);
+        x.imageSmoothingQuality = 'high'; x.clearRect(0, 0, w, h); x.drawImage(tmp, 0, 0, w, h);
+      }
+      // 提亮、降对比：一层暖色的 screen
+      x.globalCompositeOperation = 'screen'; x.fillStyle = 'rgba(255,150,120,0.16)'; x.fillRect(0, 0, w, h);
+      x.globalCompositeOperation = 'source-over';
+    }
     x.globalCompositeOperation = 'soft-light';
     let g = x.createLinearGradient(0, 0, 0, h);
     g.addColorStop(0, 'rgba(0,170,210,0.4)'); g.addColorStop(0.55, 'rgba(255,170,90,0.15)'); g.addColorStop(1, 'rgba(255,110,20,0.45)');
     x.fillStyle = g; x.fillRect(0, 0, w, h);
     x.globalCompositeOperation = 'source-over';
     g = x.createRadialGradient(w / 2, h * 0.48, Math.min(w, h) * 0.45, w / 2, h * 0.48, Math.max(w, h) * 0.8);
-    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(10,0,6,0.5)');
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, ELOOK ? 'rgba(10,0,6,0.28)' : 'rgba(10,0,6,0.5)');
     x.fillStyle = g; x.fillRect(0, 0, w, h);
-    x.restore();
-  }
-  const vaultCv = document.createElement('canvas');
-  let vaultRect = null;
-  // 劫案皮肤：棋盘后面一块半透明的保险柜门板（拉丝钢、铆钉、左侧两个合页），直接画进背景层
-  function paintVault(cx, cy, bw, bh) {
-    // 单独画在一层上：过关时这扇门要转开
-    vaultCv.width = cv.width; vaultCv.height = cv.height;
-    const x = vaultCv.getContext('2d');
-    x.save(); x.setTransform(DPR, 0, 0, DPR, 0, 0);
-    const m = 20, w = Math.min(W - 8, bw + m * 2), h = bh + m * 2, x0 = cx - w / 2, y0 = cy - h / 2, rr = 22;
-    vaultRect = { x0, y0, w, h };
-    // 不用 ctx.roundRect（iOS 15 没有）
-    const rrect = (X, Y, w2, h2, r) => { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + w2, Y, X + w2, Y + h2, r); x.arcTo(X + w2, Y + h2, X, Y + h2, r); x.arcTo(X, Y + h2, X, Y, r); x.arcTo(X, Y, X + w2, Y, r); x.closePath(); };
-    const box = (k) => rrect(x0 + k, y0 + k, w - 2 * k, h - 2 * k, Math.max(4, rr - k));
-    let g = x.createLinearGradient(x0, y0, x0 + w, y0 + h);
-    if (CINE) { g.addColorStop(0, 'rgba(90,80,96,0.42)'); g.addColorStop(0.45, 'rgba(30,24,36,0.4)'); g.addColorStop(0.55, 'rgba(60,50,64,0.4)'); g.addColorStop(1, 'rgba(16,10,20,0.5)'); }
-    else { g.addColorStop(0, 'rgba(58,52,84,0.62)'); g.addColorStop(0.5, 'rgba(30,26,46,0.62)'); g.addColorStop(1, 'rgba(20,16,32,0.66)'); }
-    x.fillStyle = g; box(0); x.fill();
-    // 拉丝纹理
-    x.save(); box(0); x.clip();
-    for (let yy = y0; yy < y0 + h; yy += 2.2) { x.strokeStyle = 'rgba(255,255,255,' + (0.012 + Math.random() * 0.02) + ')'; x.lineWidth = 0.6; x.beginPath(); x.moveTo(x0, yy); x.lineTo(x0 + w, yy + (Math.random() - 0.5)); x.stroke(); }
-    x.restore();
-    x.lineWidth = 2.5; x.strokeStyle = 'rgba(150,142,190,0.55)'; box(0); x.stroke();
-    x.lineWidth = 1; x.strokeStyle = 'rgba(0,0,0,0.5)'; box(9); x.stroke();
-    x.strokeStyle = 'rgba(255,255,255,0.08)'; box(10); x.stroke();
-    // 铆钉
-    const rivet = (px, py) => {
-      const rg = x.createRadialGradient(px - 0.8, py - 1, 0.2, px, py, 3);
-      rg.addColorStop(0, 'rgba(255,255,255,0.75)'); rg.addColorStop(0.5, 'rgba(150,142,180,0.6)'); rg.addColorStop(1, 'rgba(30,24,48,0.6)');
-      x.fillStyle = rg; x.beginPath(); x.arc(px, py, 2.6, 0, TAU); x.fill();
-    };
-    const nx = Math.max(2, Math.round((w - 30) / 44)), ny = Math.max(2, Math.round((h - 30) / 44));
-    for (let i = 0; i <= nx; i++) { const px = x0 + 15 + (w - 30) * i / nx; rivet(px, y0 + 5); rivet(px, y0 + h - 5); }
-    for (let i = 1; i < ny; i++) { const py = y0 + 15 + (h - 30) * i / ny; rivet(x0 + 5, py); rivet(x0 + w - 5, py); }
-    // 合页
-    for (const py of [y0 + h * 0.2, y0 + h * 0.8]) {
-      g = x.createLinearGradient(x0 - 5, 0, x0 + 4, 0);
-      g.addColorStop(0, 'rgba(40,34,60,0.9)'); g.addColorStop(0.45, 'rgba(210,205,235,0.85)'); g.addColorStop(1, 'rgba(60,54,84,0.9)');
-      x.fillStyle = g; rrect(x0 - 5, py - 22, 9, 44, 3); x.fill();
-    }
     x.restore();
   }
   function resize() {
@@ -361,7 +335,8 @@
       bumpScore();
       const R = G.rings[events.find((e) => e.type === 'fly').i];
       const wx = R.kind === 'bar' ? R.x : R.x, wy = R.kind === 'bar' ? R.y - 30 : R.y - R.r - 20;
-      if (combo.n >= 2 || flew >= 2) {
+      if (ELOOK) { if (combo.n >= 2) comboTag(combo.n); } // E：棋盘上不弹字，连击放在金额旁边
+      else if (combo.n >= 2 || flew >= 2) {
         const words = HEIST ? ['', '', 'Cracked!', 'Jackpot!', 'Big Score!', 'Untouchable!'] : ['', '', 'Great!', 'Excellent!', 'Amazing!', 'Unreal!'];
         fx.push({ type: 'word', text: words[Math.min(combo.n, 5)], x: wx, y: wy, t0: ft });
       } else fx.push({ type: 'word', text: HEIST ? 'Click!' : 'Good!', x: wx, y: wy, t0: ft, small: true });
@@ -440,7 +415,15 @@
 
 
 
-  let scoreTimer = 0;
+  let scoreTimer = 0, comboTimer = 0;
+  // E：金额旁边的连击标签「×N」
+  function comboTag(n) {
+    let el = $('comboTag');
+    if (!el) { el = document.createElement('div'); el.id = 'comboTag'; $('scoreBox').appendChild(el); }
+    el.textContent = '×' + n;
+    el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+    clearTimeout(comboTimer); comboTimer = setTimeout(() => el.classList.remove('show'), 1300);
+  }
   function bumpScore() {
     const el = $('score');
     el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
@@ -461,7 +444,7 @@
     const newBg = firstClear && ci + 1 < CH.list.length && chapterDone(ci);
     setTimeout(() => Girl.react(isNew ? rw.kind : 'clear'), 450);
     // 劫案皮肤：保险柜门转开（和“保险箱打开”的声音对齐：把手 → 门闩 → 密封嘶声时门开始转）
-    if (HEIST) { setTimeout(() => HA.vault(), 550); stampAt = performance.now() + 950; }
+    if (HEIST) { setTimeout(() => HA.vault(), 550); stampAt = performance.now() + 850; }
     const wp = $('winPhoto');
     wp.classList.toggle('show', isNew);
     wp.classList.toggle('soon', isNew && !rsrc);
@@ -1134,8 +1117,9 @@
     const now = performance.now(), hitK = Math.max(0, 1 - (now - alarmT) / 450);
     ctx.save(); ctx.translate(x, y); ctx.rotate(a);
     ctx.fillStyle = 'rgba(8,2,20,0.95)'; roundRect(-KNOB - 1.5, -KNOB - 1.5, KNOB * 2 + 3, KNOB * 2 + 3, 4); ctx.fill();
-    const kg = ctx.createLinearGradient(0, -KNOB, 0, KNOB);
-    kg.addColorStop(0, '#6a6684'); kg.addColorStop(0.3, '#d9d6ee'); kg.addColorStop(0.55, '#4a4660'); kg.addColorStop(1, '#25222f');
+    let kg;
+    if (ELOOK) kg = litGrad(a, KNOB * 1.2, STEEL);
+    else { kg = ctx.createLinearGradient(0, -KNOB, 0, KNOB); kg.addColorStop(0, '#6a6684'); kg.addColorStop(0.3, '#d9d6ee'); kg.addColorStop(0.55, '#4a4660'); kg.addColorStop(1, '#25222f'); }
     ctx.fillStyle = kg; roundRect(-KNOB, -KNOB, KNOB * 2, KNOB * 2, 3); ctx.fill();
     ctx.strokeStyle = R.color; ctx.lineWidth = 1.3; roundRect(-KNOB + 1.2, -KNOB + 1.2, KNOB * 2 - 2.4, KNOB * 2 - 2.4, 2); ctx.stroke();
     const p = 0.45 + 0.4 * (0.5 + 0.5 * Math.sin(now / 420 + k.at * 7)), on = Math.min(1, p + hitK);
@@ -1194,6 +1178,17 @@
 
   // 劫案皮肤：直杆 = 金条。金色烤漆管 + 中间压印的成色章 + 两端斜切面
   const GOLD = '#f2b630';
+  // docs/art-bible.md 第 4 节：7 种零件色，明度拉齐
+  const PAL7 = { '#ff3df2': '#ff4f9a', '#ff4d6d': '#ff4f9a', '#ffad42': '#ff8a4c', '#ffe45c': '#ffc93c', '#b6ff4a': '#9be15a',
+    '#28e7ff': '#2dd4bf', '#3dffb0': '#2dd4bf', '#4d8bff': '#4f9dff', '#a47bff': '#a274ff' };
+  // 一个光源：在旋转过的局部坐标里，按屏幕方向（主光左上）做明暗。rot：局部坐标相对屏幕转了多少；s：半径
+  function litGrad(rot, s, stops) {
+    const lx = LX * Math.cos(rot) + LY * Math.sin(rot), ly = -LX * Math.sin(rot) + LY * Math.cos(rot);
+    const g = ctx.createLinearGradient(lx * s, ly * s, -lx * s, -ly * s);
+    stops.forEach(([k, c]) => g.addColorStop(k, c));
+    return g;
+  }
+  const STEEL = [[0, '#ffffff'], [0.3, '#cfcbe3'], [0.62, '#6d6984'], [1, '#2a2738']];
   function goldBar(ax, ay, bx, by, w, glow) {
     lineTube(ax, ay, bx, by, GOLD, w, glow);
     const a = Math.atan2(by - ay, bx - ax), len = Math.hypot(bx - ax, by - ay);
@@ -1260,7 +1255,7 @@
       const cg = ctx.createLinearGradient(-w / 2, 0, w / 2, 0);
       cg.addColorStop(0, '#4a4760'); cg.addColorStop(0.3, '#ffffff'); cg.addColorStop(0.55, '#8d8aa6'); cg.addColorStop(0.75, '#2a2738'); cg.addColorStop(1, '#cfcbe3');
       ctx.fillStyle = 'rgba(8,2,20,0.9)'; roundRect(-w / 2 - 1.5, -2.6, w + 3, 5.2, 1.5); ctx.fill();
-      ctx.fillStyle = cg; roundRect(-w / 2 - 0.8, -1.9, w + 1.6, 3.8, 1.2); ctx.fill();
+      ctx.fillStyle = ELOOK ? litGrad(a, w * 0.55, STEEL) : cg; roundRect(-w / 2 - 0.8, -1.9, w + 1.6, 3.8, 1.2); ctx.fill();
       ctx.restore();
     }
     ctx.restore();
@@ -1298,7 +1293,7 @@
     ctx.save(); ctx.rotate(-(dir + Math.PI / 2));
     ctx.fillStyle = 'rgba(5,0,15,0.4)'; ctx.beginPath(); ctx.ellipse(2.5, 5, w * 0.62, h * 0.62, dir + Math.PI / 2, 0, TAU); ctx.fill();
     ctx.restore();
-    if (HEIST) { if (REAL && !isBar) ctx.scale(0.85, 0.85); padlock(color, w, h, st, isBar); ctx.restore(); return; } // D：锁扣小 15%（只改画面，碰撞不变）
+    if (HEIST) { if (REAL && !isBar) ctx.scale(0.85, 0.85); padlock(color, w, h, st, isBar, dir + Math.PI / 2); ctx.restore(); return; } // D：锁扣小 15%（只改画面，碰撞不变）
     ctx.fillStyle = 'rgba(10,2,25,0.95)';
     roundRect(-w / 2 - 1.5, -h / 2 - 1.5, w + 3, h + 3, 5); ctx.fill();
     // 套筒本体：与主环同色的烤漆，横向是圆柱明暗（光从上方来）
@@ -1324,7 +1319,7 @@
    * st：null 锁着；'open' 缺口对上了，锁梁弹起一点；'stub' 被扣环已经走了，留下的空锁，锁梁歪开、锁身有撬痕。
    * isBar：直杆的卡座，画成带两颗螺丝的钢支架。
    */
-  function padlock(color, w, h, st, isBar) {
+  function padlock(color, w, h, st, isBar, rot) {
     const steel = (y0, y1) => {
       const g = ctx.createLinearGradient(0, y0, 0, y1);
       g.addColorStop(0, '#5d5a70'); g.addColorStop(0.2, '#ffffff'); g.addColorStop(0.45, '#a7a4bd'); g.addColorStop(0.6, '#2a2738'); g.addColorStop(0.85, '#d9d6ee'); g.addColorStop(1, '#4a4760');
@@ -1332,7 +1327,7 @@
     };
     if (isBar) {
       ctx.fillStyle = 'rgba(10,2,25,0.95)'; roundRect(-w / 2 - 1.5, -h / 2 - 1.5, w + 3, h + 3, 3); ctx.fill();
-      ctx.fillStyle = steel(-h / 2, h / 2); roundRect(-w / 2, -h / 2, w, h, 2.5); ctx.fill();
+      ctx.fillStyle = ELOOK ? litGrad(rot, h * 0.6, STEEL) : steel(-h / 2, h / 2); roundRect(-w / 2, -h / 2, w, h, 2.5); ctx.fill();
       for (const sx of [-w / 2 + 3.6, w / 2 - 3.6]) {
         ctx.fillStyle = '#1d1a28'; ctx.beginPath(); ctx.arc(sx, 0, 2, 0, TAU); ctx.fill();
         ctx.strokeStyle = '#cfcbe3'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(sx - 1.3, -1.3); ctx.lineTo(sx + 1.3, 1.3); ctx.stroke();
@@ -1347,18 +1342,35 @@
     const U = () => { ctx.beginPath(); ctx.moveTo(-sw, -h / 2 + 3); ctx.lineTo(-sw, top); ctx.arc(0, top, sw, Math.PI, 0); ctx.lineTo(sw, -h / 2 + 3); };
     ctx.lineCap = 'butt';
     ctx.strokeStyle = 'rgba(8,2,20,0.95)'; ctx.lineWidth = 4.4; U(); ctx.stroke();
-    ctx.strokeStyle = '#b9b6cf'; ctx.lineWidth = 2.8; U(); ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 0.9; ctx.save(); ctx.translate(-0.5, -0.5); U(); ctx.stroke(); ctx.restore();
+    if (ELOOK) {
+      // 锁梁的明暗按屏幕方向（主光左上）
+      const sr = rot + (st === 'stub' ? -0.55 : 0);
+      ctx.strokeStyle = litGrad(sr, h * 0.7, STEEL); ctx.lineWidth = 2.8; U(); ctx.stroke();
+    } else {
+      ctx.strokeStyle = '#b9b6cf'; ctx.lineWidth = 2.8; U(); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)'; ctx.lineWidth = 0.9; ctx.save(); ctx.translate(-0.5, -0.5); U(); ctx.stroke(); ctx.restore();
+    }
     ctx.restore();
     // 锁身
     ctx.fillStyle = 'rgba(10,2,25,0.95)'; roundRect(-w / 2 - 1.5, -h / 2 - 1.5, w + 3, h + 3, 5); ctx.fill();
     const pg = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
     const base = st === 'stub' ? darken(color, 0.35) : color;
     pg.addColorStop(0, darken(base, 0.2)); pg.addColorStop(0.18, lighten(base, 0.6)); pg.addColorStop(0.32, base); pg.addColorStop(0.75, darken(base, 0.35)); pg.addColorStop(1, darken(base, 0.65));
+    if (ELOOK) {
+      ctx.fillStyle = litGrad(rot, h * 0.62, [[0, lighten(base, 0.55)], [0.28, base], [0.7, darken(base, 0.3)], [1, darken(base, 0.6)]]);
+      roundRect(-w / 2, -h / 2, w, h, 4); ctx.fill();
+      // 镜面高光：落在朝主光的那个角
+      const lx = LX * Math.cos(rot) + LY * Math.sin(rot), ly = -LX * Math.sin(rot) + LY * Math.cos(rot);
+      const hx = lx * w * 0.3, hy = ly * h * 0.3, hg = ctx.createRadialGradient(hx, hy, 0, hx, hy, w * 0.32);
+      hg.addColorStop(0, 'rgba(255,255,255,0.85)'); hg.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = hg; roundRect(-w / 2, -h / 2, w, h, 4); ctx.fill();
+      ctx.fillStyle = litGrad(rot, h * 0.6, STEEL); roundRect(-w / 2 + 0.5, h / 2 - 3.4, w - 1, 3.2, 1.2); ctx.fill();
+    } else {
     ctx.fillStyle = pg; roundRect(-w / 2, -h / 2, w, h, 4); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.85)'; roundRect(-w / 2 + 3, -h / 2 + 2.2, w - 6, 1.4, 0.7); ctx.fill();
     // 底部钢箍
     ctx.fillStyle = steel(h / 2 - 3.4, h / 2); roundRect(-w / 2 + 0.5, h / 2 - 3.4, w - 1, 3.2, 1.2); ctx.fill();
+    }
     // 钥匙孔
     ctx.fillStyle = 'rgba(10,2,25,0.92)';
     ctx.beginPath(); ctx.arc(0, -1.2, 2.1, 0, TAU); ctx.fill();
@@ -1384,120 +1396,72 @@
   }
 
   /*
-   * 劫案皮肤的过关效果（用户 11-28：原来的“VAULT OPEN”章没有成就感，猛一看像失败）：
-   * 棋盘后面那扇保险柜门绕左边的合页转开 → 门里是一柜子金条，金光从里面照出来、光芒慢慢转 → 钞票从屏幕上方落下来 →
-   * 正中间“SAFE CRACKED”金字弹出，扫过一道白光，下面的赃款数字从 0 滚到本关得分（每跳一下是一声很轻的密码盘咔哒，越来越高）。
-   * 全部用上扬的动作和暖金色，不歪、不加框（歪着的框像“拒绝”章）。
+   * 劫案皮肤的过关效果（海报风，docs/art-bible.md 第 7 节；11-28 起不再有保险柜门）：
+   * 放射状硬边光芒（金、橙两色交替，慢慢转）→ 斜切的「SAFE CRACKED」热粉横幅从左边滑进来 →
+   * 下面的钞票绿金额标签，数字从 $0 滚到本关得分（每跳一下是一声很轻、越来越高的密码盘咔哒）。
+   * 全部是平涂、墨线、往右下的硬投影；不用发光、渐变字和歪着的框（像“拒绝”章）。有钞票的画法（A、B）再加钞票雨。
    */
-  const DOOR = 0.6;
+  const INK = '#1a0b2e', CREAM = '#fff4e0';
   let rain = [], counted = -1, stampFreeze = null; // stampFreeze：截图检查用，把过关动画定格在第几秒
-  function easeInOut(k) { return k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; }
-  function drawVaultLayer(now) {
-    if (!HEIST || !vaultRect) return;
-    const t = stampFreeze != null ? stampFreeze : stampAt ? (now - stampAt) / 1000 : -1;
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    if (t < 0) { ctx.drawImage(vaultCv, 0, 0); return; }
-    const { x0, y0, w, h } = vaultRect, k = easeInOut(Math.min(1, t / DOOR));
-    ctx.save(); ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    // 门里：深色柜体 + 金光 + 三层金条
-    ctx.save();
-    ctx.beginPath(); ctx.rect(x0, y0, w, h); ctx.clip();
-    ctx.fillStyle = 'rgba(20,10,4,0.92)'; ctx.fillRect(x0, y0, w, h);
-    const cx = x0 + w / 2, cy = y0 + h * 0.55, glow = Math.min(1, t / 0.5);
-    let g = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.max(w, h) * 0.7);
-    g.addColorStop(0, 'rgba(255,214,120,' + 0.85 * glow + ')'); g.addColorStop(0.45, 'rgba(255,150,40,' + 0.35 * glow + ')'); g.addColorStop(1, 'rgba(120,40,0,0)');
-    ctx.fillStyle = g; ctx.fillRect(x0, y0, w, h);
-    const bw = Math.min(46, w / 6), bh = bw * 0.42;
-    for (let row = 0; row < 4; row++) {
-      const yy = y0 + h * 0.62 + row * (bh + 10), n = Math.floor((w - 30) / (bw + 8));
-      ctx.fillStyle = 'rgba(60,30,0,0.8)'; ctx.fillRect(x0 + 8, yy + bh + 2, w - 16, 3);
-      for (let i = 0; i < n; i++) {
-        const bx = x0 + 15 + i * (bw + 8) + (row % 2) * 6;
-        const gg = ctx.createLinearGradient(0, yy, 0, yy + bh);
-        gg.addColorStop(0, '#fff3b0'); gg.addColorStop(0.35, '#f2b630'); gg.addColorStop(1, '#8a5a00');
-        ctx.fillStyle = gg; ctx.beginPath(); ctx.moveTo(bx + 5, yy); ctx.lineTo(bx + bw - 5, yy); ctx.lineTo(bx + bw, yy + bh); ctx.lineTo(bx, yy + bh); ctx.closePath(); ctx.fill();
-      }
-    }
-    // 光芒：从柜子中间往外，慢慢转
-    ctx.globalCompositeOperation = 'lighter';
-    ctx.translate(cx, cy); ctx.rotate(t * 0.35);
-    for (let i = 0; i < 12; i++) {
-      ctx.rotate(TAU / 12);
-      const rg = ctx.createLinearGradient(0, 0, 0, -Math.max(w, h));
-      rg.addColorStop(0, 'rgba(255,230,150,' + 0.22 * glow + ')'); rg.addColorStop(1, 'rgba(255,230,150,0)');
-      ctx.fillStyle = rg; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-18, -Math.max(w, h)); ctx.lineTo(18, -Math.max(w, h)); ctx.closePath(); ctx.fill();
-    }
-    ctx.restore();
-    // 门：绕左边合页转开（横向压扁 + 一点透视的竖向错切），露出门的厚度
-    if (k < 0.999) {
-      const sx = Math.cos(k * Math.PI * 0.5), shear = Math.sin(k * Math.PI * 0.5) * 0.12;
-      ctx.save();
-      ctx.translate(x0, y0 + h / 2);
-      ctx.transform(sx, -shear, 0, 1, 0, 0);
-      ctx.translate(-x0, -(y0 + h / 2));
-      ctx.drawImage(vaultCv, x0 * DPR, y0 * DPR, w * DPR, h * DPR, x0, y0, w, h);
-      ctx.fillStyle = 'rgba(0,0,0,' + 0.55 * k + ')'; ctx.fillRect(x0, y0, w, h);
-      // 门的厚度：贴在门的自由边外侧（在变换后的坐标里画，宽度除以压扁比例，屏幕上约 10 像素）
-      const ew = (10 * Math.sin(k * Math.PI * 0.5)) / Math.max(0.06, sx);
-      const eg = ctx.createLinearGradient(x0 + w, 0, x0 + w + ew, 0);
-      eg.addColorStop(0, '#9a96b0'); eg.addColorStop(1, '#2a2738');
-      ctx.fillStyle = eg; ctx.fillRect(x0 + w, y0 + 6, ew, h - 12);
-      ctx.restore();
-    }
-    ctx.restore();
+  const easeOutBack = (k) => 1 + 2.2 * Math.pow(k - 1, 3) + 1.2 * Math.pow(k - 1, 2);
+  // 斜切的海报标签：平涂底 + 墨线 + 往右下的硬投影
+  function posterTag(cx, cy, w, h, fill, skew) {
+    const sk = h * Math.tan(skew), path = (dx, dy) => { ctx.beginPath(); ctx.moveTo(cx - w / 2 + sk / 2 + dx, cy - h / 2 + dy); ctx.lineTo(cx + w / 2 + sk / 2 + dx, cy - h / 2 + dy); ctx.lineTo(cx + w / 2 - sk / 2 + dx, cy + h / 2 + dy); ctx.lineTo(cx - w / 2 - sk / 2 + dx, cy + h / 2 + dy); ctx.closePath(); };
+    ctx.fillStyle = INK; path(0, 5); ctx.fill();
+    ctx.fillStyle = fill; path(0, 0); ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = INK; ctx.lineJoin = 'round'; path(0, 0); ctx.stroke();
+  }
+  function posterText(text, x, y, size, fill) {
+    ctx.font = size + 'px Anton, Impact, "Arial Narrow", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round'; ctx.fillStyle = INK; ctx.fillText(text, x + 0.5, y + 3.5);
+    ctx.lineWidth = 4; ctx.strokeStyle = INK; ctx.strokeText(text, x, y);
+    ctx.fillStyle = fill; ctx.fillText(text, x, y);
   }
   function drawStamp(now) {
     if (stampFreeze == null && (!stampAt || now < stampAt)) return;
     const t = stampFreeze != null ? stampFreeze : (now - stampAt) / 1000;
     ctx.save();
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    // 钞票雨：从屏幕上方落下
-    if (!rain.length) for (let i = 0; i < 46; i++) rain.push({ x: Math.random() * W, y: -20 - Math.random() * H * 0.5, vy: 160 + Math.random() * 140, ph: Math.random() * 6, vr: (Math.random() - 0.5) * 3, d: Math.random() * 0.5 });
-    for (const b of rain) {
-      const tt = t - 0.1 - b.d;
-      if (tt < 0) continue;
-      const y = b.y + b.vy * tt, x = b.x + Math.sin(tt * 3 + b.ph) * 14;
-      if (y > H + 20) continue;
-      ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(tt * 2 + b.ph) * 0.6 + b.vr * tt); ctx.scale(1.3, 1.3 * (0.35 + 0.65 * Math.abs(Math.cos(tt * 6 + b.ph))));
-      ctx.fillStyle = '#0d3a1f'; ctx.fillRect(-6.5, -3.4, 13, 6.8);
-      ctx.fillStyle = '#46c072'; ctx.fillRect(-5.8, -2.7, 11.6, 5.4);
-      ctx.fillStyle = '#b8f5c8'; ctx.beginPath(); ctx.ellipse(0, 0, 2.2, 1.9, 0, 0, TAU); ctx.fill();
-      ctx.restore();
+    const cx = W / 2, cy = Math.max(150, oy + bounds.cy * scale - 30);
+    // 光芒：硬边扇形，两色交替
+    const ra = Math.min(1, t / 0.25), R = Math.hypot(W, H);
+    ctx.save(); ctx.globalAlpha = 0.55 * ra; ctx.translate(cx, cy); ctx.rotate(t * 0.25);
+    for (let k = 0; k < 16; k++) {
+      ctx.fillStyle = k % 2 ? '#ff8a4c' : '#ffc93c';
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, R, (k / 16) * TAU, ((k + 1) / 16) * TAU); ctx.closePath(); ctx.fill();
     }
-    // 金字和赃款数字
-    const tt = t - 0.25;
-    if (tt > 0) {
-      const s = tt < 0.16 ? 0.6 + (tt / 0.16) * 0.5 : tt < 0.28 ? 1.1 - ((tt - 0.16) / 0.12) * 0.1 : 1;
-      const cy = Math.max(110, (vaultRect ? vaultRect.y0 + vaultRect.h * 0.32 : H * 0.35));
-      ctx.translate(W / 2, cy - (1 - Math.min(1, tt / 0.28)) * 18);
-      ctx.save(); ctx.scale(s, s);
-      ctx.globalAlpha = Math.min(1, tt / 0.12);
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.font = '900 italic 40px system-ui, -apple-system, sans-serif';
-      const text = 'SAFE CRACKED', tw = ctx.measureText(text).width;
-      const g = ctx.createLinearGradient(0, -22, 0, 22);
-      g.addColorStop(0, '#fffbe0'); g.addColorStop(0.45, '#ffd25c'); g.addColorStop(1, '#ff9a2e');
-      ctx.shadowColor = 'rgba(255,190,60,0.9)'; ctx.shadowBlur = 24;
-      ctx.lineWidth = 7; ctx.strokeStyle = '#3a1800'; ctx.strokeText(text, 0, 0);
-      ctx.shadowBlur = 0;
-      ctx.fillStyle = g; ctx.fillText(text, 0, 0);
-      // 扫过一道白光
-      const sx = -tw / 2 - 40 + ((tt * 1.4) % 1.6) * (tw + 80) / 1.0;
-      ctx.save();
-      ctx.globalCompositeOperation = 'source-atop';
-      const sg = ctx.createLinearGradient(sx - 30, 0, sx + 30, 0);
-      sg.addColorStop(0, 'rgba(255,255,255,0)'); sg.addColorStop(0.5, 'rgba(255,255,255,0.9)'); sg.addColorStop(1, 'rgba(255,255,255,0)');
-      ctx.fillStyle = sg; ctx.fillText(text, 0, 0);
-      ctx.restore();
-      ctx.restore();
-      // 赃款数字从 0 滚到本关得分
-      const ck = Math.min(1, Math.max(0, (tt - 0.15) / 0.9)), val = Math.round((1 - Math.pow(1 - ck, 3)) * score / 100) * 100;
+    ctx.restore();
+    // 钞票雨（只有带钞票的画法）
+    if (!NOBILLS) {
+      if (!rain.length) for (let i = 0; i < 46; i++) rain.push({ x: Math.random() * W, y: -20 - Math.random() * H * 0.5, vy: 160 + Math.random() * 140, ph: Math.random() * 6, vr: (Math.random() - 0.5) * 3, d: Math.random() * 0.5 });
+      for (const b of rain) {
+        const tt = t - 0.1 - b.d;
+        if (tt < 0) continue;
+        const y = b.y + b.vy * tt, x = b.x + Math.sin(tt * 3 + b.ph) * 14;
+        if (y > H + 20) continue;
+        ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(tt * 2 + b.ph) * 0.6 + b.vr * tt); ctx.scale(1.3, 1.3 * (0.35 + 0.65 * Math.abs(Math.cos(tt * 6 + b.ph))));
+        ctx.fillStyle = '#0d3a1f'; ctx.fillRect(-6.5, -3.4, 13, 6.8);
+        ctx.fillStyle = '#46c072'; ctx.fillRect(-5.8, -2.7, 11.6, 5.4);
+        ctx.fillStyle = '#b8f5c8'; ctx.beginPath(); ctx.ellipse(0, 0, 2.2, 1.9, 0, 0, TAU); ctx.fill();
+        ctx.restore();
+      }
+    }
+    // 横幅从左边滑进来（带一点回弹）
+    const bt = Math.min(1, Math.max(0, (t - 0.12) / 0.32));
+    if (bt > 0) {
+      const bw = Math.min(W - 40, 320), bx = cx - (1 - easeOutBack(bt)) * (W * 0.9);
+      posterTag(bx, cy, bw, 66, '#ff4f9a', -0.1);
+      posterText('SAFE CRACKED', bx, cy + 2, 44, CREAM);
+    }
+    // 金额标签从下面弹上来，数字滚动
+    const mt = Math.min(1, Math.max(0, (t - 0.38) / 0.25));
+    if (mt > 0) {
+      const ck = Math.min(1, Math.max(0, (t - 0.5) / 0.9)), val = Math.round((1 - Math.pow(1 - ck, 3)) * score / 100) * 100;
       if (val !== counted && ck > 0) { counted = val; HA.count(ck); }
-      ctx.globalAlpha = Math.min(1, Math.max(0, (tt - 0.1) / 0.15));
-      ctx.font = '900 italic 34px system-ui, -apple-system, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.lineWidth = 6; ctx.strokeStyle = '#05300f'; ctx.strokeText(money(val), 0, 46);
-      const mg = ctx.createLinearGradient(0, 30, 0, 62); mg.addColorStop(0, '#d9ffe4'); mg.addColorStop(1, '#3fdc78');
-      ctx.fillStyle = mg; ctx.fillText(money(val), 0, 46);
+      const my = cy + 64 + (1 - easeOutBack(mt)) * 30;
+      ctx.globalAlpha = Math.min(1, mt * 2);
+      posterTag(cx, my, 190, 50, '#2fbf71', -0.1);
+      posterText(money(val), cx, my + 2, 32, CREAM);
     }
     ctx.restore();
   }
@@ -1835,7 +1799,6 @@
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
     ctx.drawImage(bg, 0, 0);
-    drawVaultLayer(now);
     if (G) {
       // 慢镜头开始的一瞬间镜头抖一下
       let sx = 0, sy = 0;

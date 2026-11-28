@@ -108,7 +108,7 @@ BUDGET=1700000 tools/verify.sh playtest.html  # 用合成触摸事件把每关�
 - App 图标按 C 夕阳复古重做：`tools/icon.html` 画，`tools/icon.sh` 出 `icon.png`（180）和 `store-icon-512.png`（Google Play 商店用）。
 
 **进行中**
-- 撬锁劫案皮肤（`?skin=heist`）在第三个网址单关测试，等用户反馈美术、音效和手感。音效在 `src/heist-audio.js`，试听页是 `tools/sounds.html`。用户认可后，再决定是否设为默认，以及台词和视频怎么按「每章一单活」重写。
+- 撬锁劫案皮肤（`?skin=heist`）在第三个网址单关测试（第 28 关，A-E 五种画法可以切换，E 是按 `docs/art-bible.md` 统一后的版本；保险柜门板已经删掉，以后不用），等用户反馈美术、音效和手感。音效在 `src/heist-audio.js`，试听页是 `tools/sounds.html`。用户认可后，再决定是否设为默认，以及台词和视频怎么按「每章一单活」重写。
 **待办**
 - **第 41-100 关**：交给 Codex 跑，见 `docs/codex-handoff.md`。生成好之后，用 `cli.js apply` 或拼装脚本写进 `src/levels.js`，补 6 种语言的提示（`src/i18n.js` 的 `tips`）和奖励素材路径（`src/chapters.js`）。
 - **素材**：第 1 章还缺正式的照片 16 张和视频 4 段；第 2 章的角色设定、立绘、照片和视频都还没做。出图需求的写法参考 `docs/ch1-gpt-asset-pack.md`。
@@ -119,6 +119,7 @@ BUDGET=1700000 tools/verify.sh playtest.html  # 用合成触摸事件把每关�
 
 | 文件 | 内容 |
 |---|---|
+| `docs/art-bible.md` | **美术规范**：场景层写实 + 界面层海报风，光源、7 色色板、字体、投影、女生画法、禁止项。所有出图都按它做 |
 | `docs/DEVLOG.md` | **开发历程**：按时间记录用户的每个要求、做法、被否掉的方案和原因、用户反馈 |
 | `docs/level-rules.md` | 关卡准则、验收标准 A-F 和指标定义 |
 | `docs/original-analysis.md` | 原作第 1-40 关逐关分析和难度规律 |
