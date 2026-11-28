@@ -11,11 +11,13 @@
   const SKIN = (location.search.match(/[?&]skin=(\w+)/) || [])[1] || document.documentElement.dataset.skin || 'classic';
   const HEIST = SKIN === 'heist' && !!window.RRHeistAudio, HA = window.RRHeistAudio;
   const TEST_LEVEL = +((location.search.match(/[?&]test=(\d+)/) || [])[1] || document.documentElement.dataset.testLevel || 0);
+  // 测试页连续玩一段关卡（例如第 1-5 关的剧情小样）：<html data-test-level="1" data-test-to="5">，打完最后一关回到第一关
+  const TEST_TO = +((location.search.match(/[?&]testto=(\d+)/) || [])[1] || document.documentElement.dataset.testTo || 0);
   document.documentElement.classList.toggle('skin-heist', HEIST);
   document.documentElement.classList.toggle('test-solo', !!TEST_LEVEL);
   const UNLOCK_ALL = !!TEST_LEVEL || /[?&]unlock/.test(location.search);
   // 劫案皮肤的两种画法：A 'paint' 烤漆管（默认）；B 'cine' 电影感（高清金属 + 夕阳调色 + 胶片颗粒），?look=cine 或测试页上的切换按钮
-  let LOOK = (location.search.match(/[?&]look=([\w-]+)/) || [])[1] || (() => { try { return localStorage.getItem('neonheist-look'); } catch (e) { return null; } })() || 'paint';
+  let LOOK = (location.search.match(/[?&]look=([\w-]+)/) || [])[1] || (() => { try { return localStorage.getItem('neonheist-look'); } catch (e) { return null; } })() || document.documentElement.dataset.look || 'paint'; // 测试页可以用 <html data-look="g"> 指定默认画法
   // C 'cine-clean'：电影感，但消除零件时不撒钞票（用户 11-28：消除时画面太乱）
   // D 'real'：写实高清（用户 11-28：在 C 的基础上，更接近写实大作的美术、更清晰、锁扣小 15%、正式的按钮）
   // E 'e'：按 docs/art-bible.md 统一（场景层写实 + 界面层海报风，7 色色板，一个光源，背景虚化，没有保险柜门板）
@@ -33,7 +35,8 @@
   document.documentElement.classList.toggle('look-cine', CINE);
   document.documentElement.classList.toggle('look-real', REAL);
   // 测试页上的 A/B 切换按钮
-  if (HEIST && (TEST_LEVEL || /[?&]looks/.test(location.search))) window.addEventListener('DOMContentLoaded', () => {
+  // 连续关卡的剧情小样（data-test-to）画法是定好的，不显示切换按钮，免得挡住提示条
+  if (HEIST && ((TEST_LEVEL && !TEST_TO) || /[?&]looks/.test(location.search))) window.addEventListener('DOMContentLoaded', () => {
     const box = document.createElement('div'); box.id = 'lookSwitch';
     box.innerHTML = '<button data-l="paint">A</button><button data-l="cine">B</button><button data-l="cine-clean">C</button><button data-l="real">D</button><button data-l="e">E</button><button data-l="f">F</button><button data-l="g">G 漫画</button>';
     box.querySelectorAll('button').forEach((b) => {
@@ -607,7 +610,7 @@
   // 下一关：打开了「每关后看剧情」、这一关有剧情、而且是第一次通关（测试页每次都播）→ 先播剧情再进下一关
   btn('btnNext', () => {
     $('win').classList.remove('show');
-    const go = () => { if (TEST_LEVEL) loadLevel(levelIndex); else if (levelIndex < LEVELS.length - 1) loadLevel(levelIndex + 1); else openMenu(); };
+    const go = () => { if (TEST_LEVEL) loadLevel(TEST_TO && levelIndex + 1 < TEST_TO ? levelIndex + 1 : TEST_TO ? TEST_LEVEL - 1 : levelIndex); else if (levelIndex < LEVELS.length - 1) loadLevel(levelIndex + 1); else openMenu(); };
     if (storyOn() && storyOf(levelIndex) && (lastFirstClear || TEST_LEVEL)) Story.play(storyItems(levelIndex), go); else go();
   });
   btn('togStory', () => { try { localStorage.setItem(STORY_KEY, storyOn() ? '0' : '1'); } catch (e) { /* 隐私模式 */ } syncStoryTog(); });
@@ -661,7 +664,8 @@
           timers.push(setTimeout(() => { el.classList.add('show'); shown = i + 1; }, 350 + i * 900));
         });
       } else if (it.video) {
-        img.style.display = 'none'; vid.style.display = ''; vid.src = it.video; vid.onended = next;
+        // 先显示封面帧，避免开始播放前黑屏；视频本身没有声音，静音自动播放在 iPhone 上也能直接开始
+        img.style.display = 'none'; vid.style.display = ''; vid.muted = true; vid.poster = it.poster || ''; vid.src = it.video; vid.onended = next;
         vid.play().catch(() => { /* iOS 需要再点一下 */ });
       } else {
         vid.style.display = 'none'; img.style.display = ''; img.src = it.poster;
@@ -692,6 +696,8 @@
       show();
     }
     box.addEventListener('click', (e) => { if (!e.target.closest('#btnStorySkip') && box.classList.contains('show')) tap(); });
+    // 有的 iPhone 不加载 WebP（锁定模式）：换成同名 .jpg
+    img.addEventListener('error', () => { const u = img.getAttribute('src') || ''; if (/\.webp$/.test(u)) img.src = u.replace(/\.webp$/, '.jpg'); });
     return { play, finish };
   })();
   // 相册里的剧情：每 5 关一集，一集点一下就从头连播（插画 + 视频）；「继续看剧情」从第一段没看过的开始

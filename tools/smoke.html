@@ -146,7 +146,7 @@
       check('解锁剧情时角色眨眼（' + w.__neon.girl() + '）', w.__neon.girl() === 'wink');
       check('还没打完第 1 章，不会解锁新背景', !d2.getElementById('winBg').classList.contains('show'));
       d2.getElementById('winPhoto').click(); await sleep(100);
-      check('点剧情卡播放第 5 关的剧情视频（还没出片时播占位画面）', d2.getElementById('story').classList.contains('show') && /v01/.test(d2.getElementById('storyImg').src));
+      check('点剧情卡播放第 5 关的剧情视频', d2.getElementById('story').classList.contains('show') && /v01\.mp4/.test(d2.getElementById('storyVid').getAttribute('src') || ''));
       d2.getElementById('btnStorySkip').click(); await sleep(80);
     }
     check('没有任何脚本报错', errs.length === 0);

@@ -378,3 +378,14 @@
 - `docs/ch1-story-pack.md` 的 P1-P4 和视频 1 结尾按 v2 改了；`src/chapters.js` 的第 1-4 关对白按 v2 改了，6 种语言都改了。
 - 气泡加了几种说话人：heels（画面外的女人，斜体）、dorian（热粉边）、caption（字幕条，比如「五周前」）。
 - 美术：用户说另一个 session 改的「G v2 犯罪漫画」不理想，继续用之前最后一版的 G 漫画。那个 session 的改动在 `.tools/wt-heist` 里，没有提交，我没有动它。
+
+## 11-28：第 1 章第 1 环剧情小样上线（GPT 出图）
+
+- 用户在微信里发来了 GPT 出的图，文件是 `NEON-HEIST-ch1-out.zip`，任务包由 `tools/gpt-pack.py` 生成。里面有：Nico 和漫画版 Kira 的设定图、P1-P4、视频 1 的 5 张关键帧（GPT 做不了视频）、smirk 和 excited 两个新表情。
+- 母版放进 `assets-src/ch1/story/` 和 `assets-src/ch1/girl/`。游戏用的版本：
+  - 插画是 webp，另有同名 jpg 备份，给锁定模式下的 iPhone 用。
+  - 新表情跑了一遍 `tools/assets.sh ch1`，立绘轮廓 mask 重新算过；PNG 备份是 540 像素高。
+  - 视频 1：用 ffmpeg 把 5 张关键帧做成 11.4 秒的动态漫画。每个镜头有推拉、横移，最后从 Kira 眨眼滑到手机上的「V」。1080×1920，H.264，5MB，无声，静音自动播放，带封面帧。
+- 测试页的分支 `fx-heist` 正被另一个 session 占着（`.tools/wt-heist`，里面有没提交的「G v2」，用户说不理想）。所以用临时分支 `pub-heist` 发布：基于 cd/main，合并 fx-b，index.html 设成 `data-test-level="1" data-test-to="5" data-look="g"`，快进推到 cd 的 main。打开就是 G 漫画的第 1-5 关，打完第 5 关回到第 1 关；第 28 关的测试仍然可以用 `?test=28` 打开。
+- 连续关卡的小样不显示画法切换按钮。视频先显示封面帧，避免黑屏。
+- 测试：smoke（桌面和 iPhone，54 项全过）、layout；WebKit 把第 1-5 关的剧情走了一遍：4 页插画都加载了，视频在播放，smirk 用的是新图。没有跑全部关卡的验收和自动试玩。

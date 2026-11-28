@@ -29,7 +29,7 @@
           side: 'right',
           // 立绘轮廓：10 条等高横带，每条 [左, 右]（占立绘宽度的比例，7 个表情取并集）。棋盘会避开这块地方。
           // 由 tools/assets.sh ch1 算出；换立绘后重新跑一遍，把输出贴到这里。
-          mask: [[0.296, 0.581], [0.248, 0.69], [0.184, 0.707], [0.16, 0.721], [0.112, 0.804], [0.091, 0.898], [0.109, 0.952], [0.125, 0.951], [0.126, 0.893], [0.112, 0.811]],
+          mask: [[0.296, 0.598], [0.248, 0.69], [0.184, 0.711], [0.16, 0.779], [0.112, 0.868], [0.091, 0.933], [0.109, 0.952], [0.125, 0.951], [0.126, 0.893], [0.112, 0.811]], // 11-28 加了 smirk、excited 后重算
           expr: {
             idle: 'assets/ch1/girl/idle.webp',
             happy: 'assets/ch1/girl/happy.webp',
@@ -37,6 +37,8 @@
             wink: 'assets/ch1/girl/wink.webp',
             pout: 'assets/ch1/girl/pout.webp',
             thinking: 'assets/ch1/girl/thinking.webp',
+            smirk: 'assets/ch1/girl/smirk.webp', // 2 连消（11-28 新加）
+            excited: 'assets/ch1/girl/excited.webp', // 4 连消以上（11-28 新加）
             blink: 'assets/ch1/girl/blink.webp', // 可选：没有就不眨眼
           },
           // 台词：英文为原文，其余为翻译。分组对应触发情境。
@@ -146,27 +148,27 @@
          */
         story: {
           // 第 1 环（docs/story.md v2）：P1 闪前（五周后的甲板）→ P2 当众羞辱 → P3 码头开锁 → P4 箱子里是他的通缉照
-          0: { pages: [{ img: 'assets/ch1/story/p01.svg', bubbles: [
+          0: { pages: [{ img: 'assets/ch1/story/p01.webp', bubbles: [
             { who: 'heels', at: 'tr', en: 'Long time no see, Ghost.', ja: '久しぶりね、Ghost。', ko: '오랜만이야, Ghost.', pt: 'Quanto tempo, Ghost.', zh: '好久不见，Ghost。', ru: 'Давно не виделись, Ghost.' },
             { who: 'nico', at: 'bl', en: '…You.', ja: '……お前か。', ko: '……너였군.', pt: '…Você.', zh: '……是你。', ru: '…Ты.' },
             { who: 'caption', at: 'c', en: 'FIVE WEEKS EARLIER', ja: '5週間前', ko: '5주 전', pt: 'CINCO SEMANAS ANTES', zh: '五周前', ru: 'ПЯТЬЮ НЕДЕЛЯМИ РАНЕЕ' },
           ] }] },
-          1: { pages: [{ img: 'assets/ch1/story/p02.svg', bubbles: [
+          1: { pages: [{ img: 'assets/ch1/story/p02.webp', bubbles: [
             { who: 'dorian', at: 'tr', en: 'Clean it up. Then get out.', ja: '拭いとけ。それから消えろ。', ko: '닦아. 그리고 꺼져.', pt: 'Limpa isso. Depois some daqui.', zh: '擦干净，然后滚。', ru: 'Вытри. И проваливай.' },
             { who: 'nico', at: 'bl', en: "Spill one more and you'll pay for the whole bar.", ja: 'もう一杯こぼしたら、店ごと弁償してもらう。', ko: '한 잔만 더 쏟아 봐. 이 바 전부 물어내게 될 거야.', pt: 'Derrama mais um e você paga o bar inteiro.', zh: '再泼一杯，整间酒吧你都得赔。', ru: 'Прольёшь ещё один — заплатишь за весь бар.' },
             { who: 'kira', at: 'tr', en: "I don't need a hero.", ja: 'ヒーローなんていらない。', ko: '영웅 따윈 필요 없어.', pt: 'Eu não preciso de herói.', zh: '我不需要英雄。', ru: 'Мне не нужен герой.' },
           ] }] },
-          2: { pages: [{ img: 'assets/ch1/story/p03.svg', bubbles: [
+          2: { pages: [{ img: 'assets/ch1/story/p03.webp', bubbles: [
             { who: 'kira', at: 'tr', en: "Ten seconds, hotshot. Or I'm gone.", ja: '10秒よ、エースさん。でなきゃ帰る。', ko: '10초야, 에이스. 아니면 난 간다.', pt: 'Dez segundos, craque. Ou eu sumo.', zh: '十秒，高手。不然我走人。', ru: 'Десять секунд, ас. Или я ухожу.' },
             { who: 'nico', at: 'bl', en: 'Eight.', ja: '8秒で十分だ。', ko: '8초면 돼.', pt: 'Oito.', zh: '八秒就够。', ru: 'Восемь.' },
           ] }] },
-          3: { pages: [{ img: 'assets/ch1/story/p04.svg', bubbles: [
+          3: { pages: [{ img: 'assets/ch1/story/p04.webp', bubbles: [
             { who: 'note', at: 'c', en: 'GHOST', ja: 'GHOST', ko: 'GHOST', pt: 'GHOST', zh: 'GHOST', ru: 'GHOST' },
             { who: 'kira', at: 'tr', en: 'I know who you are.', ja: 'あなたが誰か知ってる。', ko: '네가 누군지 알아.', pt: 'Eu sei quem você é.', zh: '我知道你是谁。', ru: 'Я знаю, кто ты.' },
             { who: 'kira', at: 'tr', en: "Dorian's safe. His party. Fifty-fifty.", ja: 'ドリアンの金庫。彼のパーティー。山分けよ。', ko: '도리언의 금고. 그의 파티. 반반.', pt: 'O cofre do Dorian. A festa dele. Meio a meio.', zh: 'Dorian 的保险柜，他的派对，五五分。', ru: 'Сейф Дориана. Его вечеринка. Пополам.' },
             { who: 'nico', at: 'bl', en: "…Who's that?", ja: '……あれは誰だ？', ko: '……저건 누구지?', pt: '…Quem é aquele?', zh: '……那是谁？', ru: '…А это кто?' },
           ] }] },
-          4: { video: null, poster: 'assets/ch1/story/v01.svg' },
+          4: { video: 'assets/ch1/story/v01.mp4', poster: 'assets/ch1/story/v01-poster.jpg' },
         },
       },
       // 后面几章还没做关卡和角色，先占位：界面上显示为锁住的章节和背景
