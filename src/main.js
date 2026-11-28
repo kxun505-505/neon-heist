@@ -1075,19 +1075,13 @@
   function neonGlass(center, outline, color, w, glow) {
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     const o = (k) => [LX * w * k, LY * w * k];
+    // 不画光晕（用户 11-28：光晕像老花眼，否定）。只有往右下的投影：白天是本色的透光阴影，黄昏是柔和的暗影
     if (DAY) {
       ctx.strokeStyle = 'rgba(20,30,40,0.14)'; ctx.lineWidth = w + 5; center(4, 9); ctx.stroke();
       ctx.strokeStyle = rgba(color, 0.32); ctx.lineWidth = w + 1; center(5, 10); ctx.stroke();
     } else {
-      ctx.globalCompositeOperation = 'lighter';
-      // 光晕：6 层由宽到窄叠加，层与层之间差得小，看不出一圈圈的台阶
-      for (const [ww, al] of [[34, 0.035], [26, 0.04], [19, 0.05], [13, 0.065], [8, 0.085], [4, 0.12]]) { ctx.strokeStyle = rgba(color, al * glow); ctx.lineWidth = w + ww; center(0, 0); ctx.stroke(); }
-      ctx.globalCompositeOperation = 'source-over';
-    }
-    if (glow > 1.01 && DAY) {
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.strokeStyle = rgba(color, 0.18 * (glow - 1)); ctx.lineWidth = w + 12; center(0, 0); ctx.stroke();
-      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = 'rgba(5,0,12,0.22)'; ctx.lineWidth = w + 6; center(3, 8); ctx.stroke();
+      ctx.strokeStyle = 'rgba(5,0,12,0.35)'; ctx.lineWidth = w + 1; center(1.5, 4); ctx.stroke();
     }
     // 玻璃壁：比本色深一点，给管子一条清楚的边
     ctx.strokeStyle = darken(color, DAY ? 0.35 : 0.2); ctx.lineWidth = w + 1.4; center(0, 0); ctx.stroke();
@@ -1305,18 +1299,7 @@
   // 劫案皮肤：密码盘刻度（每 12° 一条，每 36° 一条长的），跟着环转；缺口两端是机加工的钢制槽口
   function dialMarks(R, cx, cy, ang, w) {
     const N = 30, step = TAU / N, g = R.gap ? R.gap.at + ang : 0;
-    if (FLOOK) {
-      // F：不要刻度；缺口两端是霓虹管的电极帽（深色金属 + 一圈细银边），也让缺口位置一眼看清
-      if (R.gap) for (const sg of [1, -1]) {
-        const a = g + sg * (R.gap.w / 2), ex = cx + Math.cos(a) * R.r, ey = cy + Math.sin(a) * R.r;
-        ctx.save(); ctx.translate(ex, ey); ctx.rotate(a + sg * Math.PI / 2);
-        ctx.fillStyle = litGrad(a + sg * Math.PI / 2, w * 0.6, [[0, '#8f8a9e'], [0.4, '#3a3646'], [1, '#14111c']]);
-        roundRect(-w * 0.53, -1.8, w * 1.06, 4.4, 1.8); ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.fillRect(-w * 0.42, -1.8, w * 0.84, 0.7);
-        ctx.restore();
-      }
-      return;
-    }
+    if (FLOOK) return; // F：不要刻度，也不要缺口两端的电极帽（用户 11-28）
     ctx.save(); ctx.lineCap = 'round';
     for (let k = 0; k < N; k++) {
       const a = ang + k * step;
@@ -1446,7 +1429,6 @@
       ctx.fillStyle = hg; roundRect(-w / 2, -h / 2, w, h, 4); ctx.fill();
       if (FLOOK) {
         // 主环颜色的指示灯条（空锁不亮）
-        if (st !== 'stub') { ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = rgba(color, DAY ? 0.35 : 0.55); roundRect(-w / 2 - 1, h / 2 - 5.4, w + 2, 6.4, 2); ctx.fill(); ctx.globalCompositeOperation = 'source-over'; }
         ctx.fillStyle = st === 'stub' ? '#2a2733' : color; roundRect(-w / 2 + 1, h / 2 - 3.6, w - 2, 3, 1.2); ctx.fill();
         ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.fillRect(-w / 2 + 2, h / 2 - 3.4, w - 4, 0.7);
       } else { ctx.fillStyle = litGrad(rot, h * 0.6, STEEL); roundRect(-w / 2 + 0.5, h / 2 - 3.4, w - 1, 3.2, 1.2); ctx.fill(); }
