@@ -10,7 +10,7 @@
     en: {
       _name: 'English', play: 'Play', viewAll: 'View all',
       newVideo: 'New video unlocked!', newBg: 'New background unlocked!', videoN: 'Video {n}', bgLocked: 'Clear all {n} levels of {c}', progressN: '{a}/{b} cleared', hardVideo: 'Hard level · Video',
-      album: 'Album', newPhoto: 'New photo unlocked!', tapToView: 'Tap to view', comingSoon: 'Coming soon', unlockAt: 'Clear level {n}', videoLocked: 'Collect all 4 photos', photoN: 'Photo {n}', video: 'Video',
+      storyToggle: 'Story after each level', newStory: 'New story unlocked!', story: 'Story', episodeN: 'Episode {n}', levelsRange: 'Levels {a}–{b}', storyContinue: 'Continue story', storyPlay: 'Watch', skip: 'Skip', tapNext: 'Tap to continue', storyLocked: 'Clear level {n}', storyNew: 'NEW', album: 'Album', newPhoto: 'New photo unlocked!', tapToView: 'Tap to view', comingSoon: 'Coming soon', unlockAt: 'Clear level {n}', videoLocked: 'Collect all 4 photos', photoN: 'Photo {n}', video: 'Video',
       level: 'LEVEL', hard: 'HARD', settings: 'Settings', music: 'Music', sound: 'Sound', vibration: 'Vibration',
       language: 'Language', home: 'Home', restart: 'Restart', hint: 'Hint', subtitle: 'Sunset Coast · Demo',
       background: 'Background', next: 'Next ›', retry: 'Retry', toLevels: 'Levels', moves: 'Moves: {n}',
@@ -37,7 +37,7 @@
     ja: {
       _name: '日本語', play: 'プレイ', viewAll: 'すべて見る',
       newVideo: '新しいムービーを解放！', newBg: '新しい背景を解放！', videoN: 'ムービー {n}', bgLocked: '{c} の全{n}レベルをクリア', progressN: '{a}/{b} クリア', hardVideo: 'ハード · ムービー',
-      album: 'アルバム', newPhoto: '新しい写真を解放！', tapToView: 'タップで見る', comingSoon: '近日公開', unlockAt: 'レベル{n}をクリア', videoLocked: '写真を4枚集めよう', photoN: '写真 {n}', video: 'ムービー',
+      storyToggle: 'クリアごとにストーリーを見る', newStory: '新しいストーリーを解放！', story: 'ストーリー', episodeN: '第{n}話', levelsRange: 'レベル {a}–{b}', storyContinue: '続きを見る', storyPlay: '見る', skip: 'スキップ', tapNext: 'タップで次へ', storyLocked: 'レベル{n}をクリア', storyNew: 'NEW', album: 'アルバム', newPhoto: '新しい写真を解放！', tapToView: 'タップで見る', comingSoon: '近日公開', unlockAt: 'レベル{n}をクリア', videoLocked: '写真を4枚集めよう', photoN: '写真 {n}', video: 'ムービー',
       level: 'レベル', hard: 'ハード', settings: '設定', music: '音楽', sound: '効果音', vibration: '振動',
       language: '言語', home: 'ホーム', restart: 'やり直す', hint: 'ヒント', subtitle: 'サンセットコースト · 体験版',
       background: '背景', next: '次へ ›', retry: 'もう一度', toLevels: 'レベル', moves: '操作回数：{n}',
@@ -64,7 +64,7 @@
     ko: {
       _name: '한국어', play: '플레이', viewAll: '전체 보기',
       newVideo: '새 영상 해금!', newBg: '새 배경 해금!', videoN: '영상 {n}', bgLocked: '{c}의 레벨 {n}개를 모두 클리어', progressN: '{a}/{b} 클리어', hardVideo: '어려움 · 영상',
-      album: '앨범', newPhoto: '새 사진 해금!', tapToView: '탭해서 보기', comingSoon: '곧 공개', unlockAt: '레벨 {n} 클리어', videoLocked: '사진 4장을 모으세요', photoN: '사진 {n}', video: '영상',
+      storyToggle: '레벨마다 스토리 보기', newStory: '새 스토리 해금!', story: '스토리', episodeN: '{n}화', levelsRange: '레벨 {a}–{b}', storyContinue: '이어 보기', storyPlay: '보기', skip: '건너뛰기', tapNext: '탭해서 계속', storyLocked: '레벨 {n} 클리어', storyNew: 'NEW', album: '앨범', newPhoto: '새 사진 해금!', tapToView: '탭해서 보기', comingSoon: '곧 공개', unlockAt: '레벨 {n} 클리어', videoLocked: '사진 4장을 모으세요', photoN: '사진 {n}', video: '영상',
       level: '레벨', hard: '어려움', settings: '설정', music: '음악', sound: '효과음', vibration: '진동',
       language: '언어', home: '홈', restart: '다시 하기', hint: '힌트', subtitle: '선셋 코스트 · 체험판',
       background: '배경', next: '다음 ›', retry: '다시', toLevels: '레벨', moves: '이동 횟수: {n}',
@@ -91,7 +91,7 @@
     pt: {
       _name: 'Português', play: 'Jogar', viewAll: 'Ver tudo',
       newVideo: 'Novo vídeo desbloqueado!', newBg: 'Novo fundo desbloqueado!', videoN: 'Vídeo {n}', bgLocked: 'Vença os {n} níveis de {c}', progressN: '{a}/{b} vencidos', hardVideo: 'Difícil · Vídeo',
-      album: 'Álbum', newPhoto: 'Nova foto desbloqueada!', tapToView: 'Toque para ver', comingSoon: 'Em breve', unlockAt: 'Vença o nível {n}', videoLocked: 'Junte as 4 fotos', photoN: 'Foto {n}', video: 'Vídeo',
+      storyToggle: 'História após cada nível', newStory: 'Nova história desbloqueada!', story: 'História', episodeN: 'Episódio {n}', levelsRange: 'Níveis {a}–{b}', storyContinue: 'Continuar história', storyPlay: 'Assistir', skip: 'Pular', tapNext: 'Toque para continuar', storyLocked: 'Vença o nível {n}', storyNew: 'NOVO', album: 'Álbum', newPhoto: 'Nova foto desbloqueada!', tapToView: 'Toque para ver', comingSoon: 'Em breve', unlockAt: 'Vença o nível {n}', videoLocked: 'Junte as 4 fotos', photoN: 'Foto {n}', video: 'Vídeo',
       level: 'NÍVEL', hard: 'DIFÍCIL', settings: 'Configurações', music: 'Música', sound: 'Som', vibration: 'Vibração',
       language: 'Idioma', home: 'Início', restart: 'Reiniciar', hint: 'Dica', subtitle: 'Costa do Pôr do Sol · Demo',
       background: 'Fundo', next: 'Próximo ›', retry: 'Repetir', toLevels: 'Níveis', moves: 'Movimentos: {n}',
@@ -118,7 +118,7 @@
     zh: {
       _name: '中文', play: '开始', viewAll: '查看全部',
       newVideo: '解锁了新视频！', newBg: '解锁了新背景！', videoN: '视频 {n}', bgLocked: '通关 {c} 全部 {n} 关解锁', progressN: '已通关 {a}/{b}', hardVideo: '困难关 · 视频',
-      album: '相册', newPhoto: '解锁了新照片！', tapToView: '点击查看', comingSoon: '即将上线', unlockAt: '通关第 {n} 关', videoLocked: '集齐 4 张照片解锁', photoN: '照片 {n}', video: '视频',
+      storyToggle: '每关后看剧情', newStory: '解锁了新剧情！', story: '剧情', episodeN: '第 {n} 集', levelsRange: '第 {a}–{b} 关', storyContinue: '继续看剧情', storyPlay: '观看', skip: '跳过', tapNext: '点击继续', storyLocked: '通关第 {n} 关', storyNew: '新', album: '相册', newPhoto: '解锁了新照片！', tapToView: '点击查看', comingSoon: '即将上线', unlockAt: '通关第 {n} 关', videoLocked: '集齐 4 张照片解锁', photoN: '照片 {n}', video: '视频',
       level: '关卡', hard: '困难', settings: '设置', music: '音乐', sound: '音效', vibration: '震动',
       language: '语言', home: '主页', restart: '重来', hint: '提示', subtitle: '日落海岸 · 试玩版',
       background: '背景', next: '下一关 ›', retry: '重玩', toLevels: '关卡', moves: '拖动 {n} 次',
@@ -145,7 +145,7 @@
     ru: {
       _name: 'Русский', play: 'Играть', viewAll: 'Смотреть все',
       newVideo: 'Новое видео открыто!', newBg: 'Новый фон открыт!', videoN: 'Видео {n}', bgLocked: 'Пройдите все {n} уровней {c}', progressN: 'Пройдено {a}/{b}', hardVideo: 'Сложно · Видео',
-      album: 'Альбом', newPhoto: 'Новое фото открыто!', tapToView: 'Нажмите, чтобы посмотреть', comingSoon: 'Скоро', unlockAt: 'Пройдите уровень {n}', videoLocked: 'Соберите все 4 фото', photoN: 'Фото {n}', video: 'Видео',
+      storyToggle: 'Сюжет после каждого уровня', newStory: 'Открыта новая история!', story: 'Сюжет', episodeN: 'Эпизод {n}', levelsRange: 'Уровни {a}–{b}', storyContinue: 'Продолжить сюжет', storyPlay: 'Смотреть', skip: 'Пропустить', tapNext: 'Нажмите, чтобы продолжить', storyLocked: 'Пройдите уровень {n}', storyNew: 'НОВОЕ', album: 'Альбом', newPhoto: 'Новое фото открыто!', tapToView: 'Нажмите, чтобы посмотреть', comingSoon: 'Скоро', unlockAt: 'Пройдите уровень {n}', videoLocked: 'Соберите все 4 фото', photoN: 'Фото {n}', video: 'Видео',
       level: 'УРОВЕНЬ', hard: 'СЛОЖНО', settings: 'Настройки', music: 'Музыка', sound: 'Звук', vibration: 'Вибрация',
       language: 'Язык', home: 'Главная', restart: 'Заново', hint: 'Подсказка', subtitle: 'Закатный берег · Демо',
       background: 'Фон', next: 'Далее ›', retry: 'Ещё раз', toLevels: 'Уровни', moves: 'Ходов: {n}',

@@ -119,6 +119,9 @@ BUDGET=1700000 tools/verify.sh playtest.html  # 用合成触摸事件把每关�
 
 | 文件 | 内容 |
 |---|---|
+| `docs/story.md` | **剧情**：季、章、环、页的分层规则，第一季大纲，人物，钩子 |
+| `docs/ch1-story-pack.md` | 第 1 章前 5 关剧情小样的出图需求包（给 GPT） |
+| `docs/girl-reactions.md` | 陪玩女生的反应规则（表情、触发、冷却、台词组） |
 | `docs/art-bible.md` | **美术规范**：场景层写实 + 界面层海报风，光源、7 色色板、字体、投影、女生画法、禁止项。所有出图都按它做 |
 | `docs/DEVLOG.md` | **开发历程**：按时间记录用户的每个要求、做法、被否掉的方案和原因、用户反馈 |
 | `docs/level-rules.md` | 关卡准则、验收标准 A-F 和指标定义 |

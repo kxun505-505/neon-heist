@@ -41,25 +41,25 @@
     const mb = $('menu').querySelector('.homebox');
     check('主页一屏放下，不用上下滚动', mb.scrollHeight <= mb.clientHeight + 1 && $('btnPlay').getBoundingClientRect().bottom <= w.innerHeight);
     check('标题是“章节名 · 章内关卡号”：' + $('lvName').textContent + ' / ' + $('lvNum').textContent, $('lvName').textContent === 'SUNSET COAST · 6' && $('lvNum').textContent === 'LEVEL 6');
-    // 相册：存档通关了第 1-5 关 → 照片 1-4、视频 1 解锁；第 6 关起还锁着；第 11 关以后的素材还没做
+    // 相册：存档通关了第 1-5 关。第 1-5 关的奖励已经换成剧情（第 1 集，在相册最上面的「剧情」里）；
+    // 第 1 章的照片和视频从第 6 关开始：3 行 ×（4 张照片 + 1 段视频）= 15 格，都还锁着；第 11 关以后的素材还没做
     $('btnAlbum').click(); await sleep(150);
-    const sec0 = d.querySelectorAll('#albumBody .asec')[0];
+    const story = d.querySelector('#albumBody .astory');
+    const eps = story ? story.querySelectorAll('.epcard') : [];
+    check('相册最上面是剧情：第 1 集（第 1-5 关）已解锁 5/5', $('album').classList.contains('show') && eps.length === 1 && !eps[0].classList.contains('locked') && /5\/5/.test(eps[0].textContent));
+    const secs = d.querySelectorAll('#albumBody .asec:not(.astory)'), sec0 = secs[0];
     const slots = sec0.querySelectorAll('.aslot');
-    check('相册第 1 章：4 行 × (4 张照片 + 1 段视频) = ' + slots.length + ' 格', $('album').classList.contains('show') && slots.length === 20);
-    check('照片 1-4 已解锁', [0, 1, 2, 3].every((k) => slots[k].classList.contains('got')));
-    check('第 5 关（困难关）解锁视频 1', slots[4].classList.contains('video') && slots[4].classList.contains('got'));
-    check('照片 5 还锁着（要通关第 6 关）', !slots[5].classList.contains('got') && /6/.test(slots[5].textContent));
-    check('第 11 关以后的照片显示即将上线', /Coming soon/.test(slots[10].textContent));
+    check('相册第 1 章：3 行 × (4 张照片 + 1 段视频) = ' + slots.length + ' 格', slots.length === 15);
+    check('照片 5 还锁着（要通关第 6 关）', !slots[0].classList.contains('got') && /6/.test(slots[0].textContent));
+    check('第 11 关以后的照片显示即将上线', /Coming soon/.test(slots[5].textContent));
     check('第 1 章背景已解锁', sec0.querySelector('.abg').classList.contains('got'));
-    const sec1 = d.querySelectorAll('#albumBody .asec')[1];
+    const sec1 = secs[1];
     check('第 2 章背景锁住，要通关第 1 章全部 20 关（' + sec1.querySelector('.abg').textContent + '）', !sec1.querySelector('.abg').classList.contains('got') && /20/.test(sec1.querySelector('.abg').textContent));
-    slots[0].click(); await sleep(100);
-    check('点照片打开大图', $('viewer').classList.contains('show') && /photo1/.test($('viewImg').src));
-    $('btnCloseViewer').click(); await sleep(50);
-    d.querySelectorAll('#albumBody .asec')[0].querySelectorAll('.aslot')[4].click(); await sleep(100);
-    check('点视频打开播放器', $('viewer').classList.contains('show') && /video1\.mp4/.test($('viewVid').src));
-    $('btnCloseViewer').click(); await sleep(50);
-    d.querySelectorAll('#albumBody .asec')[0].querySelector('.abg').click(); await sleep(100);
+    eps[0].click(); await sleep(150);
+    check('点第 1 集，从头连播剧情', $('story').classList.contains('show') && /p01/.test($('storyImg').src));
+    $('btnStorySkip').click(); await sleep(80);
+    check('跳过后剧情关闭，回到相册', !$('story').classList.contains('show') && $('album').classList.contains('show'));
+    d.querySelectorAll('#albumBody .asec:not(.astory)')[0].querySelector('.abg').click(); await sleep(100);
     check('点背景卡打开背景大图', $('viewer').classList.contains('show') && /^data:image/.test($('viewImg').src));
     $('btnCloseViewer').click(); await sleep(50);
     $('btnCloseAlbum').click(); await sleep(50);
@@ -142,11 +142,12 @@
       }
       await sleep(2300);
       check('第 5 关通关', st2().won);
-      check('过关面板显示“解锁了新视频”', d2.getElementById('winPhoto').classList.contains('show') && d2.getElementById('winPhoto').classList.contains('isvideo') && /video/i.test(d2.getElementById('winPhotoTitle').textContent));
-      check('解锁视频时角色眨眼（' + w.__neon.girl() + '）', w.__neon.girl() === 'wink');
+      check('过关面板显示“解锁了新剧情”（第 5 关是剧情视频）', d2.getElementById('winPhoto').classList.contains('show') && d2.getElementById('winPhoto').classList.contains('isvideo') && /story/i.test(d2.getElementById('winPhotoTitle').textContent));
+      check('解锁剧情时角色眨眼（' + w.__neon.girl() + '）', w.__neon.girl() === 'wink');
       check('还没打完第 1 章，不会解锁新背景', !d2.getElementById('winBg').classList.contains('show'));
       d2.getElementById('winPhoto').click(); await sleep(100);
-      check('点新视频打开播放器', d2.getElementById('viewer').classList.contains('show') && /video1\.mp4/.test(d2.getElementById('viewVid').src));
+      check('点剧情卡播放第 5 关的剧情视频（还没出片时播占位画面）', d2.getElementById('story').classList.contains('show') && /v01/.test(d2.getElementById('storyImg').src));
+      d2.getElementById('btnStorySkip').click(); await sleep(80);
     }
     check('没有任何脚本报错', errs.length === 0);
     errs.forEach((e) => log.push('  ERROR ' + e));

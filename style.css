@@ -490,3 +490,51 @@ body.notrans *, body.notrans *::after { transition: none !important; }
 #timeSwitch button.on { background: #2f8cff; color: #fff; }
 /* E / F / G（用户 11-28）：标题只留「章节名 · 章内关卡号」，去掉下面的 LEVEL 标签 */
 .look-e #lvNum { display: none; }
+/* ---------- 剧情（docs/story.md）：全屏插画 / 视频 + 游戏叠加的漫画气泡（海报风：奶白底、墨线、硬投影） ---------- */
+.overlay.story { z-index: 40; background: #05010d; padding: 0; display: block; }
+.story .sstage { position: absolute; inset: 0; }
+.story .sstage img, .story .sstage video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.story .sbubbles { position: absolute; inset: 0; pointer-events: none; font-family: -apple-system, system-ui, sans-serif; }
+.story .sz { position: absolute; left: 14px; right: 14px; display: flex; flex-direction: column; gap: 10px; }
+.story .sz-top { top: calc(env(safe-area-inset-top, 0px) + 58px); }
+.story .sz-c { top: 46%; align-items: center; }
+.story .sz-bot { bottom: calc(env(safe-area-inset-bottom, 0px) + 52px); }
+.story .sb { position: relative; max-width: 78%; padding: 10px 14px; border-radius: 16px; background: #fff4e0; color: #1a0b2e;
+  border: 3px solid #1a0b2e; box-shadow: 0 4px 0 #1a0b2e; font-weight: 800; font-size: 17px; line-height: 1.3;
+  opacity: 0; transform: translateY(8px) scale(0.92); transition: opacity .18s, transform .22s cubic-bezier(.2,1.6,.4,1); }
+.story .sb.show { opacity: 1; transform: none; }
+.story .at-tr, .story .at-br { align-self: flex-end; }
+.story .at-tl, .story .at-bl { align-self: flex-start; }
+/* 尾巴：Kira 在右边，尾巴朝右下；Nico 在左边，尾巴朝左上 */
+.story .sb.who-kira::after, .story .sb.who-nico::after { content: ''; position: absolute; width: 14px; height: 14px; background: #fff4e0;
+  border: 3px solid #1a0b2e; border-top: 0; border-left: 0; }
+.story .sb.who-kira::after { right: 22px; bottom: -9px; transform: rotate(45deg); }
+.story .sb.who-nico { background: #1a0b2e; color: #fff4e0; border-color: #fff4e0; box-shadow: 0 4px 0 rgba(0,0,0,0.5); }
+.story .sb.who-nico::after { left: 22px; top: -9px; transform: rotate(225deg); background: #1a0b2e; border-color: #fff4e0; }
+/* 贴在物件上的字（餐巾纸上的口红字）：没有框 */
+.story .sb.who-note { background: none; border: 0; box-shadow: none; color: #ff4f9a; font: 400 34px/1 Anton, Impact, sans-serif; letter-spacing: 1px;
+  transform: rotate(-6deg) scale(0.9); text-shadow: 0 2px 0 rgba(26,11,46,0.35); }
+.story .sb.who-note.show { transform: rotate(-6deg); }
+.story .stopbar { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 12px); left: 14px; right: 14px; display: flex; justify-content: space-between; align-items: center; z-index: 2; }
+.story .scount { font: 700 13px -apple-system, system-ui, sans-serif; color: #fff4e0; text-shadow: 0 1px 2px #000; }
+.story .sskip { padding: 7px 14px; border-radius: 999px; background: rgba(26,11,46,0.7); color: #fff4e0; border: 2px solid #fff4e0; font: 800 13px -apple-system, system-ui, sans-serif; }
+.story .shint { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); text-align: center; color: rgba(255,244,224,0.75);
+  font: 700 12px -apple-system, system-ui, sans-serif; letter-spacing: 1px; text-shadow: 0 1px 2px #000; pointer-events: none; }
+/* 结算画面：每关后看剧情的开关 */
+.storytog { display: flex; align-items: center; gap: 10px; margin: 10px auto 4px; padding: 6px 4px; background: none; color: inherit; font-size: 14px; font-weight: 700; opacity: 0.9; }
+.storytog .sw { position: relative; width: 40px; height: 24px; border-radius: 999px; background: rgba(255,255,255,0.22); transition: background .15s; flex: none; }
+.storytog .sw i { position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.storytog.on .sw { background: #2fbf71; }
+.storytog.on .sw i { transform: translateX(16px); }
+/* 相册：剧情集（每 5 关一集，点一下连播） */
+.astory .scont { display: block; width: 100%; margin: 4px 0 10px; padding: 11px; border-radius: 12px; background: linear-gradient(90deg, #ff4f9a, #a274ff); color: #fff; font-weight: 800; font-size: 15px; }
+.astory .eprow { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.astory .epcard { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 0; background: none; color: inherit; text-align: left; }
+.astory .epcard .th { position: relative; width: 100%; aspect-ratio: 3 / 4; border-radius: 10px; background: #2a0f4a center / cover no-repeat; border: 2px solid rgba(255,255,255,0.25); overflow: hidden; }
+.astory .epcard .th i { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-style: normal; font-size: 26px; color: #fff; text-shadow: 0 2px 6px #000; }
+.astory .epcard .th em { position: absolute; left: 6px; top: 6px; padding: 1px 6px; border-radius: 4px; background: #ff4f9a; color: #fff; font: 800 10px -apple-system, system-ui, sans-serif; font-style: normal; }
+.astory .epcard b { font-size: 14px; }
+.astory .epcard small { font-size: 11px; opacity: 0.75; }
+.astory .epcard.locked .th { filter: grayscale(0.8) brightness(0.6); }
+/* 测试页的 A-G、黄昏/白天切换：有面板打开时藏起来，不挡结算、相册、剧情 */
+.overlay.show ~ #lookSwitch, .overlay.show ~ #timeSwitch { display: none; }

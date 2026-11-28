@@ -99,6 +99,8 @@
       <p id="winInfo"></p>
       <button id="winPhoto" class="winphoto"><span class="thumb"><img id="winPhotoImg" alt=""><i>▶</i></span><span><b id="winPhotoTitle">New photo unlocked!</b><small data-i18n="tapToView">Tap to view</small></span></button>
       <div id="winBg" class="winbg"><b data-i18n="newBg">New background unlocked!</b><span id="winBgName"></span></div>
+      <!-- 每关后看剧情：默认打开，记住玩家的选择（docs/story.md） -->
+      <button id="togStory" class="storytog"><span class="sw"><i></i></span><span data-i18n="storyToggle">Story after each level</span></button>
       <div class="row">
         <button id="btnRetry" class="secondary"><span data-i18n="retry">Retry</span></button>
         <button id="btnNext" class="primary"><span id="btnNextLabel" data-i18n="next">Next ›</span></button>
@@ -114,6 +116,13 @@
     </div>
   </section>
 
+  <!-- 剧情播放：插画页（游戏叠加对白气泡）和视频，点一下出全部气泡 / 翻到下一页，右上角可以跳过 -->
+  <section id="story" class="overlay story">
+    <div class="sstage"><img id="storyImg" alt=""><video id="storyVid" playsinline preload="auto"></video>
+      <div id="storyBubbles" class="sbubbles"><div class="sz sz-top"></div><div class="sz sz-c"></div><div class="sz sz-bot"></div></div></div>
+    <div class="stopbar"><span id="storyCount" class="scount"></span><button id="btnStorySkip" class="sskip"><span data-i18n="skip">Skip</span> ›</button></div>
+    <div id="storyHint" class="shint" data-i18n="tapNext">Tap to continue</div>
+  </section>
   <section id="viewer" class="overlay viewer">
     <img id="viewImg" alt="">
     <video id="viewVid" playsinline controls preload="none"></video>

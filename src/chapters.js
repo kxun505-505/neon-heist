@@ -12,6 +12,9 @@
     PER_CHAPTER, SET,
     // 第 n 关（从 0 数）的奖励：{ kind: 'photo' | 'video', i: 在本章里的序号 }
     rewardAt(n) {
+      // 有剧情的关卡，奖励是剧情（插画或视频）
+      const ch = this.list[Math.floor(n / PER_CHAPTER)];
+      if (ch && ch.story && ch.story[n]) return { kind: 'story', i: n };
       const c = n % PER_CHAPTER, set = Math.floor(c / SET), pos = c % SET;
       return pos < SET - 1 ? { kind: 'photo', i: set * (SET - 1) + pos } : { kind: 'video', i: set };
     },
@@ -62,6 +65,42 @@
               zh: ['哇！再来一次！', '好好好，看到你了！', '刚才那下真辣。我是说那一手。', '连锁反应！我喜欢的玩家类型。', '保持这股劲，小太阳！', '这才叫兜风！'],
               ru: ['Ого! Сделай так ещё!', 'Ладно, ладно, вижу тебя!', 'Это было горячо. В смысле, ход.', 'Цепная реакция! Мой тип игрока.', 'Держи этот темп, солнышко!', 'Вот теперь мы мчим!'],
             },
+            // 2 连（smirk 得意坏笑）
+            combo2: {
+              en: ['Smooth, boss.', 'Not bad. Keep going.', 'Look at you go.', 'Two in a row? Showing off for me?'],
+              ja: ['スムーズね、ボス。', '悪くない。続けて。', 'やるじゃない。', '2連続？ 私にいいとこ見せたいの？'],
+              ko: ['깔끔하네, 보스.', '나쁘지 않아. 계속해.', '제법인데?', '두 개 연속? 나한테 자랑하는 거야?'],
+              pt: ['Suave, chefe.', 'Nada mal. Continua.', 'Olha só você.', 'Dois seguidos? Se exibindo pra mim?'],
+              zh: ['漂亮，boss。', '不赖，继续。', '哟，手挺快。', '连着两个？在我面前显摆？'],
+              ru: ['Чисто, босс.', 'Неплохо. Продолжай.', 'Смотри-ка, разогнался.', 'Два подряд? Красуешься передо мной?'],
+            },
+            // 4 连以上，或一次飞走 2 个以上（excited 兴奋欢呼）
+            comboBig: {
+              en: ["YES! Now that's a heist!", "Whoa, whoa! Everything's falling apart!", "That's my boss!", "Okay, I'm officially impressed!"],
+              ja: ['やった！ これぞ大仕事！', 'わわっ！ 全部ほどけてく！', 'さすが私のボス！', 'オッケー、正式に感心したわ！'],
+              ko: ['좋았어! 이게 진짜 한탕이지!', '와, 와! 전부 풀려 나가!', '역시 내 보스야!', '좋아, 이건 인정이다!'],
+              pt: ['ISSO! Isso sim é um assalto!', 'Uau, uau! Tá tudo desmontando!', 'Esse é o meu chefe!', 'Tá bom, oficialmente impressionada!'],
+              zh: ['太棒了！这才叫干一票！', '哇哇哇！全散了！', '这才是我的 boss！', '好吧，我正式服了！'],
+              ru: ['ДА! Вот это налёт!', 'Ого-го! Всё разваливается!', 'Вот это мой босс!', 'Ладно, я официально впечатлена!'],
+            },
+            // 过关时没用提示、没碰壁（wink）
+            clean: {
+              en: ['Clean. No noise, no mess. I like it.', 'Not a single wrong move. Who taught you?', 'Smooth as my getaway.'],
+              ja: ['きれいね。音も散らかりもなし。好きよ。', '一手も間違えなかった。誰に習ったの？', '私の逃走運転並みにスムーズ。'],
+              ko: ['깔끔해. 소리도, 흔적도 없고. 마음에 들어.', '실수 하나 없네. 누구한테 배웠어?', '내 도주 운전만큼 부드러운데.'],
+              pt: ['Limpo. Sem barulho, sem bagunça. Gostei.', 'Nenhum movimento errado. Quem te ensinou?', 'Suave como a minha fuga.'],
+              zh: ['干净利落，没声没响。我喜欢。', '一步都没错。谁教你的？', '跟我开车跑路一样顺。'],
+              ru: ['Чисто. Ни шума, ни следов. Мне нравится.', 'Ни одного лишнего движения. Кто тебя учил?', 'Гладко, как мой отрыв от погони.'],
+            },
+            // 过关解锁了新剧情（wink）
+            story: {
+              en: ['Want to see what happens next? Tap Next.', 'Story time, boss.', "Don't skip this part."],
+              ja: ['この続き、見たい？ 次へをタップ。', 'ストーリーの時間よ、ボス。', 'ここは飛ばさないで。'],
+              ko: ['다음이 궁금해? 다음을 눌러.', '이야기 시간이야, 보스.', '이 부분은 넘기지 마.'],
+              pt: ['Quer ver o que acontece? Toque em Próximo.', 'Hora da história, chefe.', 'Não pula essa parte.'],
+              zh: ['想知道接下来发生什么？点下一关。', '讲故事时间到了，boss。', '这段可别跳过。'],
+              ru: ['Хочешь узнать, что дальше? Жми «Далее».', 'Время истории, босс.', 'Эту часть не пропускай.'],
+            },
             clear: {
               en: ['Not bad, rookie. Not bad at all.', 'You make it look easy. I like that.', "Another one? You're spoiling me.", 'Smooth. You owe me a smoothie next round.', "That wink? Yeah, that one's for you.", 'Stick around. It only gets better from here.'],
               ja: ['やるじゃない、ルーキー。', '簡単そうにやるのね。そういうの好き。', 'また？ 甘やかしすぎよ。', 'スムーズね。次はスムージーおごってね。', 'このウインク？ そう、あなたにね。', 'まだ帰らないで。ここからもっと楽しくなるから。'],
@@ -100,6 +139,32 @@
         // 照片 1-8 和视频 1-2 先用占位，其余还没做（显示 Coming soon）
         photos: [1, 2, 3, 4, 5, 6, 7, 8].map((k) => 'assets/ch1/photo' + k + '.svg').concat(Array(8).fill(null)),
         videos: ['assets/ch1/video1.mp4', 'assets/ch1/video2.mp4', null, null],
+        /*
+         * 剧情（docs/story.md）：键是全局关卡序号（从 0 数）。普通关 pages（1-2 页插画），困难关 video。
+         * 气泡由游戏叠加：who 是说话的人（决定尾巴方向），at 是位置：tr 右上、tl 左上、bl 左下、br 右下、c 中间（贴在物件上的字，没有尾巴）。
+         * 插画到了之前用占位图（.svg），换成 tools/assets.sh 转出来的 .webp 即可。video 为 null 时播放 poster 占位画面。
+         */
+        story: {
+          0: { pages: [{ img: 'assets/ch1/story/p01.svg', bubbles: [
+            { who: 'kira', at: 'tr', en: "You're not here for the mojitos.", ja: 'モヒートを飲みに来たわけじゃないでしょ。', ko: '모히토 마시러 온 건 아니지?', pt: 'Você não veio pelos mojitos.', zh: '你不是来喝莫吉托的。', ru: 'Ты здесь не ради мохито.' },
+            { who: 'nico', at: 'bl', en: "I'm here for the best driver on the coast.", ja: 'この海岸で一番のドライバーを探しに来た。', ko: '이 해안 최고의 드라이버를 찾으러 왔어.', pt: 'Vim atrás da melhor motorista da costa.', zh: '我是来找海岸线上最好的车手的。', ru: 'Я ищу лучшего водителя на побережье.' },
+            { who: 'kira', at: 'tr', en: "Then you're already late.", ja: 'なら、もう遅刻よ。', ko: '그럼 이미 늦었네.', pt: 'Então já está atrasado.', zh: '那你已经迟到了。', ru: 'Тогда ты уже опоздал.' },
+          ] }] },
+          1: { pages: [{ img: 'assets/ch1/story/p02.svg', bubbles: [
+            { who: 'note', at: 'c', en: 'Pier 9 · Midnight', ja: '9番桟橋・真夜中', ko: '9번 부두 · 자정', pt: 'Píer 9 · Meia-noite', zh: '9 号码头 · 午夜', ru: 'Причал 9 · Полночь' },
+            { who: 'kira', at: 'tr', en: 'Open the lock. Then we talk.', ja: '鍵を開けて。話はそれから。', ko: '자물쇠부터 열어. 얘기는 그다음이야.', pt: 'Abre o cadeado. Depois a gente conversa.', zh: '先把锁打开，再谈。', ru: 'Открой замок. Потом поговорим.' },
+          ] }] },
+          2: { pages: [{ img: 'assets/ch1/story/p03.svg', bubbles: [
+            { who: 'kira', at: 'tr', en: "Ten seconds, boss. Or I'm gone.", ja: '10秒よ、ボス。でなきゃ帰る。', ko: '10초야, 보스. 아니면 난 간다.', pt: 'Dez segundos, chefe. Ou eu sumo.', zh: '十秒，boss。不然我走人。', ru: 'Десять секунд, босс. Или я ухожу.' },
+            { who: 'nico', at: 'bl', en: 'Eight.', ja: '8秒で十分だ。', ko: '8초면 돼.', pt: 'Oito.', zh: '八秒就够。', ru: 'Восемь.' },
+          ] }] },
+          3: { pages: [{ img: 'assets/ch1/story/p04.svg', bubbles: [
+            { who: 'kira', at: 'tr', en: "I don't join crews. I test them.", ja: '私はチームに入らない。試すのよ。', ko: '난 팀에 들어가지 않아. 시험하지.', pt: 'Eu não entro em equipes. Eu testo elas.', zh: '我不加入团队，我只考验他们。', ru: 'Я не вступаю в команды. Я их проверяю.' },
+            { who: 'kira', at: 'tr', en: 'Coral Club. Tomorrow, sunset. Fifty-fifty.', ja: 'コーラル・クラブ。明日の日没。山分けよ。', ko: '코랄 클럽. 내일 해 질 녘. 반반.', pt: 'Coral Club. Amanhã, no pôr do sol. Meio a meio.', zh: 'Coral Club。明天日落。五五分。', ru: '«Корал Клаб». Завтра на закате. Пополам.' },
+            { who: 'nico', at: 'bl', en: "…Who's that?", ja: '……あれは誰だ？', ko: '……저건 누구지?', pt: '…Quem é aquele?', zh: '……那是谁？', ru: '…А это кто?' },
+          ] }] },
+          4: { video: null, poster: 'assets/ch1/story/v01.svg' },
+        },
       },
       // 后面几章还没做关卡和角色，先占位：界面上显示为锁住的章节和背景
       {

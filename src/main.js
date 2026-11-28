@@ -96,6 +96,7 @@
   let levelIndex = 0, G = null, S = null, bounds = null;
   let moves = 0, score = 0, shownScore = 0, won = false, everDragged = false;
   let lastProgress = performance.now(), lastStuck = 0, blockedTaps = [];
+  let firstFly = false, hintUsed = false, blockedTotal = 0; // 反应规则用：这一关是否第一次消除、是否用过提示、碰壁了几次
   let drag = null, hint = null, combo = { n: 0, t: 0 };
   let fx = [];            // 各种一次性动画
   let stampAt = 0;        // 劫案皮肤：过关时盖“VAULT OPEN”章的时刻（真实时间）
@@ -124,7 +125,7 @@
     bgIndex = qBg != null ? +qBg - 1 : DAY ? 4 : CINE ? 0 : chap.bg; // 电影感用日落海岸（迈阿密黄金时刻）
     // E 测试页：把第 1 章的 Kira 放进画面看效果（第 28 关属于第 2 章，第 2 章的角色还是占位图）
     Girl.setChapter(ELOOK && TEST_LEVEL ? (Girl.testChap = Girl.testChap || Object.assign({}, chap, { girl: CH.list[0].girl })) : chap);
-    lastProgress = performance.now(); blockedTaps = [];
+    lastProgress = performance.now(); blockedTaps = []; firstFly = false; hintUsed = false; blockedTotal = 0;
     if (n % PER === 0 && progress[n] == null) setTimeout(() => Girl.react('greet'), 600);
     else if (ELOOK && TEST_LEVEL && !Girl.testGreeted) { Girl.testGreeted = true; setTimeout(() => Girl.react('greet'), 600); }
     $('score').textContent = money(0);
@@ -257,7 +258,7 @@
       if (HEIST) HA.locked(panOf(G.rings[i].x)); else SFX.locked();
       HAP.fire('blocked');
       const tnow = performance.now();
-      blockedTaps = blockedTaps.filter((x) => tnow - x < 10000).concat([tnow]);
+      blockedTaps = blockedTaps.filter((x) => tnow - x < 10000).concat([tnow]); blockedTotal++;
       if (blockedTaps.length >= 3) { blockedTaps = []; stuckReact(); }
       if (why === 'owner') {
         // 把它扣住的环闪一下，告诉玩家要先处理谁
@@ -381,7 +382,13 @@
         fx.push({ type: 'word', text: words[Math.min(combo.n, 5)], x: wx, y: wy, t0: ft });
       } else fx.push({ type: 'word', text: HEIST ? 'Click!' : 'Good!', x: wx, y: wy, t0: ft, small: true });
       lastProgress = now;
-      if ((combo.n >= 2 || flew >= 2) && !S.ring.every((a) => !a)) Girl.react('combo');
+      if (!S.ring.every((a) => !a)) {
+        if (combo.n >= 4 || flew >= 2) Girl.react('comboBig');
+        else if (combo.n === 3) Girl.react('combo');
+        else if (combo.n === 2) Girl.react('combo2');
+        else if (!firstFly) Girl.glance('happy', 1200);
+      }
+      firstFly = true;
       if (S.ring.every((a) => !a)) {
         // 最后一个零件：慢镜头收尾
         // 最后一个零件刚起步就进入慢镜头，让它在慢动作里拖着光带冲出去
@@ -477,23 +484,29 @@
     const firstClear = progress[levelIndex] == null;
     saveScore(levelIndex, score);
     const ci = chapterIndex(levelIndex), chap = chapterOf(levelIndex), rw = CH.rewardAt(levelIndex);
-    const rsrc = rw.kind === 'photo' ? chap.photos[rw.i] : chap.videos[rw.i];
+    const st = rw.kind === 'story' ? storyOf(levelIndex) : null;
+    const rsrc = st ? (st.pages ? st.pages[0].img : st.poster) : rw.kind === 'photo' ? chap.photos[rw.i] : chap.videos[rw.i];
+    lastFirstClear = firstClear;
     const isNew = firstClear;
     if (isNew) markNew(ci, rw.kind, rw.i);
     // 这一关打完正好凑齐本章 20 关 → 解锁下一章的背景
     const newBg = firstClear && ci + 1 < CH.list.length && chapterDone(ci);
-    setTimeout(() => Girl.react(isNew ? rw.kind : 'clear'), 450);
+    // 过关：没用提示、没碰壁算“干净利落”，说夸奖的台词；表情都是 wink
+    const cleanRun = !hintUsed && blockedTotal === 0;
+    setTimeout(() => Girl.react(isNew ? rw.kind : cleanRun ? 'clean' : 'clear'), 450);
     // 劫案皮肤：保险柜门转开（和“保险箱打开”的声音对齐：把手 → 门闩 → 密封嘶声时门开始转）
     if (HEIST) { setTimeout(() => HA.vault(), 550); stampAt = performance.now() + 850; }
     const wp = $('winPhoto');
     wp.classList.toggle('show', isNew);
     wp.classList.toggle('soon', isNew && !rsrc);
-    wp.classList.toggle('isvideo', rw.kind === 'video');
+    wp.classList.toggle('isvideo', rw.kind === 'video' || !!(st && !st.pages));
     if (isNew) {
-      $('winPhotoTitle').textContent = rw.kind === 'video' ? t('newVideo') : t('newPhoto');
-      $('winPhotoImg').src = rw.kind === 'photo' && rsrc ? rsrc : (chap.girl ? chap.girl.expr.happy : '');
-      wp.onclick = () => { if (rsrc) openViewer(rw.kind === 'video' ? 'video' : 'img', rsrc, ci, rw.kind, rw.i); };
+      $('winPhotoTitle').textContent = st ? t('newStory') : rw.kind === 'video' ? t('newVideo') : t('newPhoto');
+      $('winPhotoImg').src = (rw.kind === 'photo' || st) && rsrc ? rsrc : (chap.girl ? chap.girl.expr.happy : '');
+      // 剧情卡：点一下就在这里播，播完回到结算画面
+      wp.onclick = () => { if (st) Story.play(storyItems(levelIndex)); else if (rsrc) openViewer(rw.kind === 'video' ? 'video' : 'img', rsrc, ci, rw.kind, rw.i); };
     }
+    syncStoryTog();
     $('winBg').classList.toggle('show', newBg);
     if (newBg) $('winBgName').textContent = CH.list[ci + 1].name;
     setTimeout(() => {
@@ -514,7 +527,7 @@
     const m = C.hintMove(G, S, C.hintBudget(G));
     if (!m) { showTip(t('tipDead')); return; }
     hint = { i: m.ring, delta: m.delta, t0: performance.now(), auto: !!auto };
-    if (!auto) { showTip(t('tipHint'), 2600); Girl.react('hint'); }
+    if (!auto) { hintUsed = true; showTip(t('tipHint'), 2600); Girl.react('hint'); }
   }
 
   // ---------- 按钮 ----------
@@ -591,12 +604,139 @@
     if ($('menu').classList.contains('show')) openMenu();
     if ($('album').classList.contains('show')) openAlbum();
   }
-  btn('btnNext', () => { $('win').classList.remove('show'); if (TEST_LEVEL) loadLevel(levelIndex); else if (levelIndex < LEVELS.length - 1) loadLevel(levelIndex + 1); else openMenu(); });
+  // 下一关：打开了「每关后看剧情」、这一关有剧情、而且是第一次通关（测试页每次都播）→ 先播剧情再进下一关
+  btn('btnNext', () => {
+    $('win').classList.remove('show');
+    const go = () => { if (TEST_LEVEL) loadLevel(levelIndex); else if (levelIndex < LEVELS.length - 1) loadLevel(levelIndex + 1); else openMenu(); };
+    if (storyOn() && storyOf(levelIndex) && (lastFirstClear || TEST_LEVEL)) Story.play(storyItems(levelIndex), go); else go();
+  });
+  btn('togStory', () => { try { localStorage.setItem(STORY_KEY, storyOn() ? '0' : '1'); } catch (e) { /* 隐私模式 */ } syncStoryTog(); });
+  function syncStoryTog() { $('togStory').classList.toggle('on', storyOn()); }
+  btn('btnStorySkip', () => Story.finish());
   btn('btnRetry', () => { $('win').classList.remove('show'); loadLevel(levelIndex); });
   // iPhone：按钮上盖透明原生开关，直接点按就有震感
-  ['btnSettings', 'btnReset', 'btnHint', 'togMusic', 'togSound', 'togVibe', 'btnLang', 'btnHome', 'btnRestart', 'btnCloseSettings', 'btnNext', 'btnRetry']
+  ['btnSettings', 'btnReset', 'btnHint', 'togMusic', 'togSound', 'togVibe', 'btnLang', 'btnHome', 'btnRestart', 'btnCloseSettings', 'btnNext', 'btnRetry', 'togStory']
     .forEach((id) => HAP.attach($(id)));
   I18N.apply();
+
+  // ---------- 剧情（docs/story.md）：插画页 + 视频 ----------
+  const STORY_KEY = 'neonheist-story', STORY_SEEN = 'neonheist-story-seen';
+  const storyOn = () => { try { return localStorage.getItem(STORY_KEY) !== '0'; } catch (e) { return true; } }; // 默认打开
+  let storySeen = {};
+  try { storySeen = JSON.parse(localStorage.getItem(STORY_SEEN)) || {}; } catch (e) { storySeen = {}; }
+  let lastFirstClear = false;
+  function storyOf(n) { const ch = chapterOf(n); return (ch && ch.story && ch.story[n]) || null; }
+  // 一关的剧情拆成播放队列：每页一项；困难关是一段视频（还没做时播 poster 占位）
+  function storyItems(n) {
+    const st = storyOf(n);
+    if (!st) return [];
+    return st.pages ? st.pages.map((page) => ({ n, page })) : [{ n, video: st.video, poster: st.poster }];
+  }
+  const storyUnlocked = (n) => UNLOCK_ALL || cleared(n);
+  const Story = (() => {
+    const box = $('story'), img = $('storyImg'), vid = $('storyVid'), zones = { top: box.querySelector('.sz-top'), c: box.querySelector('.sz-c'), bot: box.querySelector('.sz-bot') };
+    let q = [], k = 0, done = null, shown = 0, total = 0, timers = [];
+    function reset() {
+      timers.forEach(clearTimeout); timers = [];
+      Object.values(zones).forEach((z) => { z.innerHTML = ''; });
+      vid.onended = null; vid.pause();
+    }
+    function show() {
+      reset();
+      const it = q[k];
+      storySeen[it.n] = true;
+      try { localStorage.setItem(STORY_SEEN, JSON.stringify(storySeen)); } catch (e) { /* 隐私模式 */ }
+      $('storyCount').textContent = q.length > 1 ? (k + 1) + ' / ' + q.length : '';
+      shown = 0; total = 0;
+      if (it.page) {
+        vid.style.display = 'none'; img.style.display = ''; img.src = it.page.img;
+        const bs = it.page.bubbles || [];
+        total = bs.length;
+        // 对白一个接一个冒出来（0.35 秒开始，之后每 0.9 秒一个）；点一下立刻全部出来
+        bs.forEach((b, i) => {
+          const el = document.createElement('div');
+          el.className = 'sb at-' + b.at + ' who-' + b.who;
+          el.textContent = b[I18N.lang] || b.en;
+          (b.at === 'c' ? zones.c : /^t/.test(b.at) ? zones.top : zones.bot).appendChild(el);
+          timers.push(setTimeout(() => { el.classList.add('show'); shown = i + 1; }, 350 + i * 900));
+        });
+      } else if (it.video) {
+        img.style.display = 'none'; vid.style.display = ''; vid.src = it.video; vid.onended = next;
+        vid.play().catch(() => { /* iOS 需要再点一下 */ });
+      } else {
+        vid.style.display = 'none'; img.style.display = ''; img.src = it.poster;
+        timers.push(setTimeout(next, 2500));
+      }
+    }
+    function next() { if (k + 1 < q.length) { k++; show(); } else finish(); }
+    function tap() {
+      if (q[k] && q[k].page && shown < total) {
+        timers.forEach(clearTimeout); timers = [];
+        box.querySelectorAll('.sb').forEach((e) => e.classList.add('show')); shown = total;
+        return;
+      }
+      next();
+    }
+    function finish() {
+      if (!box.classList.contains('show')) return;
+      reset(); vid.removeAttribute('src');
+      box.classList.remove('show');
+      const d = done; done = null;
+      if (d) d();
+      if ($('album').classList.contains('show')) openAlbum();
+    }
+    function play(items, cb) {
+      if (!items.length) { if (cb) cb(); return; }
+      q = items; k = 0; done = cb || null;
+      box.classList.add('show');
+      show();
+    }
+    box.addEventListener('click', (e) => { if (!e.target.closest('#btnStorySkip') && box.classList.contains('show')) tap(); });
+    return { play, finish };
+  })();
+  // 相册里的剧情：每 5 关一集，一集点一下就从头连播（插画 + 视频）；「继续看剧情」从第一段没看过的开始
+  function episodes() {
+    const eps = [];
+    CH.list.forEach((chap, ci) => {
+      if (!chap.story) return;
+      for (let set = 0; set < PER / SETN; set++) {
+        const lv = [];
+        for (let j = 0; j < SETN; j++) { const n = ci * PER + set * SETN + j; if (chap.story[n]) lv.push(n); }
+        if (lv.length) eps.push({ ci, no: ci * (PER / SETN) + set + 1, lv, a: ci * PER + set * SETN + 1, b: ci * PER + set * SETN + SETN });
+      }
+    });
+    return eps;
+  }
+  const epItems = (ep, from) => ep.lv.filter((n) => storyUnlocked(n) && (from == null || n >= from)).flatMap(storyItems);
+  function storySection() {
+    const eps = episodes();
+    if (!eps.length) return null;
+    const sec = document.createElement('div');
+    sec.className = 'asec astory';
+    const firstNew = eps.flatMap((e) => e.lv).find((n) => storyUnlocked(n) && !storySeen[n]);
+    sec.innerHTML = '<div class="ahead"><b>' + t('story') + '</b></div>';
+    if (firstNew != null) {
+      const cont = document.createElement('button');
+      cont.className = 'scont';
+      cont.innerHTML = '▶ ' + t('storyContinue');
+      cont.addEventListener('click', () => { const ep = eps.find((e) => e.lv.includes(firstNew)); Story.play(epItems(ep, firstNew)); });
+      sec.appendChild(cont);
+    }
+    const row = document.createElement('div');
+    row.className = 'eprow';
+    for (const ep of eps) {
+      const got = ep.lv.filter(storyUnlocked), fresh = got.some((n) => !storySeen[n]);
+      const s0 = storyOf(ep.lv[0]), thumb = s0.pages ? s0.pages[0].img : s0.poster;
+      const c = document.createElement('button');
+      c.className = 'epcard' + (got.length ? '' : ' locked');
+      c.innerHTML = '<span class="th" style="background-image:url(' + thumb + ')">' + (fresh ? '<em>' + t('storyNew') + '</em>' : '') + (got.length ? '<i>▶</i>' : '<i>🔒</i>') + '</span>' +
+        '<b>' + t('episodeN', { n: ep.no }) + '</b><small>' + (got.length ? t('levelsRange', { a: ep.a, b: ep.b }) + ' · ' + got.length + '/' + ep.lv.length : t('storyLocked', { n: ep.lv[0] + 1 })) + '</small>';
+      if (got.length) c.addEventListener('click', () => Story.play(epItems(ep)));
+      row.appendChild(c);
+    }
+    sec.appendChild(row);
+    return sec;
+  }
 
   // ---------- 主页：相册 + 章节 + 关卡转盘 ----------
   let homeCh = 0, homeMid = 0;
@@ -770,6 +910,8 @@
   function openAlbum() {
     const body = $('albumBody');
     body.innerHTML = '';
+    const ss = storySection();
+    if (ss) body.appendChild(ss);
     const playable = Math.ceil(LEVELS.length / PER);
     CH.list.forEach((chap, ci) => {
       const open = bgUnlocked(ci);
@@ -785,6 +927,7 @@
       sec.appendChild(bgc);
       if (ci < playable) {
         for (let set = 0; set < PER / SETN; set++) {
+          if (chap.story && chap.story[ci * PER + set * SETN]) continue; // 这一集已经换成剧情，在上面的「剧情」里
           const row = document.createElement('div');
           row.className = 'arow';
           for (let j = 0; j < SETN - 1; j++) {
@@ -823,7 +966,9 @@
     // 有的 iPhone 不加载 WebP（比如开了锁定模式）：只要有一张 WebP 加载失败，就整体换成同名 PNG（540 像素高）
     let noWebp = false;
     const fix = (u) => (noWebp && u ? u.replace(/\.webp$/, '.png') : u);
-    function src(expr) { return fix((chap && (chap.girl.expr[expr] || chap.girl.expr.idle)) || ''); }
+    // 新表情还没出图时，先用最接近的旧表情代替（smirk → wink，excited → happy）
+    const EXPR_FALLBACK = { smirk: 'wink', excited: 'happy' };
+    function src(expr) { const e = chap && chap.girl.expr; return fix((e && (e[expr] || e[EXPR_FALLBACK[expr]] || e.idle)) || ''); }
     [A, B, BL].forEach((img) => img.addEventListener('error', () => {
       const u = img.getAttribute('src') || '';
       if (!/\.webp$/.test(u)) return;
@@ -856,8 +1001,10 @@
       clearTimeout(bubbleTimer);
       bubbleTimer = setTimeout(() => bubble.classList.remove('show'), 2800);
     }
+    // 新的台词分组没写时，借用相近的分组
+    const LINE_FALLBACK = { combo2: 'combo', comboBig: 'combo', clean: 'clear', story: 'clear' };
     function pick(group) {
-      const L = chap.girl.lines[group];
+      const L = chap.girl.lines[group] || chap.girl.lines[LINE_FALLBACK[group]];
       const arr = (L && (L[I18N.lang] || L.en)) || [];
       if (!arr.length) return '';
       let k = Math.floor(Math.random() * arr.length);
@@ -865,15 +1012,38 @@
       lastLine[group] = k;
       return arr[k];
     }
-    const EXPR = { greet: 'happy', stuck: 'pout', combo: 'surprised', clear: 'wink', photo: 'happy', video: 'wink', hint: 'thinking' };
+    /*
+     * 反应规则（完整列表见 docs/girl-reactions.md）。
+     * 过关一律用同一个表情（wink）；消除零件按连击分三档：2 连 smirk、3 连 surprised、4 连以上或一次飞走 2 个 excited。
+     */
+    const EXPR = { greet: 'happy', stuck: 'pout', combo2: 'smirk', combo: 'surprised', comboBig: 'excited',
+      clear: 'wink', clean: 'wink', photo: 'wink', video: 'wink', story: 'wink', hint: 'thinking' };
+    // 自发的反应（连击、卡关）有冷却：两次气泡至少隔 4 秒，同一组至少隔 10 秒；但连击升档时可以立刻打断
+    const SPONT = { combo2: 1, combo: 2, comboBig: 3, stuck: 0 };
+    let lastSay = 0, lastTier = -1, lastGroupAt = {};
     function react(group) {
       if (!chap) return;
+      const now = performance.now();
+      if (group in SPONT) {
+        const tier = SPONT[group], cooling = now - lastSay < 4000;
+        if (cooling && !(tier > 0 && tier > lastTier)) return;
+        if (now - (lastGroupAt[group] || -1e9) < 10000 && !(tier > lastTier && cooling)) return;
+        lastTier = tier;
+      } else lastTier = -1;
+      lastSay = now; lastGroupAt[group] = now;
       show(EXPR[group] || 'idle');
       const line = pick(group);
       if (line) say(line);
       el.classList.remove('pop'); void el.offsetWidth; el.classList.add('pop');
       clearTimeout(backTimer);
       backTimer = setTimeout(() => show('idle'), 2800);
+    }
+    // 只换表情、不说话（例如这一关第一次消除零件时轻轻笑一下）
+    function glance(expr, ms) {
+      if (!chap || performance.now() - lastSay < 2800) return;
+      show(expr);
+      clearTimeout(backTimer);
+      backTimer = setTimeout(() => show('idle'), ms || 1200);
     }
     function blinkLoop() {
       clearTimeout(blinkTimer);
@@ -900,7 +1070,7 @@
       if (!r.width || getComputedStyle(el).display === 'none') return [];
       return RRLayout.girlRects({ left: r.left, top: r.top, width: r.width, height: r.height }, chap.girl.mask);
     }
-    return { setChapter, react, rects, get expr() { return cur; } };
+    return { setChapter, react, glance, rects, get expr() { return cur; } };
   })();
 
   function stuckReact() {
@@ -2042,7 +2212,7 @@
   // 给验证脚本用的接口
   window.__neon = {
     get state() { return { levelIndex, angles: S.angles.slice(), ring: S.ring.slice(), link: S.link.slice(), moves, score, won, dragging: !!drag, frameCount }; },
-    loadLevel, openAlbum, girl: () => Girl.expr,
+    loadLevel, openAlbum, girl: () => Girl.expr, win, story: Story, storyItems, react: (g) => Girl.react(g), // 测试用
     toScreen(x, y) { return { x: ox + x * scale, y: oy + y * scale }; },
   };
 })();
