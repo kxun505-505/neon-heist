@@ -1,6 +1,6 @@
 # 第 1 章第 1 环（第 1-5 关）剧情小样：出图需求包
 
-给 GPT（或画师、视频工具）用。剧情背景见 `docs/story.md` 第 4 节，画法规则见 `docs/art-bible.md`。
+给 GPT（或画师、视频工具）用。剧情背景见 `docs/story.md` 第 4 节第 1 环（v2），画法规则见 `docs/art-bible.md`。
 
 ## 怎么用
 
@@ -38,48 +38,52 @@
 
 每页都写了构图、人物、表情、光线、要留空的位置，以及游戏会叠加的对白。对白不要画进图里。
 
-### P1（第 1 关）：Coral Shack 海滩酒吧，黄金时刻
+### P1（第 1 关）：闪前，五周后的游艇甲板
 
-> Golden-hour beach bar called (unnamed) shack on the sand, palm-thatched roof, string lights just turning on, the sea and a huge low sun behind. Medium shot from behind and slightly to the left of Nico, who sits on a bar stool in the lower-left third (3/4 back view, aviators on, relaxed). Across the bar on the right, Kira (Outfit A) leans forward on both forearms, shaking a cocktail shaker, looking straight at him with an amused, sizing-up smirk. Warm sunset rim light on both. Top 22%: sky and string lights only. Bottom 18%: wooden bar top, calm. [统一画风说明]
+> Night, the deck of a luxury yacht at sea during a regatta; in the far background a marina burns orange (fire and smoke only, small, no people hurt) under fireworks. Low camera angle. Nico kneels on one knee in the lower-left, hands bound behind his back with a zip tie, shirt slightly disheveled, jaw set, looking up defiantly. From the right edge of the frame, only a woman's legs from the knee down step into view: glossy red stiletto heels and the hem of a white tailored suit trouser — her face and body are NOT shown. Dramatic rim light from the fire. Top 22% night sky and fireworks, bottom 18% teak deck. No blood, no weapons. [统一画风说明]
 
 对白（游戏叠加）：
 | 谁 | 位置 | EN | 中文 |
 |---|---|---|---|
-| Kira | 右上 | You're not here for the mojitos. | 你不是来喝莫吉托的。 |
-| Nico | 左下 | I'm here for the best driver on the coast. | 我是来找海岸线上最好的车手的。 |
-| Kira | 右上 | Then you're already late. | 那你已经迟到了。 |
+| 高跟鞋的女人（画面外） | 右上 | Long time no see, Ghost. | 好久不见，Ghost。 |
+| Nico | 左下 | …You. | ……是你。 |
+| 字幕 | 中间 | FIVE WEEKS EARLIER | 五周前 |
 
-悬念：最后一格，她的手把一张餐巾纸推了过来（可以画在吧台上的前景里）。
+悬念：她是谁？（第 19 环才揭开，是 Vivian）
 
-### P2（第 2 关）：餐巾纸特写
+### P2（第 2 关）：五周前，海滩酒吧的当众羞辱
 
-> Close-up from above of a cocktail napkin on a wooden bar top, damp ring from a glass beside it. A small brass key is taped to the napkin. On the napkin, lipstick-pink handwritten marks only as an abstract scribble shape (the game will add the readable text). Nico's hand with the gold signet ring rests next to it. In the soft background, Kira (Outfit A) walks away toward the beach, glancing back over her shoulder with a teasing look; hair catching the sunset light. Top 22% and bottom 18% calm. [统一画风说明]
+> Golden-hour beach bar, palm-thatched roof, string lights just turning on, huge low sun over the sea. Center-right: a smug club owner in a loud floral silk shirt and gold chain (Dorian, 40s, slicked hair) has just splashed a drink across the bar; liquid in mid-air splashes onto Kira's (Outfit A) shirt as she stands behind the bar, chin up, eyes cold, refusing to flinch. Lower-left foreground: Nico at the bar, 3/4 back view, aviators on, not even turning his head, calmly holding his glass. A few blurred guests watching. Top 22% sky and string lights, bottom 18% bar top. [统一画风说明]
 
 对白：
 | 谁 | 位置 | EN | 中文 |
 |---|---|---|---|
-| 餐巾纸上的字 | 中间（贴在餐巾纸上） | Pier 9 · Midnight | 9 号码头 · 午夜 |
-| Kira | 右上 | Open the lock. Then we talk. | 先把锁打开，再谈。 |
+| Dorian | 右上 | Clean it up. Then get out. | 擦干净，然后滚。 |
+| Nico | 左下 | Spill one more and you'll pay for the whole bar. | 再泼一杯，整间酒吧你都得赔。 |
+| Kira | 右上 | I don't need a hero. | 我不需要英雄。 |
+
+悬念：最后她把一张餐巾纸推到他面前（可以画在前景吧台上，餐巾纸上只有抽象的口红笔迹）。
 
 ### P3（第 3 关）：午夜 9 号码头
 
-> Midnight on an old wooden pier, neon signs of the coast glowing far behind across the water, moonlight. Kira (Outfit B) leans against the hood of her pink vintage convertible on the right, arms crossed, sunglasses pushed up on her head, a wristwatch held up in one hand as if timing him, playful challenge on her face. In the center foreground, a wooden crate wrapped in a heavy chain with a big padlock; Nico kneels beside it on one knee, working the padlock with lock picks, calm and focused, aviators hanging from his shirt. Low camera angle. Top 22% night sky, bottom 18% pier planks. [统一画风说明]
+> Midnight on an old wooden pier, neon signs of the coast glowing far behind across the water, moonlight. Kira (Outfit B) leans against the hood of her pink vintage convertible on the right, arms crossed, sunglasses pushed up on her head, holding up her wristwatch as if timing him, playful challenge on her face. In the center foreground, a wooden crate wrapped in a heavy chain with a big padlock; Nico kneels beside it on one knee, working the padlock with lock picks, calm and focused, aviators hanging from his shirt. Low camera angle. Top 22% night sky, bottom 18% pier planks. [统一画风说明]
 
 对白：
 | 谁 | 位置 | EN | 中文 |
 |---|---|---|---|
-| Kira | 右上 | Ten seconds, boss. Or I'm gone. | 十秒，boss。不然我走人。 |
+| Kira | 右上 | Ten seconds, hotshot. Or I'm gone. | 十秒，高手。不然我走人。 |
 | Nico | 左下 | Eight. | 八秒就够。 |
 
-### P4（第 4 关）：箱子打开
+### P4（第 4 关）：箱子里是他自己的通缉照
 
-> Same pier at night, closer shot. The crate is open: inside, a rolled blueprint of a nightclub and a shiny gold key card catching the light. Kira (Outfit B) stands very close to Nico, face to face (both standing), one fingertip touching the center of his chest, a confident, slightly dangerous smile; Nico looks down at her with an amused half-smile. Far in the background, between them, a pair of car headlights has just switched on at the end of the pier (small, bright, ominous). Romantic tension but fully clothed and tasteful. Top 22% night sky, bottom 18% pier and crate edge. [统一画风说明]
+> Same pier at night, closer shot. The crate is open: inside, a rolled blueprint of a nightclub and an old wanted-style photo print of Nico (younger, five years ago) with the word area on the back left blank (the game adds the text). Kira (Outfit B) stands very close to Nico, face to face, one fingertip touching the center of his chest, a confident, slightly dangerous smile; Nico looks down at her with a guarded half-smile. Far in the background between them, a pair of car headlights has just switched on at the end of the pier (small, bright, ominous). Romantic tension but fully clothed and tasteful. Top 22% night sky, bottom 18% pier and crate edge. [统一画风说明]
 
 对白：
 | 谁 | 位置 | EN | 中文 |
 |---|---|---|---|
-| Kira | 右上 | I don't join crews. I test them. | 我不加入团队，我只考验他们。 |
-| Kira | 右上 | Coral Club. Tomorrow, sunset. Fifty-fifty. | Coral Club。明天日落。五五分。 |
+| 照片背面的字 | 中间 | GHOST | GHOST |
+| Kira | 右上 | I know who you are. | 我知道你是谁。 |
+| Kira | 右上 | Dorian's safe. His party. Fifty-fifty. | Dorian 的保险柜，他的派对，五五分。 |
 | Nico | 左下 | …Who's that? | ……那是谁？ |
 
 ---
@@ -96,7 +100,7 @@
 | 2 | 2-5 秒 | Kira 一把抓住 Nico 的手，两人翻进粉色敞篷车。她挂挡，轮胎冒烟 |
 | 3 | 5-8 秒 | 霓虹海岸公路，侧面跟拍：敞篷车甩尾超车，SUV 紧追。Kira 的头发在风里飘，她在笑；Nico 一手按着车门 |
 | 4 | 8-10 秒 | 敞篷车钻进小巷，车灯熄灭。SUV 从巷口呼啸而过。安静。 |
-| 5 | 10-12 秒 | 车里，Kira 转向镜头（也就是转向玩家）眨眼。最后一帧切到巷口：SUV 车窗里，一只手举着手机在拍照 |
+| 5 | 10-12 秒 | 车里，Kira 转向镜头（也就是转向玩家）眨眼。最后一帧切到巷口：SUV 车窗里，一只手举着手机在拍照，屏幕上的联系人名字是「V」 |
 
 视频工具的提示词，每个镜头都加上统一画风说明：
 

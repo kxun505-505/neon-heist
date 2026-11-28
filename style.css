@@ -506,9 +506,15 @@ body.notrans *, body.notrans *::after { transition: none !important; }
 .story .at-tr, .story .at-br { align-self: flex-end; }
 .story .at-tl, .story .at-bl { align-self: flex-start; }
 /* 尾巴：Kira 在右边，尾巴朝右下；Nico 在左边，尾巴朝左上 */
-.story .sb.who-kira::after, .story .sb.who-nico::after { content: ''; position: absolute; width: 14px; height: 14px; background: #fff4e0;
+.story .sb.who-kira::after, .story .sb.who-heels::after, .story .sb.who-dorian::after, .story .sb.who-nico::after { content: ''; position: absolute; width: 14px; height: 14px; background: #fff4e0;
   border: 3px solid #1a0b2e; border-top: 0; border-left: 0; }
-.story .sb.who-kira::after { right: 22px; bottom: -9px; transform: rotate(45deg); }
+.story .sb.who-kira::after, .story .sb.who-heels::after, .story .sb.who-dorian::after { right: 22px; bottom: -9px; transform: rotate(45deg); }
+/* 画面外的人（高跟鞋的女人）：斜体；反派 Dorian：热粉边 */
+.story .sb.who-heels { font-style: italic; }
+.story .sb.who-dorian { border-color: #ff4f9a; box-shadow: 0 4px 0 #ff4f9a; }
+.story .sb.who-dorian::after { border-color: #ff4f9a; }
+/* 字幕（「五周前」）：墨色条，没有尾巴 */
+.story .sb.who-caption { background: #1a0b2e; color: #ffc93c; border-color: #ffc93c; border-radius: 4px; font: 400 26px/1.1 Anton, Impact, sans-serif; letter-spacing: 3px; padding: 8px 18px; }
 .story .sb.who-nico { background: #1a0b2e; color: #fff4e0; border-color: #fff4e0; box-shadow: 0 4px 0 rgba(0,0,0,0.5); }
 .story .sb.who-nico::after { left: 22px; top: -9px; transform: rotate(225deg); background: #1a0b2e; border-color: #fff4e0; }
 /* 贴在物件上的字（餐巾纸上的口红字）：没有框 */

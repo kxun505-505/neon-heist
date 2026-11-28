@@ -145,22 +145,25 @@
          * 插画到了之前用占位图（.svg），换成 tools/assets.sh 转出来的 .webp 即可。video 为 null 时播放 poster 占位画面。
          */
         story: {
+          // 第 1 环（docs/story.md v2）：P1 闪前（五周后的甲板）→ P2 当众羞辱 → P3 码头开锁 → P4 箱子里是他的通缉照
           0: { pages: [{ img: 'assets/ch1/story/p01.svg', bubbles: [
-            { who: 'kira', at: 'tr', en: "You're not here for the mojitos.", ja: 'モヒートを飲みに来たわけじゃないでしょ。', ko: '모히토 마시러 온 건 아니지?', pt: 'Você não veio pelos mojitos.', zh: '你不是来喝莫吉托的。', ru: 'Ты здесь не ради мохито.' },
-            { who: 'nico', at: 'bl', en: "I'm here for the best driver on the coast.", ja: 'この海岸で一番のドライバーを探しに来た。', ko: '이 해안 최고의 드라이버를 찾으러 왔어.', pt: 'Vim atrás da melhor motorista da costa.', zh: '我是来找海岸线上最好的车手的。', ru: 'Я ищу лучшего водителя на побережье.' },
-            { who: 'kira', at: 'tr', en: "Then you're already late.", ja: 'なら、もう遅刻よ。', ko: '그럼 이미 늦었네.', pt: 'Então já está atrasado.', zh: '那你已经迟到了。', ru: 'Тогда ты уже опоздал.' },
+            { who: 'heels', at: 'tr', en: 'Long time no see, Ghost.', ja: '久しぶりね、Ghost。', ko: '오랜만이야, Ghost.', pt: 'Quanto tempo, Ghost.', zh: '好久不见，Ghost。', ru: 'Давно не виделись, Ghost.' },
+            { who: 'nico', at: 'bl', en: '…You.', ja: '……お前か。', ko: '……너였군.', pt: '…Você.', zh: '……是你。', ru: '…Ты.' },
+            { who: 'caption', at: 'c', en: 'FIVE WEEKS EARLIER', ja: '5週間前', ko: '5주 전', pt: 'CINCO SEMANAS ANTES', zh: '五周前', ru: 'ПЯТЬЮ НЕДЕЛЯМИ РАНЕЕ' },
           ] }] },
           1: { pages: [{ img: 'assets/ch1/story/p02.svg', bubbles: [
-            { who: 'note', at: 'c', en: 'Pier 9 · Midnight', ja: '9番桟橋・真夜中', ko: '9번 부두 · 자정', pt: 'Píer 9 · Meia-noite', zh: '9 号码头 · 午夜', ru: 'Причал 9 · Полночь' },
-            { who: 'kira', at: 'tr', en: 'Open the lock. Then we talk.', ja: '鍵を開けて。話はそれから。', ko: '자물쇠부터 열어. 얘기는 그다음이야.', pt: 'Abre o cadeado. Depois a gente conversa.', zh: '先把锁打开，再谈。', ru: 'Открой замок. Потом поговорим.' },
+            { who: 'dorian', at: 'tr', en: 'Clean it up. Then get out.', ja: '拭いとけ。それから消えろ。', ko: '닦아. 그리고 꺼져.', pt: 'Limpa isso. Depois some daqui.', zh: '擦干净，然后滚。', ru: 'Вытри. И проваливай.' },
+            { who: 'nico', at: 'bl', en: "Spill one more and you'll pay for the whole bar.", ja: 'もう一杯こぼしたら、店ごと弁償してもらう。', ko: '한 잔만 더 쏟아 봐. 이 바 전부 물어내게 될 거야.', pt: 'Derrama mais um e você paga o bar inteiro.', zh: '再泼一杯，整间酒吧你都得赔。', ru: 'Прольёшь ещё один — заплатишь за весь бар.' },
+            { who: 'kira', at: 'tr', en: "I don't need a hero.", ja: 'ヒーローなんていらない。', ko: '영웅 따윈 필요 없어.', pt: 'Eu não preciso de herói.', zh: '我不需要英雄。', ru: 'Мне не нужен герой.' },
           ] }] },
           2: { pages: [{ img: 'assets/ch1/story/p03.svg', bubbles: [
-            { who: 'kira', at: 'tr', en: "Ten seconds, boss. Or I'm gone.", ja: '10秒よ、ボス。でなきゃ帰る。', ko: '10초야, 보스. 아니면 난 간다.', pt: 'Dez segundos, chefe. Ou eu sumo.', zh: '十秒，boss。不然我走人。', ru: 'Десять секунд, босс. Или я ухожу.' },
+            { who: 'kira', at: 'tr', en: "Ten seconds, hotshot. Or I'm gone.", ja: '10秒よ、エースさん。でなきゃ帰る。', ko: '10초야, 에이스. 아니면 난 간다.', pt: 'Dez segundos, craque. Ou eu sumo.', zh: '十秒，高手。不然我走人。', ru: 'Десять секунд, ас. Или я ухожу.' },
             { who: 'nico', at: 'bl', en: 'Eight.', ja: '8秒で十分だ。', ko: '8초면 돼.', pt: 'Oito.', zh: '八秒就够。', ru: 'Восемь.' },
           ] }] },
           3: { pages: [{ img: 'assets/ch1/story/p04.svg', bubbles: [
-            { who: 'kira', at: 'tr', en: "I don't join crews. I test them.", ja: '私はチームに入らない。試すのよ。', ko: '난 팀에 들어가지 않아. 시험하지.', pt: 'Eu não entro em equipes. Eu testo elas.', zh: '我不加入团队，我只考验他们。', ru: 'Я не вступаю в команды. Я их проверяю.' },
-            { who: 'kira', at: 'tr', en: 'Coral Club. Tomorrow, sunset. Fifty-fifty.', ja: 'コーラル・クラブ。明日の日没。山分けよ。', ko: '코랄 클럽. 내일 해 질 녘. 반반.', pt: 'Coral Club. Amanhã, no pôr do sol. Meio a meio.', zh: 'Coral Club。明天日落。五五分。', ru: '«Корал Клаб». Завтра на закате. Пополам.' },
+            { who: 'note', at: 'c', en: 'GHOST', ja: 'GHOST', ko: 'GHOST', pt: 'GHOST', zh: 'GHOST', ru: 'GHOST' },
+            { who: 'kira', at: 'tr', en: 'I know who you are.', ja: 'あなたが誰か知ってる。', ko: '네가 누군지 알아.', pt: 'Eu sei quem você é.', zh: '我知道你是谁。', ru: 'Я знаю, кто ты.' },
+            { who: 'kira', at: 'tr', en: "Dorian's safe. His party. Fifty-fifty.", ja: 'ドリアンの金庫。彼のパーティー。山分けよ。', ko: '도리언의 금고. 그의 파티. 반반.', pt: 'O cofre do Dorian. A festa dele. Meio a meio.', zh: 'Dorian 的保险柜，他的派对，五五分。', ru: 'Сейф Дориана. Его вечеринка. Пополам.' },
             { who: 'nico', at: 'bl', en: "…Who's that?", ja: '……あれは誰だ？', ko: '……저건 누구지?', pt: '…Quem é aquele?', zh: '……那是谁？', ru: '…А это кто?' },
           ] }] },
           4: { video: null, poster: 'assets/ch1/story/v01.svg' },
