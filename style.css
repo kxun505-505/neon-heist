@@ -474,3 +474,17 @@ body.notrans *, body.notrans *::after { transition: none !important; }
 .look-e .bubble { background: var(--cream); color: var(--ink); border: 3px solid var(--ink); border-radius: 16px 16px 4px 16px;
   box-shadow: 0 4px 0 var(--ink); font: 700 14px/1.3 -apple-system, system-ui, sans-serif; text-shadow: none; }
 .look-e #lookSwitch { top: calc(env(safe-area-inset-top, 0px) + 74px); bottom: auto; right: 12px; }
+/* E / F（用户 11-28）：左下两个按钮只留图标、缩小（循环箭头 = 重来，灯泡 = 提示，不用文字）；右上金额框缩小 */
+.look-e #tools { gap: 12px; }
+.look-e #tools button:not(.icon) { min-width: 0; width: 50px; height: 50px; padding: 0; border-radius: 14px; }
+.look-e #tools button span { display: none; }
+.look-e #tools .bi { width: 34px; height: 34px; border: 0; background: none !important; }
+.look-e #tools .bi svg { width: 26px; height: 26px; }
+.look-e #scoreBox { width: 112px; height: 38px; padding: 0 8px 0 30px; border-radius: 9px; }
+.look-e #scoreBox::before { left: 7px; width: 18px; height: 12px; margin-top: -6px; border-width: 1.5px; }
+.look-e #score { font-size: 19px; }
+.look-e #btnSettings.icon { width: 40px; height: 40px; }
+#timeSwitch { position: fixed; right: 12px; top: calc(env(safe-area-inset-top, 0px) + 108px); z-index: 30; display: flex; border-radius: 999px; overflow: hidden;
+  border: 2px solid #1a0b2e; background: #fff4e0; box-shadow: 0 3px 0 #1a0b2e; }
+#timeSwitch button { border: 0; background: transparent; color: #1a0b2e; font: 700 12px -apple-system, system-ui, sans-serif; padding: 5px 10px; }
+#timeSwitch button.on { background: #2f8cff; color: #fff; }

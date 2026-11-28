@@ -85,9 +85,10 @@
     // 棋盘背后压暗，保证环清晰
     if (board) {
       const bd = ctx.createRadialGradient(board.x, board.y, board.r * 0.2, board.x, board.y, board.r * 1.15);
-      bd.addColorStop(0, 'rgba(10,3,30,' + (scene.dim || 0.62) + ')');
-      bd.addColorStop(0.75, 'rgba(10,3,30,' + (scene.dim || 0.62) * 0.65 + ')');
-      bd.addColorStop(1, 'rgba(10,3,30,0)');
+      const dc = scene.dimColor || '10,3,30';
+      bd.addColorStop(0, 'rgba(' + dc + ',' + (scene.dim || 0.62) + ')');
+      bd.addColorStop(0.75, 'rgba(' + dc + ',' + (scene.dim || 0.62) * 0.65 + ')');
+      bd.addColorStop(1, 'rgba(' + dc + ',0)');
       ctx.fillStyle = bd;
       ctx.fillRect(0, 0, W, H);
     }
@@ -95,7 +96,7 @@
     // 暗角
     const vg = ctx.createRadialGradient(W / 2, H / 2, m * 0.35, W / 2, H / 2, Math.hypot(W, H) * 0.6);
     vg.addColorStop(0, 'rgba(0,0,0,0)');
-    vg.addColorStop(1, 'rgba(5,0,15,0.55)');
+    vg.addColorStop(1, scene.vig || 'rgba(5,0,15,0.55)');
     ctx.fillStyle = vg;
     ctx.fillRect(0, 0, W, H);
   }
@@ -447,6 +448,43 @@
     }
   } });
 
+  // 白天的海滩（用户 11-28：在迈阿密黄昏之外再出一张白天的，作为效果切换）。正午偏后的阳光，青绿海水，白沙，两侧棕榈
+  SCENES.push({ name: '白天海滩', dim: 0.22, dimColor: '20,40,60', vig: 'rgba(10,30,50,0.28)', draw(ctx, W, H, rand, m) {
+    const horizon = Math.round(H * 0.5), shore = Math.round(H * 0.64);
+    ctx.fillStyle = grad(ctx, 0, horizon, [[0, '#1f78d1'], [0.55, '#55b4f0'], [1, '#bfe9ff']]);
+    ctx.fillRect(0, 0, W, horizon);
+    // 太阳（右上，高）
+    const sx = W * 0.78, sy = H * 0.12, sr = m * 0.07;
+    glowDot(ctx, sx, sy, sr * 6, 'rgba(255,250,220,0.85)', 1);
+    ctx.fillStyle = '#fffbe8'; ctx.beginPath(); ctx.arc(sx, sy, sr, 0, Math.PI * 2); ctx.fill();
+    // 云
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    for (const [cx, cy, k] of [[0.2, 0.16, 1], [0.55, 0.27, 0.8], [0.12, 0.36, 0.6], [0.86, 0.34, 0.7]]) {
+      const x = W * cx, y = H * cy, r = m * 0.06 * k;
+      ctx.beginPath(); ctx.ellipse(x, y, r * 2.2, r * 0.7, 0, 0, Math.PI * 2); ctx.ellipse(x - r, y - r * 0.35, r, r * 0.7, 0, 0, Math.PI * 2); ctx.ellipse(x + r * 0.7, y - r * 0.5, r * 1.1, r * 0.85, 0, 0, Math.PI * 2); ctx.fill();
+    }
+    // 海：远处深蓝，近处青绿，上面有阳光的碎光
+    ctx.fillStyle = grad(ctx, horizon, shore, [[0, '#0c6fa8'], [0.45, '#0fa3c4'], [1, '#3fe0d0']]);
+    ctx.fillRect(0, horizon, W, shore - horizon);
+    ctx.fillStyle = 'rgba(255,255,255,0.75)';
+    for (let i = 0; i < 70; i++) { const y = horizon + 4 + Math.pow(rand(), 1.6) * (shore - horizon - 8), w = 4 + rand() * 18 * (y - horizon) / (shore - horizon) + 2; ctx.fillRect(rand() * W, y, w, 1.2); }
+    // 浪花和湿沙
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.beginPath(); ctx.moveTo(0, shore);
+    for (let x = 0; x <= W; x += 12) ctx.lineTo(x, shore - 3 + Math.sin(x / 23) * 3 + Math.sin(x / 7) * 1.2);
+    ctx.lineTo(W, shore + 6); ctx.lineTo(0, shore + 6); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = grad(ctx, shore, H, [[0, '#e8cf9a'], [0.08, '#f5e2b3'], [1, '#f2d9a2']]);
+    ctx.fillRect(0, shore + 5, W, H - shore);
+    // 沙粒
+    for (let i = 0; i < 500; i++) { ctx.fillStyle = rand() < 0.5 ? 'rgba(170,130,70,0.25)' : 'rgba(255,255,255,0.4)'; ctx.fillRect(rand() * W, shore + 8 + rand() * (H - shore), 1.2, 1.2); }
+    // 两侧的棕榈（深绿，被阳光照着）
+    ctx.fillStyle = '#1d5b40';
+    palm(ctx, -W * 0.02, H * 0.98, H * 0.6, 0.18, m / 420, false);
+    palm(ctx, W * 1.03, H * 1.0, H * 0.52, -0.2, m / 460, true);
+    // 树影
+    ctx.fillStyle = 'rgba(80,60,30,0.18)';
+    ctx.beginPath(); ctx.ellipse(W * 0.25, H * 0.93, W * 0.3, H * 0.025, -0.1, 0, Math.PI * 2); ctx.fill();
+  } });
   root.RRBg = { paint, scenes: () => SCENES.map((s) => s.name) };
 
 })(window);

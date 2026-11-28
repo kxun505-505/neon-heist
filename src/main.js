@@ -19,7 +19,10 @@
   // C 'cine-clean'：电影感，但消除零件时不撒钞票（用户 11-28：消除时画面太乱）
   // D 'real'：写实高清（用户 11-28：在 C 的基础上，更接近写实大作的美术、更清晰、锁扣小 15%、正式的按钮）
   // E 'e'：按 docs/art-bible.md 统一（场景层写实 + 界面层海报风，7 色色板，一个光源，背景虚化，没有保险柜门板）
-  const ELOOK = HEIST && LOOK === 'e';
+  // F 'f'：界面同 E；圆环回到第一版的霓虹灯管，按“真实霓虹玻璃管”精修到极致，是全屏饱和度最高的东西；背景去饱和、虚化；黄昏 / 白天可切换
+  const FLOOK = HEIST && LOOK === 'f';
+  const ELOOK = HEIST && (LOOK === 'e' || FLOOK);
+  const DAY = FLOOK && (() => { try { return localStorage.getItem('neonheist-time') === 'day'; } catch (e) { return false; } })();
   const REAL = HEIST && (LOOK === 'real' || ELOOK);
   const CINE = HEIST && (LOOK === 'cine' || LOOK === 'cine-clean' || REAL);
   const NOBILLS = HEIST && (LOOK === 'cine-clean' || REAL);
@@ -30,12 +33,22 @@
   // 测试页上的 A/B 切换按钮
   if (HEIST && (TEST_LEVEL || /[?&]looks/.test(location.search))) window.addEventListener('DOMContentLoaded', () => {
     const box = document.createElement('div'); box.id = 'lookSwitch';
-    box.innerHTML = '<button data-l="paint">A</button><button data-l="cine">B</button><button data-l="cine-clean">C</button><button data-l="real">D</button><button data-l="e">E 统一</button>';
+    box.innerHTML = '<button data-l="paint">A</button><button data-l="cine">B</button><button data-l="cine-clean">C</button><button data-l="real">D</button><button data-l="e">E</button><button data-l="f">F 霓虹</button>';
     box.querySelectorAll('button').forEach((b) => {
-      b.classList.toggle('on', b.dataset.l === (ELOOK ? 'e' : REAL ? 'real' : NOBILLS ? 'cine-clean' : CINE ? 'cine' : 'paint'));
+      b.classList.toggle('on', b.dataset.l === (FLOOK ? 'f' : ELOOK ? 'e' : REAL ? 'real' : NOBILLS ? 'cine-clean' : CINE ? 'cine' : 'paint'));
       b.addEventListener('click', () => { try { localStorage.setItem('neonheist-look', b.dataset.l); } catch (e) { /* 隐私模式 */ } location.href = location.pathname + location.search.replace(/[?&]look=[\w-]+/, ''); });
     });
     document.body.appendChild(box);
+    if (FLOOK) {
+      // 黄昏 / 白天切换
+      const tb = document.createElement('div'); tb.id = 'timeSwitch';
+      tb.innerHTML = '<button data-t="dusk">黄昏</button><button data-t="day">白天</button>';
+      tb.querySelectorAll('button').forEach((b) => {
+        b.classList.toggle('on', (b.dataset.t === 'day') === DAY);
+        b.addEventListener('click', () => { try { localStorage.setItem('neonheist-time', b.dataset.t); } catch (e) { /* 隐私模式 */ } location.reload(); });
+      });
+      document.body.appendChild(tb);
+    }
     if (REAL) {
       // 正式按钮：图标换成 SVG
       const ico = {
@@ -43,6 +56,7 @@
         btnHint: '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 21h6v-1.6H9zm3-19a7 7 0 0 0-4 12.7V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.3A7 7 0 0 0 12 2z"/></svg>',
       };
       for (const id in ico) { const b = document.querySelector('#' + id + ' b'); if (b) b.outerHTML = '<i class="bi">' + ico[id] + '</i>'; }
+      if (ELOOK) { $('btnReset').setAttribute('aria-label', 'Restart'); $('btnHint').setAttribute('aria-label', 'Hint'); } // 只有图标时给读屏用
     }
   });
   const money = (n) => (HEIST ? '$' + Number(n).toLocaleString('en-US') : String(n));
@@ -96,7 +110,7 @@
     const lv = LEVELS[n];
     G = C.build(lv);
     S = C.initState(G);
-    if (ELOOK) G.rings.forEach((R) => { R.color = PAL7[R.color.toLowerCase()] || R.color; }); // 只改画面用的颜色
+    if (ELOOK) G.rings.forEach((R) => { R.color = (FLOOK ? PALN : PAL7)[R.color.toLowerCase()] || R.color; }); // 只改画面用的颜色
     footprint = RRLayout.footprint(lv);
     bounds = RRLayout.boundsOf(footprint);
     moves = 0; score = 0; shownScore = 0; won = false;
@@ -105,7 +119,7 @@
     const chap = chapterOf(n);
     $('lvName').textContent = chap.name + ' · ' + ((n % PER) + 1);
     $('lvNum').textContent = t('level') + ' ' + (n + 1);
-    bgIndex = qBg != null ? +qBg - 1 : CINE ? 0 : chap.bg; // 电影感用日落海岸（迈阿密黄金时刻）
+    bgIndex = qBg != null ? +qBg - 1 : DAY ? 4 : CINE ? 0 : chap.bg; // 电影感用日落海岸（迈阿密黄金时刻）
     // E 测试页：把第 1 章的 Kira 放进画面看效果（第 28 关属于第 2 章，第 2 章的角色还是占位图）
     Girl.setChapter(ELOOK && TEST_LEVEL ? (Girl.testChap = Girl.testChap || Object.assign({}, chap, { girl: CH.list[0].girl })) : chap);
     lastProgress = performance.now(); blockedTaps = [];
@@ -154,6 +168,19 @@
   function bakeGrade() {
     const x = bg.getContext('2d'), w = bg.width, h = bg.height;
     x.save(); x.setTransform(1, 0, 0, 1, 0, 0);
+    if (FLOOK) {
+      // F：背景只当布景。虚化 → 去掉一半饱和度（圆环才是全屏最饱和的）→ 黄昏压暗中间调让灯管更亮 / 白天加一层薄雾
+      for (const k of [6, 3]) {
+        const tmp = document.createElement('canvas'); tmp.width = Math.max(1, Math.round(w / k)); tmp.height = Math.max(1, Math.round(h / k));
+        const tx = tmp.getContext('2d'); tx.imageSmoothingQuality = 'high'; tx.drawImage(bg, 0, 0, tmp.width, tmp.height);
+        x.imageSmoothingQuality = 'high'; x.clearRect(0, 0, w, h); x.drawImage(tmp, 0, 0, w, h);
+      }
+      x.globalCompositeOperation = 'saturation'; x.fillStyle = 'rgba(128,128,128,' + (DAY ? 0.45 : 0.4) + ')'; x.fillRect(0, 0, w, h);
+      if (DAY) { x.globalCompositeOperation = 'screen'; x.fillStyle = 'rgba(235,245,255,0.18)'; x.fillRect(0, 0, w, h); }
+      else { x.globalCompositeOperation = 'multiply'; x.fillStyle = 'rgba(90,60,100,0.35)'; x.fillRect(0, 0, w, h); }
+      x.restore();
+      return;
+    }
     if (ELOOK) {
       // 景深：缩小再放大两次做模糊（不用 ctx.filter，老 Safari 不支持），像相机对焦在棋盘上
       for (const k of [5, 3]) {
@@ -615,8 +642,7 @@
       const open = unlocked(n), best = progress[n], rw = CH.rewardAt(n), c = document.createElement('button');
       c.className = 'lvcard' + (open ? '' : ' locked') + (n === levelIndex ? ' current' : '');
       c.dataset.n = n;
-      c.innerHTML = (CH.isHard(n) ? '<b class="hard">' + t('hard') + '</b>' : '') + '<span class="big">' + ((n % PER) + 1) + '</span>' +
-        '<span class="lv">' + t('level') + ' ' + (n + 1) + '</span>' +
+      c.innerHTML = (CH.isHard(n) ? '<b class="hard">' + t('hard') + '</b>' : '') + '<span class="big">' + (n + 1) + '</span>' + // 首页只显示总关卡号（用户 11-28：去掉章内编号）
         '<span class="rw">' + (rw.kind === 'video' ? '▶ ' + t('video') : '✦ ' + t('photoN', { n: rw.i + 1 })) + '</span>' +
         '<span class="best">' + (open ? (best != null ? '✓ ' + best : '') : '🔒') + '</span>';
       c.addEventListener('click', () => {
@@ -923,6 +949,7 @@
    * center(dx, dy) 画中心线；outline() 画管子轮廓，用来裁剪；glints() 画固定在世界坐标里的高光点
    */
   function paintTube(center, outline, color, w, glow, glints, spin) {
+    if (FLOOK && color !== GOLD) { neonGlass(center, outline, color, w, glow); return; }
     if (CINE) { cineTube(center, outline, color, w, glow, glints, spin); return; }
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     if (glow > 1.01) {
@@ -1036,6 +1063,42 @@
       ctx.globalCompositeOperation = 'source-over';
     }
     if (glints) glints();
+    ctx.restore();
+  }
+
+  /*
+   * F：真实的霓虹玻璃管（docs/art-bible.md 第 6 节 F 版）。第一版“发虚”是因为整根管子都套着 shadowBlur，边缘被糊掉；
+   * 这里把“光”和“管”分开：光晕画在管子外面、往外渐弱；管子本身边缘锐利：玻璃壁（本色加深一点）→ 发光的气体（本色）→
+   * 白热的芯 → 玻璃表面左上方一道很细的镜面反光、右下方一道更淡的反光。
+   * 黄昏：光晕强，往背景上投一层本色的光。白天：霓虹在阳光下光晕弱，改成彩色玻璃的质感，地上有一道彩色的透光阴影。
+   */
+  function neonGlass(center, outline, color, w, glow) {
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const o = (k) => [LX * w * k, LY * w * k];
+    if (DAY) {
+      ctx.strokeStyle = 'rgba(20,30,40,0.14)'; ctx.lineWidth = w + 5; center(4, 9); ctx.stroke();
+      ctx.strokeStyle = rgba(color, 0.32); ctx.lineWidth = w + 1; center(5, 10); ctx.stroke();
+    } else {
+      ctx.globalCompositeOperation = 'lighter';
+      // 光晕：6 层由宽到窄叠加，层与层之间差得小，看不出一圈圈的台阶
+      for (const [ww, al] of [[34, 0.035], [26, 0.04], [19, 0.05], [13, 0.065], [8, 0.085], [4, 0.12]]) { ctx.strokeStyle = rgba(color, al * glow); ctx.lineWidth = w + ww; center(0, 0); ctx.stroke(); }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    if (glow > 1.01 && DAY) {
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = rgba(color, 0.18 * (glow - 1)); ctx.lineWidth = w + 12; center(0, 0); ctx.stroke();
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    // 玻璃壁：比本色深一点，给管子一条清楚的边
+    ctx.strokeStyle = darken(color, DAY ? 0.35 : 0.2); ctx.lineWidth = w + 1.4; center(0, 0); ctx.stroke();
+    ctx.save();
+    outline(); ctx.clip('evenodd');
+    ctx.strokeStyle = color; ctx.lineWidth = w * 0.9; center(0, 0); ctx.stroke();
+    ctx.strokeStyle = lighten(color, DAY ? 0.25 : 0.4); ctx.lineWidth = w * 0.56; center(0, 0); ctx.stroke();
+    ctx.strokeStyle = lighten(color, DAY ? 0.55 : 0.82); ctx.lineWidth = w * (DAY ? 0.2 : 0.26); center(0, 0); ctx.stroke();
+    // 玻璃表面的反光：左上一道细而亮，右下一道更淡
+    ctx.strokeStyle = 'rgba(255,255,255,' + (DAY ? 0.95 : 0.8) + ')'; ctx.lineWidth = Math.max(0.8, w * 0.07); center(...o(0.36)); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,0.3)'; ctx.lineWidth = Math.max(0.6, w * 0.05); center(...o(-0.38)); ctx.stroke();
     ctx.restore();
   }
 
@@ -1183,6 +1246,9 @@
   // docs/art-bible.md 第 4 节：7 种零件色，明度拉齐
   const PAL7 = { '#ff3df2': '#ff4f9a', '#ff4d6d': '#ff4f9a', '#ffad42': '#ff8a4c', '#ffe45c': '#ffc93c', '#b6ff4a': '#9be15a',
     '#28e7ff': '#2dd4bf', '#3dffb0': '#2dd4bf', '#4d8bff': '#4f9dff', '#a47bff': '#a274ff' };
+  // F：霓虹灯管的 7 种颜色，饱和度拉满（全屏饱和度最高的东西）
+  const PALN = { '#ff3df2': '#ff2d8f', '#ff4d6d': '#ff2d8f', '#ffad42': '#ff7a1a', '#ffe45c': '#ffd21f', '#b6ff4a': '#8cff2e',
+    '#28e7ff': '#00f0d4', '#3dffb0': '#00f0d4', '#4d8bff': '#2f8cff', '#a47bff': '#a050ff' };
   // 一个光源：在旋转过的局部坐标里，按屏幕方向（主光左上）做明暗。rot：局部坐标相对屏幕转了多少；s：半径
   function litGrad(rot, s, stops) {
     const lx = LX * Math.cos(rot) + LY * Math.sin(rot), ly = -LX * Math.sin(rot) + LY * Math.cos(rot);
@@ -1239,6 +1305,18 @@
   // 劫案皮肤：密码盘刻度（每 12° 一条，每 36° 一条长的），跟着环转；缺口两端是机加工的钢制槽口
   function dialMarks(R, cx, cy, ang, w) {
     const N = 30, step = TAU / N, g = R.gap ? R.gap.at + ang : 0;
+    if (FLOOK) {
+      // F：不要刻度；缺口两端是霓虹管的电极帽（深色金属 + 一圈细银边），也让缺口位置一眼看清
+      if (R.gap) for (const sg of [1, -1]) {
+        const a = g + sg * (R.gap.w / 2), ex = cx + Math.cos(a) * R.r, ey = cy + Math.sin(a) * R.r;
+        ctx.save(); ctx.translate(ex, ey); ctx.rotate(a + sg * Math.PI / 2);
+        ctx.fillStyle = litGrad(a + sg * Math.PI / 2, w * 0.6, [[0, '#8f8a9e'], [0.4, '#3a3646'], [1, '#14111c']]);
+        roundRect(-w * 0.53, -1.8, w * 1.06, 4.4, 1.8); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.fillRect(-w * 0.42, -1.8, w * 0.84, 0.7);
+        ctx.restore();
+      }
+      return;
+    }
     ctx.save(); ctx.lineCap = 'round';
     for (let k = 0; k < N; k++) {
       const a = ang + k * step;
@@ -1356,7 +1434,7 @@
     // 锁身
     ctx.fillStyle = 'rgba(10,2,25,0.95)'; roundRect(-w / 2 - 1.5, -h / 2 - 1.5, w + 3, h + 3, 5); ctx.fill();
     const pg = ctx.createLinearGradient(0, -h / 2, 0, h / 2);
-    const base = st === 'stub' ? darken(color, 0.35) : color;
+    const base = FLOOK ? (st === 'stub' ? '#5a5866' : '#8e8b9c') : st === 'stub' ? darken(color, 0.35) : color; // F：锁身是中性钢色，颜色只留在指示灯上
     pg.addColorStop(0, darken(base, 0.2)); pg.addColorStop(0.18, lighten(base, 0.6)); pg.addColorStop(0.32, base); pg.addColorStop(0.75, darken(base, 0.35)); pg.addColorStop(1, darken(base, 0.65));
     if (ELOOK) {
       ctx.fillStyle = litGrad(rot, h * 0.62, [[0, lighten(base, 0.55)], [0.28, base], [0.7, darken(base, 0.3)], [1, darken(base, 0.6)]]);
@@ -1366,7 +1444,12 @@
       const hx = lx * w * 0.3, hy = ly * h * 0.3, hg = ctx.createRadialGradient(hx, hy, 0, hx, hy, w * 0.32);
       hg.addColorStop(0, 'rgba(255,255,255,0.85)'); hg.addColorStop(1, 'rgba(255,255,255,0)');
       ctx.fillStyle = hg; roundRect(-w / 2, -h / 2, w, h, 4); ctx.fill();
-      ctx.fillStyle = litGrad(rot, h * 0.6, STEEL); roundRect(-w / 2 + 0.5, h / 2 - 3.4, w - 1, 3.2, 1.2); ctx.fill();
+      if (FLOOK) {
+        // 主环颜色的指示灯条（空锁不亮）
+        if (st !== 'stub') { ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = rgba(color, DAY ? 0.35 : 0.55); roundRect(-w / 2 - 1, h / 2 - 5.4, w + 2, 6.4, 2); ctx.fill(); ctx.globalCompositeOperation = 'source-over'; }
+        ctx.fillStyle = st === 'stub' ? '#2a2733' : color; roundRect(-w / 2 + 1, h / 2 - 3.6, w - 2, 3, 1.2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.fillRect(-w / 2 + 2, h / 2 - 3.4, w - 4, 0.7);
+      } else { ctx.fillStyle = litGrad(rot, h * 0.6, STEEL); roundRect(-w / 2 + 0.5, h / 2 - 3.4, w - 1, 3.2, 1.2); ctx.fill(); }
     } else {
     ctx.fillStyle = pg; roundRect(-w / 2, -h / 2, w, h, 4); ctx.fill();
     ctx.fillStyle = 'rgba(255,255,255,0.85)'; roundRect(-w / 2 + 3, -h / 2 + 2.2, w - 6, 1.4, 0.7); ctx.fill();
@@ -1828,7 +1911,7 @@
       const ab = sm < 0.12 ? sm / 0.12 : Math.max(0, 1 - (sm - 0.12) / 0.9);
       if (ab > 0.02) rgbSplit(Math.round(4 * DPR * ab));
     }
-    if (REAL) realLight(now); else if (CINE) cineGrade(now);
+    if (REAL) { if (!FLOOK) realLight(now); } else if (CINE) cineGrade(now);
   }
   // D 写实的每帧后期：只有顶部一道很淡的横向镜头光条，不加颗粒、不叠整屏调色
   function realLight(now) {
